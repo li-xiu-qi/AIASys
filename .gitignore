@@ -1,0 +1,170 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+!apps/desktop/build/
+wheels/
+*.egg-info
+.venv
+
+# IDE
+.vscode/
+
+# Environment files
+.env
+.env.local
+
+# Root-local/private files
+/.env.example
+/.mcp.json
+/.mcp.example.json
+/apps/artifacts/
+/apps/web/artifacts/
+/tests_local
+uv.toml
+test-results/
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+.logs/
+
+# Node.js
+node_modules/
+static/
+
+# Backend
+# Config file contains secrets.
+apps/backend/config.toml
+# Data directories
+apps/backend/data/
+apps/backend/logs/
+apps/backend/workspaces/
+apps/backend/scripts/archive/
+apps/backend/app/agents/**/.temp/
+
+# Runtime databases
+apps/backend/app/*.db
+apps/backend/app/*.db-shm
+apps/backend/app/*.db-wal
+
+# Deploy secrets
+infra/deploy/.env
+
+# Archive (large files)
+/archive/*
+!/archive/01-vendor-and-upstream/
+/archive/01-vendor-and-upstream/*
+!/archive/01-vendor-and-upstream/kimi-cli-source/
+!/archive/01-vendor-and-upstream/kimi-cli-source/**
+!/archive/design/
+!/archive/design/**
+!/archive/mcps/
+!/archive/mcps/**
+!/archive/docs-legacy-2026-04-12/
+!/archive/docs-legacy-2026-04-12/**
+!/archive/deepscientist-skills.md
+!/archive/deepscientist-skills/
+!/archive/deepscientist-skills/**
+
+# Frontend runtime artifacts
+apps/web/.vite/
+apps/web/playwright-report/
+apps/web/test-results/
+apps/desktop/.dist/
+
+# Root-level fallback: any artifact dir at repo root should be ignored
+/artifacts/
+.tmp/
+docs/superpowers/
+
+# 个人 AI 交互配置（不纳入项目）
+/.claude/
+/.codex/
+/.codex-runs/
+/.kimi/
+/.kimi-code/
+/.gemini/
+/.opencode/
+/.qwen/
+/.playwright/
+/.playwright-cli/
+/.playwright-mcp/
+/.agent/
+/.memo/
+/.entire
+/.temp/
+/.acp_agent/
+
+# 个人运行时产物（.agents 子目录中仅排除运行时内容，skills 和 MEMORY.md 是项目共享的）
+/.agents/context/
+/.agents/task-sessions/active/
+/.agents/task-sessions/paused/
+/.agents/task-sessions/archive/
+/.agents/task-sessions/completed/
+/.agents/task-sessions/handoffs/
+/.agents/mcp.local.json
+/.agents/skill-development/
+/.agents/**/.git/
+
+# 设计草稿（不纳入项目）
+/design-draft/**
+
+# 前端截图验证产物
+apps/design-draft/
+apps/web/design-draft/
+apps/web/.aiasys/
+
+# Editor swap/backup files
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+*.orig
+
+# Windows
+Thumbs.db
+
+# Python tool caches
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+.pytype/
+.hypothesis/
+
+# Coverage
+htmlcov/
+.coverage
+coverage.xml
+
+# 本地开发文件，保留但不提交
+.pytest_cache/
+.ruff_cache/
+
+.gitleaks.toml
+
+# 个人 AI 协作入口文件（本地保留不提交）
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+
+# AI 协作任务会话（临时任务文档，不纳入版本控制）
+.agents/task-sessions/
+
+# uv 二进制（按需下载，不纳入版本控制）
+apps/backend/vendor/uv/*/uv
+apps/backend/vendor/uv/*/uv.exe
+apps/backend/vendor/uv/.download/
+
+# fnm 二进制（按需下载，不纳入版本控制）
+apps/backend/vendor/node/*/fnm
+apps/backend/vendor/node/*/fnm.exe
+apps/backend/vendor/node/.download/
+
+# fnm 运行时下载的 Node.js 版本目录（桌面版运行时数据，不纳入版本控制）
+apps/backend/fnm/
+

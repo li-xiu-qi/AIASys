@@ -1,0 +1,128 @@
+name: Desktop Build & Pre-release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options: [beta, stable]
+        default: beta
+
+permissions:
+  contents: write
+
+jobs:
+  build-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+            script: dist:ci:linux
+            files: apps/desktop/dist/*.AppImage
+          - os: macos-latest
+            target: mac
+            script: dist:ci:mac
+            files: |
+              apps/desktop/dist/*.dmg
+              apps/desktop/dist/*.zip
+          - os: windows-latest
+            target: win
+            script: dist:ci:win
+            files: |
+              apps/desktop/dist/*.exe
+              apps/desktop/dist/*.zip
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: resolve_tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=$(node -p "require('./apps/desktop/package.json').version")
+            TAG="v${VERSION}-beta.${GITHUB_RUN_NUMBER}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Setup Node.js (web)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build web dist
+        run: |
+          cd apps/web && npm ci && npm run build
+
+      - name: Setup Node.js (desktop)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install desktop deps
+        run: cd apps/desktop && npm ci
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "apps/backend/uv.lock"
+
+      - name: Install python-build-standalone
+        run: uv python install 3.12
+
+      - name: Install backend deps
+        run: |
+          cd apps/backend
+          # 使用 uv 托管的 python-build-standalone 创建 venv，
+          # 避免使用 actions/setup-python 安装的官方 Python（dylib 路径硬编码，不可移植）
+          uv venv --python 3.12
+          uv sync --frozen
+
+      - name: Prepare runtime
+        run: cd apps/desktop && npm run prepare:runtime
+
+      - name: Remove python3.exe shim (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $shim = "apps/desktop/.dist/backend/.venv/python/python3.exe"
+          if (Test-Path $shim) {
+            Remove-Item -Force $shim
+            Write-Host "Removed python3.exe shim"
+          }
+          $shim2 = "apps/desktop/dist/win-unpacked/resources/backend/.venv/python/python3.exe"
+          if (Test-Path $shim2) {
+            Remove-Item -Force $shim2
+            Write-Host "Removed python3.exe shim from unpacked"
+          }
+
+      - name: Build desktop (${{ matrix.target }})
+        run: cd apps/desktop && npm run ${{ matrix.script }}
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.resolve_tag.outputs.tag }}
+          name: "Beta ${{ steps.resolve_tag.outputs.tag }}"
+          draft: false
+          prerelease: true
+          generate_release_notes: ${{ matrix.target == 'linux' }}
+          files: ${{ matrix.files }}

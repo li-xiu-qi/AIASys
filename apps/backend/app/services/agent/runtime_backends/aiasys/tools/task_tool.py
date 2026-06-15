@@ -232,9 +232,7 @@ def _materialize_subagent_toml(
     path = Path(tmpdir) / filename
 
     # manifest 已经是 agent 段内容，需要包装为完整 TOML
-    clean_manifest = {
-        k: v for k, v in deepcopy(manifest).items() if v is not None
-    }
+    clean_manifest = {k: v for k, v in deepcopy(manifest).items() if v is not None}
     payload = {"version": 1, "agent": clean_manifest}
     with open(path, "wb") as f:
         tomli_w.dump(payload, f)
@@ -576,7 +574,9 @@ class TaskTool(AiasysTool):
             "nickname": nickname,
             "description": description,
             "max_threads": max_threads,
-            "timeout_seconds": collaboration_policy.get("timeout_policy", {}).get("default_seconds", 300),
+            "timeout_seconds": collaboration_policy.get("timeout_policy", {}).get(
+                "default_seconds", 300
+            ),
             "llm_config": subagent_session._spec.config.model_dump(mode="json"),
             "agent_file": subagent_toml_path,
             "session_root": str(session_root),
@@ -610,7 +610,9 @@ class TaskTool(AiasysTool):
                 prompt=prompt,
                 storage=storage,
                 keep_alive=True,
-                timeout_seconds=(registry.get_launch_spec(agent_id) or {}).get("timeout_seconds", 300),
+                timeout_seconds=(registry.get_launch_spec(agent_id) or {}).get(
+                    "timeout_seconds", 300
+                ),
                 workspace=workspace,
                 session_root=session_root,
                 user_id=user_id,

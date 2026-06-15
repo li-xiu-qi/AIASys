@@ -153,7 +153,9 @@ def _get_write_discouraged_hint(path: Path) -> str:
     if suffix in (".xlsx", ".xls", ".xlsm"):
         return f"`{name}` 是 Excel 表格文件，WriteFile 不能直接写入。请用 Shell 工具运行 Python（如 pandas / openpyxl）生成。"
     if suffix == ".pdf":
-        return f"`{name}` 是 PDF 文件，WriteFile 不能直接写入。请用 Shell 工具运行 Python 生成 PDF。"
+        return (
+            f"`{name}` 是 PDF 文件，WriteFile 不能直接写入。请用 Shell 工具运行 Python 生成 PDF。"
+        )
     if suffix in (".docx", ".doc", ".pptx", ".ppt"):
         return f"`{name}` 是 Office 文档，WriteFile 不能直接写入。请用 Shell 工具运行 Python（如 python-docx）生成。"
     if suffix in (".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz"):

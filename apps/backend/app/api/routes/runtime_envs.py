@@ -210,7 +210,6 @@ async def bind_workspace_runtime_env(
         _raise_runtime_error(exc)
 
 
-
 # ── Node.js / fnm 端点 ──
 
 
@@ -356,9 +355,7 @@ async def get_current_node_version(
 ):
     """查看当前激活的 Node.js 版本。"""
     try:
-        result = _node_service().get_current_node_version(
-            current_user.user_id, workspace_id
-        )
+        result = _node_service().get_current_node_version(current_user.user_id, workspace_id)
         return NodeRuntimeActionResponse(workspace_id=workspace_id, result=result)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -401,9 +398,7 @@ async def list_remote_node_versions(
 ):
     """查看可远程安装的 Node.js 版本列表。"""
     try:
-        result = _node_service().list_remote_versions(
-            current_user.user_id, workspace_id
-        )
+        result = _node_service().list_remote_versions(current_user.user_id, workspace_id)
         return NodeRuntimeActionResponse(workspace_id=workspace_id, result=result)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -478,5 +473,3 @@ async def unregister_workspace_runtime_env(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         _raise_runtime_error(exc)
-
-

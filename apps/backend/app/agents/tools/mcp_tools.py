@@ -81,7 +81,9 @@ class SearchAvailableConnectors(AiasysTool):
                 )
             if not items:
                 return ToolResult(
-                    content=f"未找到匹配 '{query}' 的可用连接器。" if query else "当前系统没有可安装的连接器。",
+                    content=f"未找到匹配 '{query}' 的可用连接器。"
+                    if query
+                    else "当前系统没有可安装的连接器。",
                     artifacts=[{"items": []}],
                 )
             return ToolResult(
@@ -95,9 +97,7 @@ class SearchAvailableConnectors(AiasysTool):
 class InstallConnectorParams(BaseModel):
     """InstallConnector 参数。"""
 
-    capability_id: str = Field(
-        description="连接器能力 ID，例如 stepfun-search、paddleocr-vl"
-    )
+    capability_id: str = Field(description="连接器能力 ID，例如 stepfun-search、paddleocr-vl")
     config: dict[str, Any] = Field(
         default_factory=dict,
         description="安装时的配置覆盖，例如 {'env': {'STEPFUN_API_KEY': 'your-key'}}。通常不需要填写。",

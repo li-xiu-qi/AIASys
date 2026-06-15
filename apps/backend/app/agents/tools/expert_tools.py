@@ -280,9 +280,7 @@ class InstallExpert(AiasysTool):
                     "scope": scope,
                     "description": manifest.get("description", ""),
                     "model": manifest.get("model"),
-                    "source": str(
-                        manifest.get("_source") or manifest.get("source") or "builtin"
-                    ),
+                    "source": str(manifest.get("_source") or manifest.get("source") or "builtin"),
                 }
             ],
         )

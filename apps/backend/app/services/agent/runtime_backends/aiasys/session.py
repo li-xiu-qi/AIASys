@@ -97,12 +97,8 @@ class AiasysRuntimeSession(
         self._last_tool_name: str | None = None
 
         # Feature flags for runtime adaptive behaviors
-        self._auto_nudge_enabled = (
-            os.getenv("AIASYS_AUTO_NUDGE_ENABLED", "true").lower() == "true"
-        )
-        self._loop_guard_enabled = (
-            os.getenv("AIASYS_LOOP_GUARD_ENABLED", "true").lower() == "true"
-        )
+        self._auto_nudge_enabled = os.getenv("AIASYS_AUTO_NUDGE_ENABLED", "true").lower() == "true"
+        self._loop_guard_enabled = os.getenv("AIASYS_LOOP_GUARD_ENABLED", "true").lower() == "true"
 
         # context.jsonl 路径，与 get_session_history() 读取路径保持一致
         _work_dir_path = Path(str(self._spec.work_dir))
@@ -539,9 +535,7 @@ class AiasysRuntimeSession(
             return []
         return self._normalize_restored_messages(raw_messages)
 
-    def _normalize_restored_messages(
-        self, raw_messages: list[Any]
-    ) -> list[InternalMessage]:
+    def _normalize_restored_messages(self, raw_messages: list[Any]) -> list[InternalMessage]:
         """将历史快照中的原始消息规范化并恢复 turn_n / origin 等元数据。"""
         restored: list[InternalMessage] = []
         max_turn_n = 0

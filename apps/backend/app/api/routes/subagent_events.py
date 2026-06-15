@@ -78,7 +78,11 @@ def _wire_record_to_event(record: dict[str, Any]) -> dict[str, Any] | None:
     if msg_type == "TurnEnd":
         return {"type": "worker.lifecycle.changed", "status": "finished"}
     if msg_type == "StepInterrupted":
-        return {"type": "worker.lifecycle.changed", "status": "interrupted", "reason": payload.get("reason", "")}
+        return {
+            "type": "worker.lifecycle.changed",
+            "status": "interrupted",
+            "reason": payload.get("reason", ""),
+        }
     if msg_type == "StatusUpdate":
         return {"type": "worker.lifecycle.changed", "status": payload.get("status", "unknown")}
     if msg_type == "metadata":

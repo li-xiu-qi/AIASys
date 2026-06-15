@@ -215,9 +215,7 @@ class RuntimeEnvironmentService:
                 raise RuntimeError(result.stderr or result.error or "uv add 失败")
 
         if create_venv or sync:
-            result = self._run_uv(
-                ["uv", "sync"], cwd=env_dir
-            )
+            result = self._run_uv(["uv", "sync"], cwd=env_dir)
             if not result.ok:
                 raise RuntimeError(result.stderr or result.error or "uv sync 失败")
 

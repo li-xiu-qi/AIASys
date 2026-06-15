@@ -275,7 +275,9 @@ class CapabilityManager:
             if not decl.enabled:
                 continue
             manifest = self._source_registry.get_manifest(cap_id)
-            provider = _PROVIDER_MAP.get(manifest.kind) if manifest else _PROVIDER_MAP.get(decl.kind)
+            provider = (
+                _PROVIDER_MAP.get(manifest.kind) if manifest else _PROVIDER_MAP.get(decl.kind)
+            )
             if provider is None:
                 results[cap_id] = HealthStatus(
                     status=CapabilityStatus.ERROR,

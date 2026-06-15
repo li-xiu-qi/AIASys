@@ -259,8 +259,7 @@ class ReadFile(AiasysTool):
             name, hint = magic
             return ToolResult(
                 content=(
-                    f"`{params.path}` 被识别为 {name} 文件，"
-                    f"ReadFile 只能读取纯文本文件。{hint}"
+                    f"`{params.path}` 被识别为 {name} 文件，ReadFile 只能读取纯文本文件。{hint}"
                 ),
                 is_error=True,
             )

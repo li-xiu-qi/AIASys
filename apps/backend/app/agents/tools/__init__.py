@@ -232,7 +232,7 @@ def __getattr__(name: str) -> Any:
         "SetEnvVar",
         "DeleteEnvVar",
         "ListEnvVars",
-    }: 
+    }:
         module = import_module(".env_vars_tool", __name__)
         return getattr(module, name)
 

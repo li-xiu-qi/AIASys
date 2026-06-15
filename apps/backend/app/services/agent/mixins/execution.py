@@ -785,9 +785,7 @@ class ExecutionMixin:
                         outputs: list[str] = []
                         reasoning_outputs: list[str] = []
                         event_state = self._new_event_projection_state()
-                        event_state["turn_n"] = getattr(
-                            session, "session_turn_count", 0
-                        )
+                        event_state["turn_n"] = getattr(session, "session_turn_count", 0)
                         event_state["current_host_step"] = _read_last_host_step(
                             session_root,
                             session_id,
@@ -1217,9 +1215,7 @@ class ExecutionMixin:
                             logger.warning("注册 monitor queue 失败（忽略）", exc_info=True)
 
                         event_state = self._new_event_projection_state()
-                        event_state["turn_n"] = getattr(
-                            session, "session_turn_count", 0
-                        )
+                        event_state["turn_n"] = getattr(session, "session_turn_count", 0)
                         event_state["current_host_step"] = _read_last_host_step(
                             session_root,
                             session_id,

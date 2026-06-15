@@ -53,7 +53,9 @@ api_router.include_router(workspaces_router)
 api_router.include_router(canvas_router)
 api_router.include_router(auto_tasks_router)
 api_router.include_router(data_tables_router)
-api_router.include_router(subagent_events_router)  # 子 Agent 事件路由（必须先于 sessions_router 的通配路径）
+api_router.include_router(
+    subagent_events_router
+)  # 子 Agent 事件路由（必须先于 sessions_router 的通配路径）
 api_router.include_router(sessions_router)
 api_router.include_router(files_router)
 api_router.include_router(notebooks_router)

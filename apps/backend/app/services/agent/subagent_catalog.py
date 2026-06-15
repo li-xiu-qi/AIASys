@@ -430,9 +430,8 @@ def is_subagent_dispatch_enabled(
     if is_builtin:
         # 内置角色：未被显式禁用即默认可派发。
         # visibility_source == "system" 表示用户没有配置过该角色，视为启用。
-        is_explicitly_disabled = (
-            not policy.host_selectable
-            or (policy.visibility_source != "system" and not policy.default_enabled)
+        is_explicitly_disabled = not policy.host_selectable or (
+            policy.visibility_source != "system" and not policy.default_enabled
         )
         if is_explicitly_disabled:
             return False

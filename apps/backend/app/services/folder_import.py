@@ -162,7 +162,7 @@ def scan_folder(
     default_selected_size = 0
 
     for root, dirs, files in os.walk(source_path):
-        current_depth = root[len(str(source_path)):].count(os.sep)
+        current_depth = root[len(str(source_path)) :].count(os.sep)
         if current_depth >= max_depth:
             dirs[:] = []
             continue

@@ -324,11 +324,11 @@ class SearchStoreSkills(AiasysTool):
 
         # 返回候选列表，并明确提示下一步动作
         names = [item["name"] for item in items]
-        install_hint = "\n\n用户已要求安装 Skill 时，请立即调用 EnableSkill 完成安装，不要只搜索不安装。"
+        install_hint = (
+            "\n\n用户已要求安装 Skill 时，请立即调用 EnableSkill 完成安装，不要只搜索不安装。"
+        )
         if len(names) == 1:
-            install_hint += (
-                f"请调用 EnableSkill(name='{names[0]}') 启用到当前工作区。"
-            )
+            install_hint += f"请调用 EnableSkill(name='{names[0]}') 启用到当前工作区。"
         else:
             install_hint += (
                 "请从候选中选择最匹配的一个立即调用 EnableSkill(name='<skill_name>') 启用到当前工作区。"

@@ -439,4 +439,12 @@ git push origin --force --all
 
 ---
 
+## 关联 Skill
+
+- **commit-history-audit** — Commit 历史审计与清理。当需要检查整体历史质量、发现重复提交、
+  清理 stale 分支、或合并 commit 时使用。本 Skill 管每次提交怎么写，commit-history-audit
+  管历史已有问题怎么查。
+
+---
+
 *清晰的 Git 历史是团队协作的基础——每个提交都应该是可理解、可回滚的原子单元。*

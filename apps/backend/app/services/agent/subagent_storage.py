@@ -198,7 +198,9 @@ class SubAgentStorage:
             _atomic_write_json(self.meta_file, meta)
             self._upsert_instance_record(meta)
         except Exception:
-            logger.warning("更新 subagent launch_spec 失败: agent_id=%s", self.agent_id, exc_info=True)
+            logger.warning(
+                "更新 subagent launch_spec 失败: agent_id=%s", self.agent_id, exc_info=True
+            )
 
     def read_meta(self) -> dict[str, Any] | None:
         """读取 meta.json。"""

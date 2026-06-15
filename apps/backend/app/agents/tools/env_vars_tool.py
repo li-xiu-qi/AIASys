@@ -158,7 +158,8 @@ class ListEnvVars(AiasysTool):
         else:
             hint = "当前工作区没有环境变量。\n\n"
         return ToolResult(
-            content=hint + json.dumps(
+            content=hint
+            + json.dumps(
                 {
                     "status": "success",
                     "count": len(env_vars),

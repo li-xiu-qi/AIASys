@@ -155,10 +155,7 @@ class SessionCompactionMixin:
                 enable_verification=loop_control.enable_compaction_verification,
             )
             # 压缩未产生任何结果且当前已非常接近上限，尝试兜底裁剪后再压一次
-            if (
-                result.compacted_count == 0
-                and token_count >= max_context_size * 0.95
-            ):
+            if result.compacted_count == 0 and token_count >= max_context_size * 0.95:
                 trimmed = self._fallback_trim_head(
                     chat_messages,
                     target_tokens=int(max_context_size * 0.8),
@@ -239,7 +236,10 @@ class SessionCompactionMixin:
             # 否则视为无效压缩。小上下文下摘要本身可能长于原文，不做强制要求。
             min_before_tokens = max(1000, loop_control.max_summary_tokens * 2)
             INCREASE_THRESHOLD = 0.95
-            if before_tokens < min_before_tokens or after_tokens_est < before_tokens * INCREASE_THRESHOLD:
+            if (
+                before_tokens < min_before_tokens
+                or after_tokens_est < before_tokens * INCREASE_THRESHOLD
+            ):
                 apply_compaction = True
             else:
                 logger.warning(
@@ -465,10 +465,7 @@ class SessionCompactionMixin:
 
         # 从开头删除消息，直到满足 target_tokens
         trimmed = list(messages)
-        while (
-            len(trimmed) > preserve_start_index
-            and estimate_text_tokens(trimmed) > target_tokens
-        ):
+        while len(trimmed) > preserve_start_index and estimate_text_tokens(trimmed) > target_tokens:
             # 删除第一条非 system 消息；若第一条是 system，则删除第二条
             removed_index = 0
             if trimmed[0].get("role") == "system" and len(trimmed) > 1:

@@ -15,7 +15,6 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 
 from app.core.config import WORKSPACE_DIR
-from app.utils.ids import generate_conversation_id, generate_workspace_id
 from app.models.task_profile import (
     normalize_execution_policy,
 )
@@ -37,6 +36,7 @@ from app.services.session import SessionManager
 from app.services.session.config_projection import (
     ensure_workspace_layout,
 )
+from app.utils.ids import generate_conversation_id, generate_workspace_id
 
 _ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 _WORKSPACE_META_DIR = ".aiasys/workspace"

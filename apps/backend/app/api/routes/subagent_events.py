@@ -20,7 +20,6 @@ from fastapi.responses import StreamingResponse
 
 from app.core.auth import require_auth
 from app.models.user import UserInfo
-from app.services.agent.runtime_backends.base import AgentRuntimeEvent
 from app.services.agent.subagent_lifecycle import get_subagent_lifecycle_manager
 from app.services.agent.subagent_registry import SubAgentRegistry, get_subagent_registry
 from app.services.agent.subagent_storage import SubAgentStorage

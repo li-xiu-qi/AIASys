@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncGenerator
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-
-from collections.abc import AsyncGenerator
 
 from app.services.agent.compaction import (
     CompactionResult,

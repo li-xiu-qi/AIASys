@@ -14,10 +14,9 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.core.agent_tool import AiasysTool
 from app.core.tool_result import ToolResult
-
-from .file_tools import MAX_BYTES, MAX_LINE_LENGTH, MAX_LINES, _is_binary_file, _truncate_line
 from app.utils.path_utils import as_system_path
 
+from .file_tools import MAX_BYTES, MAX_LINE_LENGTH, MAX_LINES, _is_binary_file, _truncate_line
 from .file_tools_base import (
     LineEndingStyle,
     _resolve_file_path,

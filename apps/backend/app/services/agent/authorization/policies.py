@@ -14,7 +14,6 @@ from typing import Callable
 from .constants import (
     CREDENTIAL_EXFIL_PATTERNS,
     HARDLINE_SHELL_PATTERNS,
-    HIGH_RISK_TOOLS,
     READONLY_TOOL_ALLOWLIST,
     SAFE_SHELL_PATTERNS,
 )

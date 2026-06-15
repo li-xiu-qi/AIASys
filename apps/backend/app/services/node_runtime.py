@@ -24,7 +24,6 @@ from app.models.runtime_environment import (
     RuntimeEnvPackage,
 )
 
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_NODE_ENV_ID = "node-default"
@@ -587,7 +586,7 @@ class NodeRuntimeService:
             if completed.returncode == 0:
                 import json as _json
 
-                env_data = _json.loads(completed.stdout)
+                _json.loads(completed.stdout)
                 # fnm env --json 包含 PATH，从中提取 npm 版本
                 # 这里简化处理，返回 None 让调用方自行检测
         except Exception:
@@ -777,7 +776,7 @@ class NodeRuntimeService:
 
     def _inspect_node_env(self, workspace_dir: Path, env: NodeRuntimeEnv) -> NodeRuntimeEnv:
         """刷新 Node.js 环境信息：版本、npm 版本、已安装包。"""
-        env_dir = self._env_dir_path(workspace_dir)
+        self._env_dir_path(workspace_dir)
 
         # 获取当前 Node 版本
         version_result = self._run_fnm(

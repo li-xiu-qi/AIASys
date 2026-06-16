@@ -727,9 +727,6 @@ export function WorkspaceContextPanel({
           <ActivityBar
             items={activityItems}
             activeView={activityView}
-            isSidebarCollapsed={
-              isActivitySidebarCollapsed || isCenterEditorOnlyActivityView
-            }
             canToggleSidebar={!isCenterEditorOnlyActivityView}
             onSelectView={handleActiveViewChange as (view: ActivityPanelView) => void}
             onToggleSidebar={toggleActivitySidebar}
@@ -742,7 +739,6 @@ export function WorkspaceContextPanel({
               isActivitySidebarCollapsed || isCenterEditorOnlyActivityView
             }
             isResizing={isActivitySidebarResizing}
-            onCollapse={() => setIsActivitySidebarCollapsed(true)}
             onResizeStart={handleActivitySidebarResizeStart}
           >
             {activitySidebarContent}

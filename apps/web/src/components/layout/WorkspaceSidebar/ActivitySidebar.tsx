@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronLeft, GripVertical } from "lucide-react";
+import { GripVertical } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -9,7 +9,6 @@ interface ActivitySidebarProps {
   isCollapsed: boolean;
   isResizing: boolean;
   children: ReactNode;
-  onCollapse: () => void;
   onResizeStart: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
@@ -19,7 +18,6 @@ export function ActivitySidebar({
   isCollapsed,
   isResizing,
   children,
-  onCollapse,
   onResizeStart,
 }: ActivitySidebarProps) {
   return (
@@ -33,19 +31,10 @@ export function ActivitySidebar({
       style={{ width: isCollapsed ? 0 : width }}
     >
       {!isCollapsed ? (
-        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
+        <div className="flex h-12 shrink-0 items-center border-b border-border px-3">
           <div className="min-w-0 truncate text-xs font-semibold text-foreground">
             {title}
           </div>
-          <button
-            type="button"
-            title="收起侧栏"
-            aria-label="收起侧栏"
-            onClick={onCollapse}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
         </div>
       ) : null}
 

@@ -20,14 +20,6 @@ MEDIA_SNIFF_BYTES = 8192
 # 常见非文本文件扩展名（不区分大小写）。
 # 被此集合命中的文件会被 ReadFile 直接拒绝，并给出具体的替代建议。
 # 为了保持向后兼容，仍从 file_tools_restrictions 导出。
-from .file_tools_restrictions import (
-    _NON_TEXT_SUFFIXES,
-    _WRITE_DISCOURAGED_SUFFIXES,
-    _get_non_text_hint,
-    _get_write_discouraged_hint,
-    _is_non_text_by_suffix,
-    _is_write_discouraged_by_suffix,
-)
 
 
 def _is_binary_file(path: Path) -> bool:

@@ -50,9 +50,23 @@ def _find_entry_file(package_dir: Path) -> Optional[Path]:
 # 脚本/可执行文件后缀
 _SCRIPT_EXTENSIONS = {".py", ".sh", ".bash", ".zsh", ".js", ".ts", ".rb", ".pl"}
 # 依赖声明文件
-_DEPENDENCY_FILES = {"requirements.txt", "package.json", "pyproject.toml", "setup.py", "Cargo.toml", "Gemfile"}
+_DEPENDENCY_FILES = {
+    "requirements.txt",
+    "package.json",
+    "pyproject.toml",
+    "setup.py",
+    "Cargo.toml",
+    "Gemfile",
+}
 # Skill 内容中暗示高风险工具调用的关键词
-_HIGH_RISK_TOOL_KEYWORDS = ["Shell", "WriteFile", "StrReplaceFile", "CreateFile", "RuntimeEnvironment", "InstallMCPServer"]
+_HIGH_RISK_TOOL_KEYWORDS = [
+    "Shell",
+    "WriteFile",
+    "StrReplaceFile",
+    "CreateFile",
+    "RuntimeEnvironment",
+    "InstallMCPServer",
+]
 
 
 def _infer_skill_security(
@@ -170,11 +184,17 @@ def _parse_skill_info(package_dir: Path, *, source: str) -> Optional[SkillInfo]:
                             risk_level=str(raw_sec.get("risk_level", security.risk_level)),
                             has_scripts=bool(raw_sec.get("has_scripts", security.has_scripts)),
                             requires_env=bool(raw_sec.get("requires_env", security.requires_env)),
-                            writes_workspace=bool(raw_sec.get("writes_workspace", security.writes_workspace)),
-                            writes_global=bool(raw_sec.get("writes_global", security.writes_global)),
+                            writes_workspace=bool(
+                                raw_sec.get("writes_workspace", security.writes_workspace)
+                            ),
+                            writes_global=bool(
+                                raw_sec.get("writes_global", security.writes_global)
+                            ),
                             uses_shell=bool(raw_sec.get("uses_shell", security.uses_shell)),
                             uses_network=bool(raw_sec.get("uses_network", security.uses_network)),
-                            installs_dependencies=bool(raw_sec.get("installs_dependencies", security.installs_dependencies)),
+                            installs_dependencies=bool(
+                                raw_sec.get("installs_dependencies", security.installs_dependencies)
+                            ),
                             adds_tools=[str(t) for t in raw_sec.get("adds_tools", []) if t],
                         )
             except Exception:

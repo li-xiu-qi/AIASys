@@ -379,6 +379,42 @@ function prepareBackendRuntime() {
       process.stdout.write(result.stdout);
     }
   }
+
+  // 确保当前平台的 uv 二进制已下载到 vendor/uv/<slug>/
+  // 桌面版启动后 backend 需要通过 AIASYS_BUNDLED_UV_PATH 找到 uv
+  {
+    const downloadScript = path.join(__dirname, "download-uv-binary.cjs");
+    const result = spawnSync("node", [downloadScript], {
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
+    if (result.status !== 0) {
+      const detail = result.stderr || result.error || `exit ${result.status}`;
+      console.error("[aiasys-desktop] 下载 uv 二进制失败:", detail);
+      throw new Error(`下载 uv 二进制失败: ${detail}`);
+    }
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
+  }
+
+  // 确保当前平台的 sqlite-vec 扩展二进制已下载到 vendor/sqlite-vec/<subdir>/
+  {
+    const downloadScript = path.join(__dirname, "download-sqlite-vec-binary.cjs");
+    const result = spawnSync("node", [downloadScript], {
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
+    if (result.status !== 0) {
+      const detail = result.stderr || result.error || `exit ${result.status}`;
+      console.error("[aiasys-desktop] 下载 sqlite-vec 二进制失败:", detail);
+      throw new Error(`下载 sqlite-vec 二进制失败: ${detail}`);
+    }
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
+  }
+
   const requiredEntries = [
     ".venv",
     "app",
@@ -620,9 +656,11 @@ function fixPyvenvCfgHome(backendStageRoot) {
     return; // 已经正确，无需修改
   }
 
-  const newContent = content.replace(/^home\s*=\s*.+$/m, `home = ${embedPythonDir}`);
+  // 使用相对路径，避免打包后安装到用户机器上因绝对路径失效
+  const relativeHome = "python";
+  const newContent = content.replace(/^home\s*=\s*.+$/m, `home = ${relativeHome}`);
   fs.writeFileSync(pyvenvPath, newContent, "utf-8");
-  console.log(`[aiasys-desktop] 已修正 pyvenv.cfg home 路径: ${embedPythonDir}`);
+  console.log(`[aiasys-desktop] 已修正 pyvenv.cfg home 路径: ${relativeHome} (相对于 .venv)`);
 }
 
 function pruneDevDependencies(backendStageRoot) {

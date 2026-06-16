@@ -250,9 +250,7 @@ class MCPProvider(CapabilityProvider):
         except Exception:
             return cap_id
 
-    def _load_server_definition_from_manifest(
-        self, source_dir: Path
-    ) -> dict[str, Any] | None:
+    def _load_server_definition_from_manifest(self, source_dir: Path) -> dict[str, Any] | None:
         """从 manifest 的 [server_definition] 段读取 MCP server 配置。"""
         manifest_path = source_dir / "manifest.toml"
         if not manifest_path.exists():

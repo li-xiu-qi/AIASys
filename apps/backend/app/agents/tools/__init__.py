@@ -10,11 +10,6 @@ if TYPE_CHECKING:
 
     from .ask_user.tool import AskUser
     from .auto_task_signal_tool import AutoTaskSignal
-    from .expert_tools import (
-        ConfigureExpert,
-        InstallExpert,
-        ListSystemExperts,
-    )
     from .auto_task_tool import (
         ControlAutoTask,
         CreateAutoTask,
@@ -54,6 +49,11 @@ if TYPE_CHECKING:
         GetEnvVar,
         ListEnvVars,
         SetEnvVar,
+    )
+    from .expert_tools import (
+        ConfigureExpert,
+        InstallExpert,
+        ListSystemExperts,
     )
     from .file_tools import ReadFile, StrReplaceFile, WriteFile
     from .graphrag_tool import (
@@ -232,7 +232,7 @@ def __getattr__(name: str) -> Any:
         "SetEnvVar",
         "DeleteEnvVar",
         "ListEnvVars",
-    }: 
+    }:
         module = import_module(".env_vars_tool", __name__)
         return getattr(module, name)
 

@@ -66,7 +66,9 @@ class SkillManager(SkillEnablementMixin, SkillImportMixin):
 
     def __init__(self) -> None:
         self._list_all_cache: dict[str, tuple[float, list[SkillInfo]]] = {}
-        self._file_content_cache: dict[str, tuple[float, tuple[SkillInfo, str, list[str]] | None]] = {}
+        self._file_content_cache: dict[
+            str, tuple[float, tuple[SkillInfo, str, list[str]] | None]
+        ] = {}
 
     def _cached_now(self) -> float:
         return time.monotonic()
@@ -79,7 +81,9 @@ class SkillManager(SkillEnablementMixin, SkillImportMixin):
         # 文件内容缓存按 skill 名称分 key，安全起见全部清空成本很低
         self._file_content_cache.clear()
 
-    def _cache_key_for_list_all(self, workspace_path: Path, global_workspace_path: Path | None) -> str:
+    def _cache_key_for_list_all(
+        self, workspace_path: Path, global_workspace_path: Path | None
+    ) -> str:
         parts = [
             str(self.SKILLS_BUILTIN_DIR),
             str(self.SKILLS_STORE_DIR),

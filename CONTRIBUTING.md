@@ -25,15 +25,18 @@
 
 ### 2.2 日常开发流程
 
-1. 创建分支：`git checkout -b feature/your-feature-name`
-2. 实现改动：优先遵循仓库现有结构，不额外引入平行方案或重复入口。
-3. 自检验证：
-   - 后端：在 `apps/backend/` 至少运行 `make test`
-   - 后端静态检查：如有必要再运行 `make lint`
-   - 前端：在 `apps/web/` 至少运行 `npm run build`
-   - 前端补充检查：按需要运行 `npm run lint`、`npm run test:e2e:lifecycle`
-4. 回写文档：验证通过后，再更新相关 `docs/`、`todo-lists`、`changelog`
-5. 提交代码：先执行一次 `./dev.sh setup-hooks`，之后直接使用 `git commit`
+1. Fork 项目到你自己的 GitHub 账户
+2. Clone 你的 fork：`git clone https://github.com/YOUR_USERNAME/AIASys.git`
+3. 添加上游仓库：`git remote add upstream https://github.com/AIAsys/AIASys.git`
+4. 创建分支：`git checkout -b feature/your-feature-name`
+5. 实现改动：优先遵循仓库现有结构，不额外引入平行方案或重复入口。
+6. 自检验证：
+  - 后端：在 `apps/backend/` 至少运行 `make test`
+  - 后端静态检查：如有必要再运行 `make lint`
+  - 前端：在 `apps/web/` 至少运行 `npm run build`
+  - 前端补充检查：按需要运行 `npm run lint`、`npm run test:e2e:lifecycle`
+7. 推送到你的 fork：`git push origin feature/your-feature-name`
+8. 从你的 fork 向 `AIAsys/AIASys` 的 `dev` 分支提交 PR
 
 ## 3. 提交规范
 
@@ -61,18 +64,28 @@ type(scope): 简短说明
 
 ## 4. PR / 推送前检查
 
-### 4.1 分支保护规则
+### 4.1 分支策略
 
-仓库采用三支分层策略，push 权限有严格限制：
+项目采用 Fork + PR 工作流：
 
 | 分支 | 角色 | 直接 push | PR 要求 |
 |------|------|-----------|---------|
-| `main` | 发布分支 | 禁止 | 必须从 `dev` 合并，需 review |
-| `dev` | 开发分支 | 禁止 | 必须从个人分支合并，需 review |
-| `li-xiu-qi` 等个人分支 | 日常开发 | 允许（force push 允许） | 合并到 `dev` 时提 PR |
+| `main` | 稳定发布分支 | 禁止 | 必须从 `dev` 合并，需 review |
+| `dev` | 开发分支 | 禁止 | 必须从 fork 的分支合并，需 review |
+
+流程：
+- **外部贡献者**：Fork → 创建分支 → 提交 PR 到 `AIASys/AIASys` 的 `dev`
+- **维护者**：审查并合并 PR 到 `dev`，定期从 `dev` 合并到 `main` 发版
+
+保持 fork 同步：
+```bash
+git fetch upstream
+git checkout dev
+git merge upstream/dev
+git push origin dev
+```
 
 - 任何改动都不要直接 push 到 `main` 或 `dev`，走 PR 流程。
-- 个人分支的 force push 只用于 amend 修补自己的提交，不用于覆盖他人代码。
 - CODEOWNERS（`.github/CODEOWNERS`）定义了各路径的默认审查人，PR 会自动请求对应 Owner 审查。
 
 ### 4.2 Pre-commit Hooks

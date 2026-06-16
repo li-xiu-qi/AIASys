@@ -53,11 +53,7 @@ class SessionBudgetMixin:
         try:
             model = self._resolve_model_id()
             model_config = getattr(self, "_model_config", None)
-            provider = (
-                getattr(model_config, "provider", None)
-                if model_config is not None
-                else None
-            )
+            provider = getattr(model_config, "provider", None) if model_config is not None else None
             if not provider:
                 provider = model
 
@@ -73,12 +69,7 @@ class SessionBudgetMixin:
                 "reasoning": usage.get("reasoning_tokens", 0) or 0,
             }
 
-            record_path = (
-                Path(str(self._spec.work_dir))
-                / ".aiasys"
-                / "session"
-                / "usage.jsonl"
-            )
+            record_path = Path(str(self._spec.work_dir)) / ".aiasys" / "session" / "usage.jsonl"
             record_path.parent.mkdir(parents=True, exist_ok=True)
             with open(record_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record, ensure_ascii=False) + "\n")

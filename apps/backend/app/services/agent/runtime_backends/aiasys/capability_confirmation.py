@@ -198,7 +198,9 @@ class CapabilityConfirmationManager:
             return False
 
         if record._future is None or record._future.done():
-            logger.warning("请求已处理或已超时: tool_call_id=%s status=%s", tool_call_id, record.status)
+            logger.warning(
+                "请求已处理或已超时: tool_call_id=%s status=%s", tool_call_id, record.status
+            )
             return False
 
         record._future.set_result((approved, feedback))

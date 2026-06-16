@@ -475,7 +475,9 @@ class LLMConfigService:
                     model_name = item.get("name")
                     model_cfg = item
                 else:
-                    logger.warning("provider '%s' 中 models 条目类型不支持: %s", provider_id, type(item))
+                    logger.warning(
+                        "provider '%s' 中 models 条目类型不支持: %s", provider_id, type(item)
+                    )
                     continue
 
                 if not isinstance(model_name, str) or not model_name.strip():

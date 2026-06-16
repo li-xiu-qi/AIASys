@@ -87,8 +87,7 @@ def _check_sensitive_path(file_path: Path) -> ToolResult | None:
     if matched_pattern:
         return ToolResult(
             content=(
-                f"`{file_path}` 命中敏感文件模式 `{matched_pattern}`，"
-                "禁止写入/编辑以保护凭据安全。"
+                f"`{file_path}` 命中敏感文件模式 `{matched_pattern}`，禁止写入/编辑以保护凭据安全。"
             ),
             is_error=True,
         )
@@ -102,8 +101,7 @@ def _check_binary_magic(file_path: Path) -> ToolResult | None:
         name, hint = magic
         return ToolResult(
             content=(
-                f"`{file_path}` 被识别为 {name} 文件，"
-                f"StrReplaceFile 只能编辑纯文本文件。{hint}"
+                f"`{file_path}` 被识别为 {name} 文件，StrReplaceFile 只能编辑纯文本文件。{hint}"
             ),
             is_error=True,
         )

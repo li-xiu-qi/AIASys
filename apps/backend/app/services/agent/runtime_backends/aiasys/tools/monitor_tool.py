@@ -13,6 +13,7 @@ import contextlib
 import json
 import logging
 import os
+import subprocess
 import tempfile
 import time
 import uuid
@@ -33,6 +34,7 @@ from app.services.runtime.runtime_execution import (
     resolve_runtime_execution_plan,
     wrap_shell_command_for_runtime,
 )
+from app.services.shell_executor import ShellOptions, get_shell_executor
 from app.services.workspace_registry import get_workspace_registry_service
 
 logger = logging.getLogger(__name__)
@@ -68,23 +70,6 @@ def _is_dangerous_command(command: str) -> bool:
         if re.search(pattern, command):
             return True
     return False
-
-
-async def _create_shell_process(command: str, **kwargs: Any) -> asyncio.subprocess.Process:
-    """跨平台创建 shell 子进程。
-
-    Windows 下默认 asyncio.create_subprocess_shell 调用 cmd.exe，
-    无法执行 ls/cat/2>/dev/null 等 POSIX 命令。
-    若系统存在 bash（如 Git Bash）则显式使用 bash -c 执行命令。
-    Linux/macOS 保持原行为。
-    """
-    if os.name == "nt":
-        import shutil
-
-        bash_path = shutil.which("bash")
-        if bash_path:
-            return await asyncio.create_subprocess_exec(bash_path, "-c", command, **kwargs)
-    return await asyncio.create_subprocess_shell(command, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +266,7 @@ class MonitorService:
 
         Args:
             mode: "notify" 表示任务完成后通知 Agent 关注结果；
-                  "silent" 表示纯后台运行，Agent 不主动介入。
+                    "silent" 表示纯后台运行，Agent 不主动介入。
         """
         monitor_id = f"mon_{uuid.uuid4().hex[:12]}"
 
@@ -348,13 +333,16 @@ class MonitorService:
             merged_env = dict(env) if env is not None else os.environ.copy()
             stdout_f = open(stdout_path, "wb")
             stderr_f = open(stderr_path, "wb")
-            process = await _create_shell_process(
-                command,
-                stdout=stdout_f,
-                stderr=stderr_f,
+            executor = get_shell_executor()
+            options = ShellOptions(
                 cwd=cwd or os.getcwd(),
                 env=merged_env,
+                stdin=subprocess.DEVNULL,
+                stdout=stdout_f,
+                stderr=stderr_f,
+                windows_hide=True,
             )
+            process = await executor.spawn(command, options=options, interpreter="auto")
             session.process = process
             session.stdout_f = stdout_f
             session.stderr_f = stderr_f
@@ -405,13 +393,14 @@ class MonitorService:
                     exit_code = await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
                 except asyncio.TimeoutError:
                     logger.info("Monitor 超时: id=%s", session.id)
+                    executor = get_shell_executor()
+                    await executor.kill_process_tree(process)
                     try:
-                        process.kill()
+                        exit_code = process.returncode if process.returncode is not None else -1
                     except Exception:
-                        pass
-                    exit_code = await process.wait()
+                        exit_code = -1
                     session.status = "killed"
-                    session.exit_code = -1
+                    session.exit_code = exit_code
             else:
                 exit_code = await process.wait()
 
@@ -680,8 +669,9 @@ class MonitorService:
         if session.status != "running":
             return session
         if session.process is not None and session.process.returncode is None:
+            executor = get_shell_executor()
             try:
-                session.process.kill()
+                await executor.kill_process_tree(session.process)
             except Exception:
                 pass
         session.status = "killed"
@@ -748,8 +738,9 @@ class MonitorService:
         for monitor_id, session in list(self._monitors.items()):
             if session.session_key == session_key:
                 if session.status == "running" and session.process is not None:
+                    executor = get_shell_executor()
                     try:
-                        session.process.kill()
+                        await executor.kill_process_tree(session.process)
                     except Exception:
                         pass
                 self._sync_segments_from_logs(session, is_ended=True)
@@ -775,8 +766,9 @@ class MonitorService:
         """清理所有 monitor（用于服务关闭）。"""
         for session in list(self._monitors.values()):
             if session.status == "running" and session.process is not None:
+                executor = get_shell_executor()
                 try:
-                    session.process.kill()
+                    await executor.kill_process_tree(session.process)
                 except Exception:
                     pass
             self._sync_segments_from_logs(session, is_ended=True)
@@ -797,8 +789,9 @@ class MonitorService:
         if session is not None:
             # 如果还在运行，先杀掉
             if session.status == "running" and session.process is not None:
+                executor = get_shell_executor()
                 try:
-                    session.process.kill()
+                    await executor.kill_process_tree(session.process)
                 except Exception:
                     pass
             # 清理文件
@@ -830,8 +823,9 @@ class MonitorService:
             if session.session_key != session_key:
                 return False
             if session.status == "running" and session.process is not None:
+                executor = get_shell_executor()
                 try:
-                    session.process.kill()
+                    await executor.kill_process_tree(session.process)
                 except Exception:
                     pass
             if session.session_root is not None:

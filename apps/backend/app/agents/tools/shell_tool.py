@@ -1,12 +1,12 @@
 """Shell 命令执行工具。
 
-提供 Agent 执行单次同步 Shell 命令的能力。
+提供 Agent 执行单次同步 Shell 命令的能力。底层通过 ShellExecutor 统一处理
+跨平台解释器选择、路径转换、超时控制和进程树清理。
 后台长时间运行任务请使用 Monitor 工具。
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 import re
 from pathlib import Path
@@ -16,7 +16,6 @@ from pydantic import BaseModel, Field
 
 from app.agents.tools.local_ipython_box import build_sanitized_kernel_env
 from app.core.agent_tool import AiasysTool
-from app.core.encoding_utils import smart_decode
 from app.core.tool_result import ToolResult
 from app.services.history import current_runtime_env_vars, current_session_root, current_workspace
 from app.services.runtime.runtime_execution import (
@@ -24,6 +23,7 @@ from app.services.runtime.runtime_execution import (
     resolve_runtime_execution_plan,
     wrap_shell_command_for_runtime,
 )
+from app.services.shell_executor import ShellOptions, get_shell_executor
 
 MAX_OUTPUT_BYTES = 16_384  # 16KB，参考 Codex CLI
 DEFAULT_TIMEOUT = 60
@@ -40,11 +40,6 @@ def _build_shell_exec_env() -> dict[str, str] | None:
     workspace = current_workspace.get()
     if workspace:
         env["AIASYS_WORKSPACE_ROOT"] = str(workspace)
-    # Windows 中文编码兜底
-    if os.name == "nt":
-        env.setdefault("PYTHONIOENCODING", "utf-8")
-        env.setdefault("LC_ALL", "C.UTF-8")
-        env.setdefault("LANG", "C.UTF-8")
     return env
 
 
@@ -103,81 +98,6 @@ def _resolve_working_dir() -> Path:
     if session_root:
         return Path(session_root)
     return Path.cwd()
-
-
-def _shell_quote(arg: str) -> str:
-    """跨平台 shell 参数引用。
-
-    Windows 上用双引号包裹（cmd 不识别单引号），POSIX 上用 shlex.quote。
-    """
-    if os.name == "nt":
-        # Windows: 双引号包裹，内部双引号用反斜杠转义
-        escaped = arg.replace('"', '\\"')
-        return f'"{escaped}"'
-    import shlex
-
-    return shlex.quote(arg)
-
-
-async def _create_shell_process(command: str, **kwargs: Any) -> asyncio.subprocess.Process:
-    """跨平台创建 shell 子进程。
-
-    Windows 下默认 asyncio.create_subprocess_shell 调用 cmd.exe，
-    无法执行 ls/cat/2>/dev/null 等 POSIX 命令。
-    若系统存在 bash（如 Git Bash）则显式使用 bash -c 执行命令。
-    Linux/macOS 保持原行为。
-    """
-    # 强制 UTF-8 编码，避免 Windows 中文乱码
-    env = dict(kwargs.get("env") or {})
-    env.setdefault("LC_ALL", "C.UTF-8")
-    env.setdefault("LANG", "C.UTF-8")
-    kwargs["env"] = env
-
-    if os.name == "nt":
-        import shutil
-
-        bash_path = shutil.which("bash")
-        if bash_path:
-            return await asyncio.create_subprocess_exec(bash_path, "-c", command, **kwargs)
-    return await asyncio.create_subprocess_shell(command, **kwargs)
-
-
-async def _create_shell_process_with_interpreter(
-    command: str, interpreter: str, **kwargs: Any
-) -> asyncio.subprocess.Process:
-    """根据 interpreter 参数创建 shell 子进程。"""
-    if interpreter == "auto":
-        return await _create_shell_process(command, **kwargs)
-
-    if interpreter == "bash":
-        import shutil
-
-        bash_path = shutil.which("bash")
-        if not bash_path:
-            raise RuntimeError("系统未找到 bash，无法使用 interpreter='bash'")
-        # 强制 UTF-8 编码
-        env = dict(kwargs.get("env") or {})
-        env.setdefault("LC_ALL", "C.UTF-8")
-        env.setdefault("LANG", "C.UTF-8")
-        kwargs["env"] = env
-        return await asyncio.create_subprocess_exec(bash_path, "-c", command, **kwargs)
-
-    if interpreter == "cmd":
-        if os.name != "nt":
-            raise RuntimeError("interpreter='cmd' 仅在 Windows 上可用")
-        return await asyncio.create_subprocess_shell(command, **kwargs)
-
-    if interpreter == "powershell":
-        if os.name != "nt":
-            raise RuntimeError("interpreter='powershell' 仅在 Windows 上可用")
-        import shutil
-
-        ps_path = shutil.which("powershell") or shutil.which("pwsh")
-        if not ps_path:
-            raise RuntimeError("系统未找到 PowerShell（powershell 或 pwsh）")
-        return await asyncio.create_subprocess_exec(ps_path, "-Command", command, **kwargs)
-
-    raise ValueError(f"不支持的 interpreter: {interpreter}，可选值: auto、bash、cmd、powershell")
 
 
 class ShellParams(BaseModel):
@@ -254,8 +174,11 @@ class Shell(AiasysTool):
 
         if params.container:
             workdir = "/workspace"
-            container_quoted = _shell_quote(params.container)
-            cmd_quoted = _shell_quote(params.command)
+            # Docker 路径保持 POSIX，使用 shlex.quote 安全转义
+            import shlex
+
+            container_quoted = shlex.quote(params.container)
+            cmd_quoted = shlex.quote(params.command)
             command = f"docker exec -w {workdir} {container_quoted} sh -lc {cmd_quoted}"
             cwd = _resolve_working_dir()
             env = _build_shell_exec_env() or {}
@@ -274,57 +197,37 @@ class Shell(AiasysTool):
                 plan=plan,
             )
 
-        try:
-            proc = await _create_shell_process_with_interpreter(
-                command,
-                params.interpreter,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                stdin=asyncio.subprocess.DEVNULL,  # 立即关闭 stdin
-                cwd=str(cwd),
-                env=env,
-            )
-        except Exception as e:
-            return ToolResult(content=f"启动进程失败: {e}", is_error=True)
+        executor = get_shell_executor()
+        options = ShellOptions(
+            cwd=str(cwd),
+            env=env,
+            timeout=params.timeout,
+        )
 
         try:
-            stdout_data, stderr_data = await asyncio.wait_for(
-                proc.communicate(), timeout=params.timeout
+            result = await executor.execute(
+                command, options=options, interpreter=params.interpreter
             )
-        except asyncio.TimeoutError:
-            try:
-                proc.kill()
-                await proc.wait()
-            except Exception:
-                pass
+        except TimeoutError:
             return ToolResult(
                 content=f"命令执行超时（{params.timeout}秒），已终止",
                 is_error=True,
             )
         except Exception as e:
-            return ToolResult(content=f"执行异常: {e}", is_error=True)
+            return ToolResult(content=f"启动或执行失败: {e}", is_error=True)
 
-        stdout = smart_decode(stdout_data)
-        stderr = smart_decode(stderr_data)
-
-        # 合并输出
-        output = stdout
-        if stderr:
-            if output:
-                output += "\n"
-            output += f"[stderr]\n{stderr}"
+        output = result.output
 
         # 截断
         if len(output) > MAX_OUTPUT_BYTES:
             output = output[:MAX_OUTPUT_BYTES] + "\n\n[output truncated — exceeded limit]"
 
-        exit_code = proc.returncode or 0
-        if exit_code == 0:
+        if result.exit_code == 0:
             return ToolResult(
-                content=output or f"命令执行成功，退出码: {exit_code}",
+                content=output or f"命令执行成功，退出码: {result.exit_code}",
             )
         else:
             return ToolResult(
-                content=output or f"命令执行失败，退出码: {exit_code}",
+                content=output or f"命令执行失败，退出码: {result.exit_code}",
                 is_error=True,
             )

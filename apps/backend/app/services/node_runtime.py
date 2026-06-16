@@ -23,7 +23,7 @@ from app.models.runtime_environment import (
     RuntimeEnvCommandResult,
     RuntimeEnvPackage,
 )
-
+from app.models.workspace import ExecutionResourceGroup, WorkspaceRuntimeBinding
 
 logger = logging.getLogger(__name__)
 
@@ -320,18 +320,14 @@ class NodeRuntimeService:
             workspace_dir=workspace_dir,
         )
         if not result.ok:
-            raise RuntimeError(
-                result.stderr or result.error or "fnm current 失败"
-            )
+            raise RuntimeError(result.stderr or result.error or "fnm current 失败")
 
         version = (result.stdout or "").strip()
         if not version:
             return {"version": None, "source": None}
 
         # 尝试从 .node-version 文件读取
-        node_version_file = resolve_workspace_runtime_dir(
-            workspace_dir
-        ) / ".node-version"
+        node_version_file = resolve_workspace_runtime_dir(workspace_dir) / ".node-version"
         source = "file" if node_version_file.exists() else "fnm-default"
 
         return {
@@ -378,6 +374,99 @@ class NodeRuntimeService:
 
         return result
 
+    # ------------------------------------------------------------------
+    # Workspace-level binding
+    # ------------------------------------------------------------------
+
+    def ensure_workspace_node_env(
+        self,
+        user_id: str,
+        workspace_id: str,
+        *,
+        env_id: str = DEFAULT_NODE_ENV_ID,
+        node_version: str | None = None,
+        create_if_missing: bool = False,
+    ) -> NodeRuntimeEnv:
+        """确保工作区存在指定 Node.js 环境，不存在时按参数创建。"""
+        workspace_dir = self._workspace_dir(user_id, workspace_id)
+        existing = self._find_env(workspace_dir, env_id)
+        if existing is not None:
+            return existing
+
+        if not create_if_missing:
+            raise FileNotFoundError(f"Node.js 环境不存在: {env_id}")
+
+        if not self.is_fnm_available():
+            self._raise_fnm_not_found()
+
+        target_version = _normalize_node_version(node_version or "lts")
+        inspected, _ = self.install_node_version(
+            user_id,
+            workspace_id,
+            version=target_version,
+            env_id=env_id,
+            display_name=f"Node.js {target_version}",
+        )
+        return inspected
+
+    def bind_workspace_node_env(
+        self,
+        user_id: str,
+        workspace_id: str,
+        env_id: str,
+    ) -> NodeRuntimeEnv:
+        """将指定 Node.js 环境设为工作区当前 Node 环境。"""
+        workspace_dir = self._workspace_dir(user_id, workspace_id)
+        env = self._find_env(workspace_dir, env_id)
+        if env is None:
+            raise FileNotFoundError(f"Node.js 环境不存在: {env_id}")
+
+        registry = self._read_registry(workspace_dir)
+        registry["active_env_id"] = env_id
+        updated_envs = []
+        for item in registry.get("envs", []):
+            if not isinstance(item, dict):
+                continue
+            item = dict(item)
+            item["active"] = item.get("env_id") == env_id
+            updated_envs.append(item)
+        registry["envs"] = updated_envs
+        registry["updated_at"] = _now_iso()
+        self._write_registry(workspace_dir, registry)
+
+        # 同步更新工作区 runtime_binding，保留 Python/Docker 资源
+        workspace = self.workspace_registry.get_workspace(
+            user_id,
+            workspace_id,
+            include_conversations=False,
+        )
+        current_binding = workspace.runtime_binding
+        updated_resources = ExecutionResourceGroup(
+            python_env_id=current_binding.resources.python_env_id,
+            node_env_id=env.env_id,
+            docker_resource_id=current_binding.resources.docker_resource_id,
+        )
+        sandbox_mode = (
+            "docker"
+            if updated_resources.docker_resource_id
+            else "local"
+            if updated_resources.python_env_id or updated_resources.node_env_id
+            else None
+        )
+        self.workspace_registry.update_workspace(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            runtime_binding=WorkspaceRuntimeBinding(
+                sandbox_mode=sandbox_mode,
+                env_id=updated_resources.python_env_id,
+                env_vars=current_binding.env_vars,
+                resources=updated_resources,
+            ),
+        )
+
+        env.active = True
+        return self._inspect_node_env(workspace_dir, env)
+
     def list_remote_versions(
         self,
         user_id: str,
@@ -400,9 +489,7 @@ class NodeRuntimeService:
             workspace_dir=workspace_dir,
         )
         if not result.ok:
-            raise RuntimeError(
-                result.stderr or result.error or "fnm list-remote 失败"
-            )
+            raise RuntimeError(result.stderr or result.error or "fnm list-remote 失败")
 
         versions = []
         for line in (result.stdout or "").splitlines():
@@ -545,7 +632,11 @@ class NodeRuntimeService:
     ) -> NodeRuntimeEnv:
         """将 Node 环境设为工作区默认。"""
         workspace_dir = self._workspace_dir(user_id, workspace_id)
-        env = self._inspect_node_env(workspace_dir, self._find_env(workspace_dir, env_id) or NodeRuntimeEnv(env_id=env_id, display_name="Node", kind="fnm"))
+        env = self._inspect_node_env(
+            workspace_dir,
+            self._find_env(workspace_dir, env_id)
+            or NodeRuntimeEnv(env_id=env_id, display_name="Node", kind="fnm"),
+        )
         registry = self._read_registry(workspace_dir)
         registry["active_env_id"] = env.env_id
         updated_envs = []
@@ -588,7 +679,8 @@ class NodeRuntimeService:
             )
             if completed.returncode == 0:
                 import json as _json
-                env_data = _json.loads(completed.stdout)
+
+                _json.loads(completed.stdout)
                 # fnm env --json 包含 PATH，从中提取 npm 版本
                 # 这里简化处理，返回 None 让调用方自行检测
         except Exception:
@@ -744,9 +836,7 @@ class NodeRuntimeService:
             encoding="utf-8",
         )
 
-    def _find_env(
-        self, workspace_dir: Path, env_id: str
-    ) -> NodeRuntimeEnv | None:
+    def _find_env(self, workspace_dir: Path, env_id: str) -> NodeRuntimeEnv | None:
         registry = self._read_registry(workspace_dir)
         for item in registry.get("envs", []):
             if isinstance(item, dict) and item.get("env_id") == env_id:
@@ -778,11 +868,9 @@ class NodeRuntimeService:
     # Internal helpers — inspection
     # ------------------------------------------------------------------
 
-    def _inspect_node_env(
-        self, workspace_dir: Path, env: NodeRuntimeEnv
-    ) -> NodeRuntimeEnv:
+    def _inspect_node_env(self, workspace_dir: Path, env: NodeRuntimeEnv) -> NodeRuntimeEnv:
         """刷新 Node.js 环境信息：版本、npm 版本、已安装包。"""
-        env_dir = self._env_dir_path(workspace_dir)
+        self._env_dir_path(workspace_dir)
 
         # 获取当前 Node 版本
         version_result = self._run_fnm(
@@ -819,9 +907,7 @@ class NodeRuntimeService:
         env.updated_at = _now_iso()
         return env
 
-    def _list_node_packages(
-        self, workspace_dir: Path
-    ) -> list[RuntimeEnvPackage]:
+    def _list_node_packages(self, workspace_dir: Path) -> list[RuntimeEnvPackage]:
         """列出当前工作区 node_modules 中的已安装包。"""
         node_modules = workspace_dir / "node_modules"
         if not node_modules.is_dir():
@@ -852,9 +938,7 @@ class NodeRuntimeService:
                     if pkg_json.is_file():
                         version = self._read_package_version(pkg_json)
                         if version:
-                            packages.append(
-                                RuntimeEnvPackage(name=name, version=version)
-                            )
+                            packages.append(RuntimeEnvPackage(name=name, version=version))
         except (OSError, PermissionError):
             pass
 
@@ -880,12 +964,9 @@ class NodeRuntimeService:
         )
         if sys.platform == "win32":
             install_hint = (
-                "请安装 fnm：winget install Schniz.fnm\n"
-                "或从 https://github.com/Schniz/fnm 下载。"
+                "请安装 fnm：winget install Schniz.fnm\n或从 https://github.com/Schniz/fnm 下载。"
             )
-        return FileNotFoundError(
-            f"fnm 不可用，无法管理 Node.js 运行时。{install_hint}"
-        )
+        return FileNotFoundError(f"fnm 不可用，无法管理 Node.js 运行时。{install_hint}")
 
 
 _node_runtime_service: NodeRuntimeService | None = None

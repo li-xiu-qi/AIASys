@@ -207,7 +207,10 @@ def _merge_empty_assistant_messages(
         merged_into_same_turn = False
         if tool_calls_to_merge and target_turn_n is not None:
             for i in range(len(merged) - 1, -1, -1):
-                if merged[i].get("role") == "assistant" and merged[i].get("turn_n") == target_turn_n:
+                if (
+                    merged[i].get("role") == "assistant"
+                    and merged[i].get("turn_n") == target_turn_n
+                ):
                     existing = merged[i].get("tool_calls") or []
                     merged[i]["tool_calls"] = existing + tool_calls_to_merge
                     merged_into_same_turn = True

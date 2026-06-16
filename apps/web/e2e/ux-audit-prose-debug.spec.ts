@@ -43,7 +43,7 @@ test.describe("Prose Debug", () => {
     // Check if prose CSS variables are defined
     const hasProseStyles = await page.evaluate(() => {
       const sheets = Array.from(document.styleSheets);
-      let proseRules = [];
+      const proseRules = [];
       for (const sheet of sheets) {
         try {
           const rules = Array.from(sheet.cssRules || sheet.rules || []);

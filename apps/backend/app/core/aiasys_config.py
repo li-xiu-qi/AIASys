@@ -188,7 +188,7 @@ def save_aiasys_uv_config(user_id: str, uv_config: UvTomlSection) -> None:
     if uv_config.installer_mirror:
         new_section_lines.append(f'installer_mirror = "{uv_config.installer_mirror}"')
     else:
-        new_section_lines.append("# installer_mirror = \"\"")
+        new_section_lines.append('# installer_mirror = ""')
 
     result_lines: list[str] = []
     in_uv_section = False

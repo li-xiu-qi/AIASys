@@ -1,22 +1,36 @@
 <!--
-Thank you for your contribution to AIASys!
-Please make sure you already discussed the feature or bugfix you are proposing in an issue with the maintainers.
+感谢你对 AIASys 的贡献！
+请确保已在 Issue 中与维护者讨论过你提出的功能或修复。
+PR 请提交到 dev 分支，不要直接提交到 main。
 -->
 
-## Related Issue
+## 关联 Issue
 
-<!-- Please link to the issue here. -->
+<!-- 请在此处链接相关 Issue。 -->
 
 Resolve #(issue_number)
 
-## Description
+## 描述
 
-<!-- Please describe your changes in detail. -->
+<!-- 请详细描述你的修改。 -->
+
+## 改动类型
+
+- [ ] Bug 修复
+- [ ] 新功能
+- [ ] 文档更新
+- [ ] 代码重构
+- [ ] 其他
+
+## 验证方式
+
+<!-- 请描述你如何验证这些修改。 -->
 
 ## Checklist
 
-- [ ] I have read the project documentation and coding standards.
-- [ ] I have linked the related issue, if any.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
-- [ ] I have tested my changes locally.
-- [ ] My code follows the project's style guidelines.
+- [ ] 我已阅读 CONTRIBUTING.md 和项目编码规范
+- [ ] PR 目标分支为 `dev`（而非 `main`）
+- [ ] 已关联相关 Issue（如有）
+- [ ] 代码已在本地通过测试
+- [ ] commit message 符合 Conventional Commits 格式
+- [ ] 涉及用户 facing 功能时已同步更新 docs/ 文档

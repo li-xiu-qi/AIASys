@@ -247,7 +247,7 @@ def estimate_text_tokens(messages: list[dict[str, Any]]) -> int:
 
 def _count_cjk_chars(text: str) -> int:
     """统计文本中 CJK 统一 ideograph 字符数（U+4E00 - U+9FFF）。"""
-    return sum(1 for ch in text if '\u4e00' <= ch <= '\u9fff')
+    return sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
 
 
 def should_auto_compact(
@@ -422,9 +422,20 @@ def _format_messages_for_summary(messages: list[dict[str, Any]]) -> str:
 
 # 压缩验证 Probe：启发式检查关键信息是否丢失
 _ERROR_KEYWORDS = {
-    "error", "exception", "failed", "traceback", "assertionerror",
-    "runtimeerror", "valueerror", "typeerror", "keyerror", "indexerror",
-    "syntaxerror", "importerror", "modulenotfounderror", "oserror",
+    "error",
+    "exception",
+    "failed",
+    "traceback",
+    "assertionerror",
+    "runtimeerror",
+    "valueerror",
+    "typeerror",
+    "keyerror",
+    "indexerror",
+    "syntaxerror",
+    "importerror",
+    "modulenotfounderror",
+    "oserror",
 }
 
 
@@ -445,14 +456,15 @@ def _verify_compaction_heuristic(
 
     # 检查错误关键词
     missing_errors = [
-        kw for kw in _ERROR_KEYWORDS
-        if kw in original_text and kw not in summary_lower
+        kw for kw in _ERROR_KEYWORDS if kw in original_text and kw not in summary_lower
     ]
     if missing_errors:
         issues.append(f"摘要可能遗漏错误信息（关键词: {', '.join(missing_errors[:3])}）")
 
     # 检查代码文件引用（简单模式匹配常见代码文件扩展名）
-    file_pattern = re.compile(r'[\w/\\.-]+\.(py|js|ts|tsx|jsx|java|go|rs|cpp|c|h|md|json|yaml|yml|toml)')
+    file_pattern = re.compile(
+        r"[\w/\\.-]+\.(py|js|ts|tsx|jsx|java|go|rs|cpp|c|h|md|json|yaml|yml|toml)"
+    )
     original_files = set(file_pattern.findall(original_text))
     summary_files = set(file_pattern.findall(summary_lower))
     missing_files = original_files - summary_files
@@ -460,7 +472,7 @@ def _verify_compaction_heuristic(
         issues.append(f"摘要可能遗漏文件引用: {', '.join(sorted(missing_files)[:5])}")
 
     # 检查 TODO / FIXME / BUG / HACK 等标记
-    marker_pattern = re.compile(r'\b(todo|fixme|bug|hack|xxx|note)\b', re.IGNORECASE)
+    marker_pattern = re.compile(r"\b(todo|fixme|bug|hack|xxx|note)\b", re.IGNORECASE)
     original_markers = set(marker_pattern.findall(original_text))
     summary_markers = set(marker_pattern.findall(summary_lower))
     missing_markers = original_markers - summary_markers
@@ -759,9 +771,7 @@ class SimpleCompaction:
 
         # 计算被压缩段的 turn 范围，确保摘要消息的 turn_n 与前后消息连续。
         compacted_turn_ns = [
-            m.get("turn_n")
-            for m in to_compact
-            if isinstance(m.get("turn_n"), int)
+            m.get("turn_n") for m in to_compact if isinstance(m.get("turn_n"), int)
         ]
         summary_turn_n: int | None = None
         compacted_turn_range: tuple[int, int] | None = None

@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } = require("electron");
 const { DesktopServiceManager } = require("./service-manager.cjs");
 
 const desktopMode =
@@ -33,6 +33,11 @@ if (disableGpu) {
 
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("no-sandbox");
+}
+
+// Windows 任务栏需要稳定的 AppUserModelID，否则运行中窗口会被识别为 Electron 默认图标
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.aiasys.desktop");
 }
 
 function logError(message, error) {
@@ -95,6 +100,20 @@ function getWindowIconPath() {
   return path.join(appRoot, "build", iconName);
 }
 
+function getWindowIcon() {
+  const iconPath = getWindowIconPath();
+  try {
+    const image = nativeImage.createFromPath(iconPath);
+    if (!image.isEmpty()) {
+      return image;
+    }
+    console.warn(`[aiasys-desktop] 图标加载失败，路径: ${iconPath}`);
+  } catch (error) {
+    console.warn(`[aiasys-desktop] 加载图标异常: ${error.message}`);
+  }
+  return undefined;
+}
+
 function createMainWindow(rendererBaseUrl) {
   const preloadPath = path.join(__dirname, "preload.cjs");
   const initialUrl = new URL(startPath, rendererBaseUrl).toString();
@@ -113,7 +132,7 @@ function createMainWindow(rendererBaseUrl) {
     autoHideMenuBar: true,
     show: false,
     title: "AIASys Desktop",
-    icon: getWindowIconPath(),
+    icon: getWindowIcon(),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -182,8 +201,8 @@ function sendTrayAction(action) {
 }
 
 function createTray() {
-  const iconPath = getWindowIconPath();
-  tray = new Tray(iconPath);
+  const icon = getWindowIcon();
+  tray = new Tray(icon);
   tray.setToolTip("AIASys Desktop");
 
   const contextMenu = Menu.buildFromTemplate([

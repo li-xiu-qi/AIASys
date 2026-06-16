@@ -12,13 +12,13 @@ from pydantic import BaseModel, Field, field_validator
 from app.core.agent_tool import AiasysTool
 from app.core.tool_result import ToolResult
 from app.services.history import current_session_id, current_user_id, current_workspace
-from app.services.runtime_environment import (
-    DEFAULT_UV_ENV_ID,
-    get_runtime_environment_service,
-)
 from app.services.node_runtime import (
     DEFAULT_NODE_ENV_ID,
     get_node_runtime_service,
+)
+from app.services.runtime_environment import (
+    DEFAULT_UV_ENV_ID,
+    get_runtime_environment_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -252,6 +252,8 @@ Node.js/fnm 操作：
                 )
 
             if params.action == "ensure_uv":
+                # 如果要求激活或安装依赖，默认创建并同步 venv，确保环境立即可用
+                should_materialize = params.activate or bool(params.packages)
                 env, command_result = service.ensure_uv_env(
                     user_id,
                     workspace_id,
@@ -259,8 +261,8 @@ Node.js/fnm 操作：
                     display_name=params.display_name or "Workspace UV",
                     python_version=params.python_version,
                     packages=params.packages,
-                    create_venv=params.create_venv,
-                    sync=params.sync,
+                    create_venv=params.create_venv or should_materialize,
+                    sync=params.sync or should_materialize,
                 )
                 refresh_required = False
                 if params.activate:

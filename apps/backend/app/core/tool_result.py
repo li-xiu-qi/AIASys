@@ -73,9 +73,7 @@ class ToolResult(BaseModel):
                 is_error = True
             return cls(
                 content=(
-                    output
-                    if isinstance(output, list)
-                    else str(output or message or brief or "")
+                    output if isinstance(output, list) else str(output or message or brief or "")
                 ),
                 is_error=is_error,
                 artifacts=artifacts,
@@ -98,11 +96,7 @@ class ToolResult(BaseModel):
             is_error = True
 
         return cls(
-            content=(
-                output
-                if isinstance(output, list)
-                else str(output or message or brief or "")
-            ),
+            content=(output if isinstance(output, list) else str(output or message or brief or "")),
             is_error=is_error,
             artifacts=artifacts,
         )

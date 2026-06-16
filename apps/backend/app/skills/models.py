@@ -14,7 +14,9 @@ class SkillSecurityInfo(BaseModel):
     可由 SKILL.md frontmatter [security] 显式声明，也可由后端保守扫描自动推断。
     """
 
-    source_trust: str = Field(default="external", description="builtin | curated | external | local")
+    source_trust: str = Field(
+        default="external", description="builtin | curated | external | local"
+    )
     risk_level: str = Field(default="medium", description="low | medium | high | critical")
     has_scripts: bool = Field(default=False, description="是否包含可执行脚本")
     requires_env: bool = Field(default=False, description="是否需要环境变量")
@@ -39,9 +41,7 @@ class SkillInfo(BaseModel):
     env_fields: list[dict[str, Any]] = Field(
         default_factory=list, description="环境变量字段定义列表"
     )
-    security: SkillSecurityInfo = Field(
-        default_factory=SkillSecurityInfo, description="安全元数据"
-    )
+    security: SkillSecurityInfo = Field(default_factory=SkillSecurityInfo, description="安全元数据")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

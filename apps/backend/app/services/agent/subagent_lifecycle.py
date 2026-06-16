@@ -107,9 +107,7 @@ class SubAgentLifecycleManager:
             prompt_iter = subagent_session.prompt(prompt).__aiter__()
             while True:
                 try:
-                    event = await asyncio.wait_for(
-                        prompt_iter.__anext__(), timeout=timeout_seconds
-                    )
+                    event = await asyncio.wait_for(prompt_iter.__anext__(), timeout=timeout_seconds)
                 except StopAsyncIteration:
                     break
 
@@ -249,7 +247,9 @@ class SubAgentLifecycleManager:
         user_id = str(meta.get("user_id") or "")
         host_session_id = str(meta.get("host_session_id") or "")
         workspace = Path(str(meta.get("workspace") or "")) if meta.get("workspace") else None
-        session_root = Path(str(meta.get("session_root") or "")) if meta.get("session_root") else None
+        session_root = (
+            Path(str(meta.get("session_root") or "")) if meta.get("session_root") else None
+        )
         storage = SubAgentStorage(user_id, host_session_id, agent_id)
         parent_tool_call_id = meta.get("parent_tool_call_id", "")
         await storage.append_context_message(
@@ -462,9 +462,7 @@ class SubAgentLifecycleManager:
         prompt_iter = session.prompt(prompt).__aiter__()
         while True:
             try:
-                event = await asyncio.wait_for(
-                    prompt_iter.__anext__(), timeout=timeout_seconds
-                )
+                event = await asyncio.wait_for(prompt_iter.__anext__(), timeout=timeout_seconds)
             except StopAsyncIteration:
                 break
 
@@ -551,11 +549,7 @@ class SubAgentLifecycleManager:
         current: str,
     ) -> str:
         """从事件中提取最新文本结果。"""
-        if (
-            event.kind == "content"
-            and event.content_type == "text"
-            and event.text
-        ):
+        if event.kind == "content" and event.content_type == "text" and event.text:
             return event.text
         return current
 

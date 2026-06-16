@@ -157,7 +157,9 @@ class SessionMixin:
                     )
                 )
         except Exception:
-            logger.debug("解析会话所属工作区失败，继续使用会话目录: session=%s", session_id, exc_info=True)
+            logger.debug(
+                "解析会话所属工作区失败，继续使用会话目录: session=%s", session_id, exc_info=True
+            )
 
         if workspace_id_for_session:
             from app.services.workspace_registry import get_workspace_registry_service
@@ -348,9 +350,7 @@ class SessionMixin:
                 if not runtime_session_id:
                     raise ValueError("runtime session 缺少 session_id")
                 # 复用时刷新上下文 token 计数，避免显示过期的启发式估算
-                refresh_fn = getattr(
-                    existing_session, "refresh_context_tokens_from_metadata", None
-                )
+                refresh_fn = getattr(existing_session, "refresh_context_tokens_from_metadata", None)
                 if callable(refresh_fn):
                     refresh_fn()
                 logger.debug(f"复用已有 Session: {session_id}")

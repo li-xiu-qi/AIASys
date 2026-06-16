@@ -1,7 +1,5 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 export interface ActivityBarItem<TView extends string> {
@@ -14,7 +12,6 @@ export interface ActivityBarItem<TView extends string> {
 interface ActivityBarProps<TView extends string> {
   items: Array<ActivityBarItem<TView>>;
   activeView: TView;
-  isSidebarCollapsed: boolean;
   canToggleSidebar?: boolean;
   onSelectView: (view: TView) => void;
   onToggleSidebar: () => void;
@@ -24,18 +21,11 @@ interface ActivityBarProps<TView extends string> {
 export function ActivityBar<TView extends string>({
   items,
   activeView,
-  isSidebarCollapsed,
   canToggleSidebar = true,
   onSelectView,
   onToggleSidebar,
   onReorder,
 }: ActivityBarProps<TView>) {
-  const toggleTitle = !canToggleSidebar
-    ? "当前视图不使用侧栏"
-    : isSidebarCollapsed
-      ? "展开侧栏"
-      : "收起侧栏";
-
   const [draggedId, setDraggedId] = useState<TView | null>(null);
   const draggedIdRef = useRef<TView | null>(null);
   const [dropTarget, setDropTarget] = useState<{
@@ -145,6 +135,10 @@ export function ActivityBar<TView extends string>({
                 draggable
                 onClick={() => {
                   if (Date.now() - dragEndTimeRef.current < 300) return;
+                  if (active && canToggleSidebar) {
+                    onToggleSidebar();
+                    return;
+                  }
                   onSelectView(item.id);
                 }}
                 onDragStart={handleDragStart(item.id)}
@@ -173,23 +167,6 @@ export function ActivityBar<TView extends string>({
         })}
       </div>
 
-      <button
-        type="button"
-        title={toggleTitle}
-        aria-label={toggleTitle}
-        disabled={!canToggleSidebar}
-        onClick={onToggleSidebar}
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          !canToggleSidebar && "cursor-not-allowed opacity-40",
-        )}
-      >
-        {isSidebarCollapsed ? (
-          <PanelLeftOpen className="h-4 w-4" />
-        ) : (
-          <PanelLeftClose className="h-4 w-4" />
-        )}
-      </button>
     </aside>
   );
 }

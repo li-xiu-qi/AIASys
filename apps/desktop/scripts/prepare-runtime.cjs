@@ -398,6 +398,23 @@ function prepareBackendRuntime() {
     }
   }
 
+  // 确保当前平台的 sqlite-vec 扩展二进制已下载到 vendor/sqlite-vec/<subdir>/
+  {
+    const downloadScript = path.join(__dirname, "download-sqlite-vec-binary.cjs");
+    const result = spawnSync("node", [downloadScript], {
+      encoding: "utf-8",
+      stdio: "pipe",
+    });
+    if (result.status !== 0) {
+      const detail = result.stderr || result.error || `exit ${result.status}`;
+      console.error("[aiasys-desktop] 下载 sqlite-vec 二进制失败:", detail);
+      throw new Error(`下载 sqlite-vec 二进制失败: ${detail}`);
+    }
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
+  }
+
   const requiredEntries = [
     ".venv",
     "app",

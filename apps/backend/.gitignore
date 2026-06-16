@@ -40,5 +40,12 @@ htmlcov/
 vendor/*/dist/
 vendor/*/build/
 
+# sqlite-vec 预编译二进制由 prepare-runtime 按需下载，不提交到仓库
+vendor/sqlite-vec/**/*.so
+vendor/sqlite-vec/**/*.dylib
+vendor/sqlite-vec/**/*.dll
+vendor/sqlite-vec/**/*.tar.gz
+vendor/sqlite-vec/**/.download/
+
 # Skill 本地配置（含密钥，不提交）
 apps/backend/skills/store/**/config.json

@@ -106,20 +106,13 @@ interface NewWorkspaceDialogProps {
 
 
 
-const ENV_LABEL_MAP: Record<string, string> = {
-  none: "不启用环境",
-  uv: "Python 环境",
-  registered: "已登记 Python",
-  docker: "Docker",
-};
-
 export function NewWorkspaceDialog({
   isOpen,
   onClose,
   onConfirm,
   lifecycleState,
   registeredPythonEnvs = [],
-  isLoadingRegisteredPythonEnvs = false,
+  isLoadingRegisteredPythonEnvs: _isLoadingRegisteredPythonEnvs = false,
   stage = "idle",
   errorMessage = null,
   isSubmitting = false,

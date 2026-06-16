@@ -4,7 +4,7 @@ import type {
 } from "@/types/workspace";
 import type { KernelEnvItem } from "@/lib/api/kernelEnvs";
 import type { TaskWorkspaceSummary } from "../types";
-import type { EnvChoice } from "@/components/NewWorkspaceDialog";
+import type { ExecutionResourceSelection } from "@/components/NewWorkspaceDialog";
 import type { WorkspaceRefreshOptions } from "./useCodeExecutor/executorTypes";
 
 export interface ActiveEnvironmentInfo {
@@ -46,7 +46,7 @@ export interface UseWorkspaceRuntimeControlsReturn {
   handleConfirmNewWorkspace: (
     title: string,
     description: string | undefined,
-    envChoice: EnvChoice,
+    resources: ExecutionResourceSelection,
     options: {
       templateId?: string;
       initialConversationTitle?: string;

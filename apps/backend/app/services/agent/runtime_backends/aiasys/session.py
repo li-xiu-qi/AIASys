@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import time
 import tomllib
 from pathlib import Path
@@ -202,7 +203,7 @@ class AiasysRuntimeSession(
         """当前有效上下文 token 数。
 
         = 最近一次 LLM 调用修正后的精确值（或压缩后估算值）
-          + 自那以后追加消息的 token 估算。
+            + 自那以后追加消息的 token 估算。
         用于运行中触发压缩、预算检查，比单纯的 _estimated_token_count 更准确。
         """
         return max(0, self._estimated_token_count + self._pending_token_estimate)
@@ -388,6 +389,46 @@ class AiasysRuntimeSession(
             if p.exists():
                 p.unlink()
 
+    def _build_shell_environment_guidance(self) -> str:
+        """根据 Windows 实际 shell 环境给 Agent 追加提示。"""
+        if os.name != "nt":
+            return ""
+
+        bash_path = shutil.which("bash")
+        wsl_path = shutil.which("wsl") or shutil.which("wsl.exe")
+
+        if bash_path:
+            # 有 Git Bash 时不额外提示，ShellExecutor 会优先用它
+            return ""
+
+        lines: list[str] = []
+        if wsl_path:
+            lines.append(
+                "当前 Windows 环境未安装 Git Bash，但检测到 WSL。"
+                "执行 shell 命令时将优先通过 `wsl.exe bash -c` 运行，"
+                "你可以继续使用常见 POSIX 命令（如 ls、cat、grep）。"
+            )
+        else:
+            ps_path = shutil.which("pwsh") or shutil.which("powershell")
+            if ps_path:
+                lines.append(
+                    "当前 Windows 环境未安装 Git Bash / WSL，shell 命令将降级到 PowerShell 执行。"
+                )
+                lines.append(
+                    "请优先使用跨平台命令；如需 POSIX 特有命令（如 `cat`、`ls -la` 复杂管道），"
+                    "建议用户安装 Git for Windows：https://gitforwindows.org/"
+                )
+            else:
+                lines.append(
+                    "当前 Windows 环境未安装 Git Bash / WSL / PowerShell，shell 命令将降级到 CMD 执行。"
+                )
+                lines.append(
+                    "请优先使用 CMD 兼容命令（如 `dir`、`type`、`findstr`）；"
+                    "如需 POSIX 命令，建议用户安装 Git for Windows：https://gitforwindows.org/"
+                )
+
+        return "\n".join(lines)
+
     def _build_system_prompt(self) -> str:
         base_prompt = ""
         raw_prompt_path = self._agent_config.get("system_prompt_path")
@@ -465,6 +506,13 @@ class AiasysRuntimeSession(
                     )
             except Exception as e:
                 logger.warning(f"注入 Memory 系统提示失败，已跳过: {e}", exc_info=True)
+
+        shell_guidance = self._build_shell_environment_guidance()
+        if shell_guidance:
+            if base_prompt:
+                base_prompt = base_prompt.rstrip() + "\n\n" + shell_guidance
+            else:
+                base_prompt = shell_guidance
 
         return base_prompt
 

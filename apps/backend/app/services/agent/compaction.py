@@ -11,6 +11,7 @@ AIASys 历史消息压缩机制
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 from dataclasses import dataclass
@@ -157,7 +158,9 @@ def clear_old_tool_results(
                     args = func.get("arguments", "")
                     if isinstance(args, str) and len(args) > 200:
                         func = dict(func)
-                        func["arguments"] = f"[已清理参数，共 {len(args)} 字符]"
+                        func["arguments"] = json.dumps(
+                            {"_cleared": True, "_original_len": len(args)}
+                        )
                         tc = dict(tc)
                         tc["function"] = func
                 new_msg["tool_calls"] = tool_calls
@@ -210,7 +213,8 @@ def clear_old_tool_results(
                 args = func.get("arguments", "")
                 if isinstance(args, str) and len(args) > 200:
                     func = dict(func)
-                    func["arguments"] = f"[已清理参数，共 {len(args)} 字符]"
+                    # arguments 必须是有效 JSON 字符串，否则 API 返回 400
+                    func["arguments"] = json.dumps({"_cleared": True, "_original_len": len(args)})
                     tc_copy["function"] = func
                 new_tool_calls.append(tc_copy)
             new_msg["tool_calls"] = new_tool_calls

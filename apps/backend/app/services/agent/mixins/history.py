@@ -317,13 +317,32 @@ class HistoryMixin:
             from pathlib import Path as StdPath
 
             session_dir = StdPath(str(work_dir)) / ".aiasys" / "session" / session_id
-            snapshot_file = (
-                StdPath(str(work_dir))
-                / ".aiasys"
-                / "session"
-                / ACTIVE_SESSION_STATE_DIR_NAME
-                / HISTORY_SNAPSHOT_FILE_NAME
+            # history.json 由 SessionManager.sync_messages_to_history() 写入到
+            # session 目录（base_dir/user_id/session_id/.aiasys/session/_active/history.json）。
+            # 当 work_dir 是 workspace 目录时，需要从 session 目录读取。
+            from app.services.workspace_registry import get_workspace_registry_service
+
+            workspace_id = get_workspace_registry_service().find_workspace_id_by_session_id(
+                user_id, session_id
             )
+            if workspace_id:
+                # session 目录 = base_dir / user_id / session_id
+                session_base = get_workspace_registry_service().get_session_dir(user_id, session_id)
+                snapshot_file = (
+                    StdPath(str(session_base))
+                    / ".aiasys"
+                    / "session"
+                    / ACTIVE_SESSION_STATE_DIR_NAME
+                    / HISTORY_SNAPSHOT_FILE_NAME
+                )
+            else:
+                snapshot_file = (
+                    StdPath(str(work_dir))
+                    / ".aiasys"
+                    / "session"
+                    / ACTIVE_SESSION_STATE_DIR_NAME
+                    / HISTORY_SNAPSHOT_FILE_NAME
+                )
 
             history = _load_history_snapshot_messages(snapshot_file)
             if limit > 0 and len(history) > limit:

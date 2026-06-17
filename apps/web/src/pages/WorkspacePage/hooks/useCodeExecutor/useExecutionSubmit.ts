@@ -156,6 +156,7 @@ export function useExecutionSubmit(props: UseExecutionSubmitProps) {
     if (!effectiveInput || isSessionRunning(latestSessionId) || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
 
+    try {
     const userContent = effectiveInput;
     const attachmentPaths =
       options.attachmentPaths ??
@@ -374,7 +375,9 @@ export function useExecutionSubmit(props: UseExecutionSubmitProps) {
       attachmentPaths,
       executionWorkspaceId,
     );
-    isSubmittingRef.current = false;
+    } finally {
+      isSubmittingRef.current = false;
+    }
   }, [
     inputValue,
     selectedModelId,

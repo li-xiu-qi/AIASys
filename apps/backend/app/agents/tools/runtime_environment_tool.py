@@ -142,8 +142,13 @@ class RuntimeEnvironmentParams(BaseModel):
 
 
 def _json_result(payload: dict[str, Any]) -> ToolResult:
+    def _default_serializer(obj: Any) -> Any:
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump(mode="json")
+        raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
     return ToolResult(
-        content=json.dumps(payload, ensure_ascii=False, indent=2),
+        content=json.dumps(payload, ensure_ascii=False, indent=2, default=_default_serializer),
     )
 
 

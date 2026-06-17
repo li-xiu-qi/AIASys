@@ -58,6 +58,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          TAG="${{ steps.resolve_tag.outputs.tag }}"
+          # 从 tag (如 v0.4.9) 提取版本号 (0.4.9)
+          VERSION="${TAG#v}"
+          echo "Syncing version to $VERSION"
+          # 更新 desktop package.json
+          cd apps/desktop
+          node -e "const fs=require('fs'); const p=require('./package.json'); p.version='$VERSION'; fs.writeFileSync('./package.json', JSON.stringify(p, null, 2) + '\n')"
+          cd ../web
+          node -e "const fs=require('fs'); const p=require('./package.json'); p.version='$VERSION'; fs.writeFileSync('./package.json', JSON.stringify(p, null, 2) + '\n')"
+          cd ../backend
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+
       - name: Setup Node.js (web)
         uses: actions/setup-node@v4
         with:

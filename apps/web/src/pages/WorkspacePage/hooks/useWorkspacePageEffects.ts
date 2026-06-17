@@ -22,6 +22,25 @@ export function useWorkspacePageEffects({
       }
 
       if (event.key === "Escape") {
+        // 如果焦点在输入框/文本域中，不触发侧栏切换（让输入框自行处理 Escape）
+        const active = document.activeElement;
+        if (
+          active &&
+          (active.tagName === "INPUT" ||
+            active.tagName === "TEXTAREA" ||
+            active.isContentEditable ||
+            active.getAttribute("contenteditable") === "true")
+        ) {
+          return;
+        }
+        // 如果有模态对话框/弹窗打开，不触发侧栏切换
+        if (
+          document.querySelector(
+            '[role="dialog"]:not([aria-hidden="true"]), [data-state="open"]',
+          )
+        ) {
+          return;
+        }
         setIsRightSidebarOpen((prev) => !prev);
       }
     };

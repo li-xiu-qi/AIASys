@@ -1,6 +1,6 @@
 # MCP 与 Skill 市场
 
-> 当前版本: v0.3.9
+> 当前版本: v0.4.9
 
 本文档说明 MCP（Model Context Protocol）和 Skill 的概念、管理和使用方式。
 

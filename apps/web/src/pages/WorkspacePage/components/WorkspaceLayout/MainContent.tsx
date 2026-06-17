@@ -448,6 +448,8 @@ export function MainContent({
               onOpenToolConfig={onOpenToolConfig}
               onOpenRuntimeTab={openRuntimeTab}
               isCompactingConversation={sessionLifecycle.isCompactingConversation}
+              isRestoringSession={executor.isRestoringSession}
+              historyLoadError={executor.historyLoadError}
               onCompactConversation={sessionLifecycle.handleCompactConversation}
               compactionState={executor.compactionState}
               sessionInputFocusSignal={sessionInputBridgeRequestKey}

@@ -715,6 +715,7 @@ export function useCodeExecutor({
     executionSummary: null,
     isLoadingHistory: sessionOrchestrator.isLoadingSessionList,
     isRestoringSession: sessionOrchestrator.isRestoringSession,
+    historyLoadError: sessionOrchestrator.historyLoadError,
     workspaceFiles,
     updateWorkspaceFiles,
     deleteWorkspaceFile: handleDeleteWorkspaceFile,

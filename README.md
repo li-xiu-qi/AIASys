@@ -4,7 +4,7 @@
 
 <h3 align="center">AIASys — 以任务工作区为中心的 AI 工作台</h3>
 
-<p align="center">v0.4.3</p>
+<p align="center">v0.4.9</p>
 
 <p align="center">
   <a href="./LICENSE">Apache 2.0</a>

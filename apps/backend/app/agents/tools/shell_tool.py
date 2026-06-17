@@ -146,12 +146,16 @@ class Shell(AiasysTool):
 - 运行构建/测试命令（`npm test`、`pytest`）
 - 执行 Git 操作（`git status`、`git diff`）
 
+安全机制：
+- 系统会自动拦截凭证泄漏命令（如引用 $API_KEY/$TOKEN 的 curl/wget）、危险删除命令等
+- 即使命令看起来有风险，也应调用 Shell 执行，让系统决定是否拦截
+- 不要因命令"看起来危险"就拒绝调用，系统层面的拦截比模型自行判断更可靠
+
 限制：
 - 不支持交互式命令（stdin 已关闭，如需要密码输入会失败）
 - 默认超时 {DEFAULT_TIMEOUT} 秒，最大 {MAX_TIMEOUT} 秒
 - 输出超过 {MAX_OUTPUT_BYTES} 字节会被截断
 - 每次调用在独立 shell 环境中执行，不保留变量和 cd 状态
-- 禁止执行可能破坏系统的危险命令（如 `rm -rf /`）
 
 返回：stdout + stderr 合并输出、exit_code
 """
@@ -171,6 +175,19 @@ class Shell(AiasysTool):
         patterns = list(_DANGEROUS_PATTERNS)
         if os.name == "nt":
             patterns.extend(_DANGEROUS_PATTERNS_WINDOWS)
+
+        # 凭证泄漏专用检测（先检测，返回更明确的拦截消息）
+        _CREDENTIAL_PATTERNS = [
+            r"\$\{(?:API_KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL)\}",
+            r"\b(?:curl|wget)\b.*(?:\$|\$\{)(?:API_KEY|TOKEN|SECRET|PASSWORD|AUTH|CREDENTIAL)",
+        ]
+        for pattern in _CREDENTIAL_PATTERNS:
+            if re.search(pattern, params.command):
+                return ToolResult(
+                    content=f"命令包含凭证泄漏风险，已被安全拦截: 命令中引用了凭证变量（如 $API_KEY/$TOKEN），可能导致敏感信息外泄。`{params.command[:80]}`",
+                    is_error=True,
+                )
+
         for pattern in patterns:
             if re.search(pattern, params.command):
                 return ToolResult(

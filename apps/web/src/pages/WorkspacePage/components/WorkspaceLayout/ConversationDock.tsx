@@ -81,6 +81,8 @@ interface ConversationDockProps {
   onOpenToolConfig: () => void;
   onOpenRuntimeTab?: () => void;
   isCompactingConversation?: boolean;
+  isRestoringSession?: boolean;
+  historyLoadError?: string | null;
   onCompactConversation?: (instruction?: string) => Promise<void> | void;
   compactionState?: {
     phase: "begin" | "done";
@@ -147,6 +149,8 @@ export function ConversationDock({
   onOpenToolConfig,
   onOpenRuntimeTab,
   isCompactingConversation = false,
+  isRestoringSession = false,
+  historyLoadError = null,
   onCompactConversation,
   compactionState,
   sessionInputFocusSignal,
@@ -271,6 +275,9 @@ export function ConversationDock({
         sessionInputFocusSignal={sessionInputFocusSignal}
         tasks={sessionStatus?.tasks}
         planState={sessionStatus?.plan_state}
+        isCompactingConversation={isCompactingConversation}
+        isRestoringSession={isRestoringSession}
+        historyLoadError={historyLoadError}
       />
     </aside>
   );

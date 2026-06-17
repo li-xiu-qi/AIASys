@@ -139,6 +139,7 @@ export interface UseCodeExecutorReturn {
   executionSummary: unknown;
   isLoadingHistory: boolean;
   isRestoringSession: boolean;
+  historyLoadError: string | null;
   workspaceFiles: WorkspaceFile[];
   updateWorkspaceFiles: (files: WorkspaceFile[]) => void;
   deleteWorkspaceFile: (filename: string) => Promise<boolean>;

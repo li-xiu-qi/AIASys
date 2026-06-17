@@ -396,3 +396,39 @@ async def install_busybox_w32() -> tuple[bool, str]:
     # 安装成功后立即刷新缓存，让面板下次读取时能看到 busybox 已安装
     _report_cache.clear()
     return True, str(target)
+
+
+async def install_busybox_w32_streamed():
+    """流式下载 busybox-w32，yield 进度字典。
+
+    yields dicts: {"type": "progress", "downloaded": N, "total": M}
+                  {"type": "done", "path": "..."}
+                  {"type": "error", "message": "..."}
+    """
+    url = DOWNLOAD_URLS["busybox_w32"]
+    target = _busybox_default_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+            async with client.stream("GET", url) as response:
+                response.raise_for_status()
+                total = int(response.headers.get("content-length", 0))
+                downloaded = 0
+                with open(target, "wb") as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        yield {
+                            "type": "progress",
+                            "downloaded": downloaded,
+                            "total": total,
+                        }
+
+        if os.name != "nt":
+            target.chmod(0o755)
+
+        _report_cache.clear()
+        yield {"type": "done", "path": str(target)}
+    except Exception as exc:
+        yield {"type": "error", "message": str(exc)}

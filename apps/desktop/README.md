@@ -97,7 +97,7 @@ npm run dist:win
 Windows 安装包特性：
 - 允许用户选择安装目录（`oneClick: false`）
 - 安装前自动检测并关闭运行中的应用
-- 卸载时询问是否删除用户数据（`%APPDATA%/AIASys Desktop`）
+- 卸载时询问是否删除用户数据（`%APPDATA%/aiasys-desktop`）
 - 不需要管理员权限（`asInvoker`，避免拖放文件失效）
 
 ### macOS
@@ -118,7 +118,7 @@ npm run dist:mac
 - packaged 模式下从 `process.resourcesPath/web` 与 `process.resourcesPath/backend` 启动，不再依赖仓库根路径
 - backend 的 `data / workspaces / logs` 会外置到用户目录：
   - Linux: `~/.config/aiasys-desktop/backend-runtime/`
-  - Windows: `%APPDATA%/AIASys Desktop/backend-runtime/`
+  - Windows: `%APPDATA%/aiasys-desktop/backend-runtime/`
   - macOS: `~/Library/Application Support/aiasys-desktop/backend-runtime/`
 - 首次启动时由 packaged backend 自己在外置目录生成 `app.db`、`llm_config.json` 等运行态文件
 - 子进程 stdout/stderr 同时输出到控制台和日志文件（`{userData}/backend-runtime/logs/{backend|frontend}-spawn.log`）

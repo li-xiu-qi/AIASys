@@ -9,8 +9,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from app.services.agent.message_content import (
     build_attachment_content_parts,
     hydrate_message_images,

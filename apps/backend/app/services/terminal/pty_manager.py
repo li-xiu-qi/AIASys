@@ -17,6 +17,7 @@ import asyncio
 import logging
 import os
 import struct
+import subprocess
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -82,7 +83,17 @@ class PtySession:
             self.read_task.cancel()
 
         if self._winpty_proc is not None:
-            # Windows path
+            # Windows path: 先杀进程树，再关闭 winpty
+            try:
+                pid = self._winpty_proc.pid
+                if pid:
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+            except Exception:
+                pass
             try:
                 self._winpty_proc.close()
             except Exception:

@@ -23,7 +23,6 @@ def test_detect_shell_environment_returns_report():
         "wsl",
         "busybox",
         "powershell",
-        "cmd",
     )
     assert len(report.components) > 0
     ids = {c.id for c in report.components}
@@ -74,12 +73,13 @@ def test_guidance_windows_posix():
     assert "Git Bash" in g
 
 
-def test_guidance_cmd_suggests_install():
+def test_guidance_powershell_suggests_install():
+    # cmd 已移除，powershell 是 Windows 最终回退，guidance 应包含安装建议
     components = [
         ShellComponentInfo(id="git_bash", name="Git Bash", installed=False),
         ShellComponentInfo(id="busybox_w32", name="busybox-w32", installed=False),
     ]
-    g = _build_guidance(True, "cmd", components)
+    g = _build_guidance(True, "powershell", components)
     assert "Git Bash" in g
     assert "busybox-w32" in g
 

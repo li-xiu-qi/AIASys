@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from app.models.session import StructuredMessage
 import app.services.agent as agent_service_module
+from app.models.session import StructuredMessage
 from app.services.agent import agent_service
 from app.services.session import SessionManager
 
@@ -67,6 +67,7 @@ async def test_get_session_history_backfills_reasoning_content_from_host_wire(
         ACTIVE_SESSION_STATE_DIR_NAME,
         HISTORY_SNAPSHOT_FILE_NAME,
     )
+
     snapshot_dir = session_dir / ".aiasys" / "session" / ACTIVE_SESSION_STATE_DIR_NAME
     snapshot_dir.mkdir(parents=True, exist_ok=True)
     (snapshot_dir / HISTORY_SNAPSHOT_FILE_NAME).write_text(

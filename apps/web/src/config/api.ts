@@ -499,6 +499,7 @@ export const API_ENDPOINTS = {
   GRAPH_COMMUNITY_REPORTS: "/api/graph/communities/reports",
   GRAPH_TABLES: "/api/graph/tables",
   GRAPH_RAW_QUERY: "/api/graph/raw-query",
+  GRAPH_LAYOUT: "/api/graph/layout",
   WORKSPACE_CREATE_GRAPH_DB: (workspaceId: string) =>
     `/api/workspaces/${encodeURIComponent(workspaceId)}/files/create-graph-db`,
 } as const;

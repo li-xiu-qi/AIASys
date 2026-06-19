@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from app.services.memory.models import MemoryScope
 from app.services.memory.resolver import (
     MemoryResolver,
     _compute_snapshot_hash,

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.services.workspace_registry import WorkspaceRegistryService
 
 from app.core.config import WORKSPACE_DIR
+from app.core.encoding_utils import smart_decode
 from app.models.container_resource import (
     WorkspaceContainerResource,
     WorkspaceContainerResourceRegistry,
@@ -321,7 +322,7 @@ class ContainerResourceService:
             dc = client.containers.get(container.docker_container_id)
             logs = dc.logs(tail=tail, timestamps=False)
             if isinstance(logs, bytes):
-                logs = logs.decode("utf-8", errors="replace")
+                logs = smart_decode(logs)
         except Exception as exc:
             raise RuntimeError(f"获取容器日志失败: {exc}") from exc
         return str(logs)

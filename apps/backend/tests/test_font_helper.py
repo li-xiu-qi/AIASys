@@ -7,7 +7,7 @@ HELPER_DIR = Path(__file__).resolve().parent.parent / "agent_runtime_helpers"
 if str(HELPER_DIR) not in sys.path:
     sys.path.insert(0, str(HELPER_DIR))
 
-from font_helper import setup_cn_font, PREFERRED_FONT_FAMILIES  # noqa: E402
+from font_helper import PREFERRED_FONT_FAMILIES, setup_cn_font  # noqa: E402
 
 
 def test_setup_cn_font_matches_system_font() -> None:

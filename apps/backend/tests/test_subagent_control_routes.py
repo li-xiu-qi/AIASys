@@ -7,7 +7,6 @@ import pytest
 from app.api.routes import sessions_execution as sessions_module
 from app.models.user import UserInfo
 
-
 CURRENT_USER = UserInfo(
     user_id="route-test-user",
     role="admin",
@@ -124,9 +123,7 @@ async def test_retry_subagent_route_passes_prompt_and_output_excerpt(
     monkeypatch.setattr(
         sessions_module,
         "_read_subagent_control_excerpt",
-        lambda *args, **kwargs: "excerpt-prompt"
-        if args[3] == "prompt.txt"
-        else "excerpt-output",
+        lambda *args, **kwargs: "excerpt-prompt" if args[3] == "prompt.txt" else "excerpt-output",
     )
 
     result = await sessions_module.retry_subagent(

@@ -5,8 +5,7 @@ import contextlib
 import sys
 from collections import defaultdict
 from pathlib import Path
-from types import ModuleType
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -14,6 +13,7 @@ import pytest
 
 from app.models.claw import SessionClawBindingRequest
 from app.services.channel import ChannelEntry, get_channel_config
+from app.services.claw import ClawService
 from app.services.claw_runtime import (
     ClawFeishuRuntime,
     ClawPendingBinding,
@@ -21,7 +21,6 @@ from app.services.claw_runtime import (
     ClawRuntimeManager,
     ClawWeixinRuntime,
 )
-from app.services.claw import ClawService
 from app.services.session import SessionManager
 
 
@@ -944,7 +943,9 @@ async def test_claw_feishu_runtime_imports_inbound_attachment_into_workspace(
     binding = service.get_session_binding(user_id, session_id)
     assert binding.last_inbound_attachments
     assert binding.last_inbound_attachments[0].display_name == "inbound.txt"
-    assert binding.last_inbound_attachments[0].workspace_path.startswith("/workspace/claw-inbox/feishu/")
+    assert binding.last_inbound_attachments[0].workspace_path.startswith(
+        "/workspace/claw-inbox/feishu/"
+    )
 
 
 @pytest.mark.asyncio

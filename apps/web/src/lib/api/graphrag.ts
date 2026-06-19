@@ -10,6 +10,8 @@ import type {
   GraphCommunitySummary,
   GraphEntity,
   GraphHealth,
+  GraphLayoutPosition,
+  GraphLayoutResponse,
   GraphLlmStatus,
   GraphQueryRequest,
   GraphQueryResponse,
@@ -420,6 +422,30 @@ export function createGraphragApi(scope?: {
         },
       );
       return handleResponse<GraphRawQueryResponse>(response);
+    },
+
+    async saveLayout(
+      positions: Record<string, GraphLayoutPosition>,
+    ): Promise<void> {
+      const response = await apiFetch(
+        getWorkspaceScopedUrl(API_ENDPOINTS.GRAPH_LAYOUT, scope),
+        {
+          ...getFetchOptions(),
+          method: "POST",
+          headers: getHeaders(),
+          body: JSON.stringify({ positions }),
+        },
+      );
+      await handleResponse<{ success: boolean }>(response);
+    },
+
+    async getLayout(): Promise<GraphLayoutResponse> {
+      const response = await fetchWithTimeout(
+        getWorkspaceScopedUrl(API_ENDPOINTS.GRAPH_LAYOUT, scope),
+        getFetchOptions(),
+        6000,
+      );
+      return handleResponse<GraphLayoutResponse>(response);
     },
   };
 }

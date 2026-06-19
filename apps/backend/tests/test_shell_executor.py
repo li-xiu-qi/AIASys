@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 
 import pytest
@@ -26,7 +27,8 @@ def test_normalize_interpreter_aliases():
 def test_keyword_case_insensitive():
     ex = ShellExecutor()
     path, args, family = ex.detect_interpreter("Bash")
-    assert family == "posix"
+    # 若系统只有 WSL bash（无 Git Bash），则回退到 wsl family
+    assert family in ("posix", "wsl")
 
 
 @pytest.mark.skipif(__import__("os").name != "nt", reason="Windows-only")
@@ -44,32 +46,38 @@ def test_detect_family_from_name():
     assert ex._detect_family_from_name("busybox.exe") == "busybox"
     assert ex._detect_family_from_name("pwsh.exe") == "powershell"
     assert ex._detect_family_from_name("powershell.exe") == "powershell"
-    assert ex._detect_family_from_name("cmd.exe") == "cmd"
+    # cmd.exe 不再被识别为有效 shell family
+    assert ex._detect_family_from_name("cmd.exe") is None
     assert ex._detect_family_from_name("unknown") is None
+    # Windows 内置 WSL bash 路径应识别为 wsl（仅 Windows 上生效）
+    if os.name == "nt":
+        assert ex._detect_family_from_name(r"C:\Windows\system32\bash.exe") == "wsl"
 
 
 def test_bash_keyword_resolves():
     ex = ShellExecutor()
     path, args, family = ex.detect_interpreter("bash")
-    assert family == "posix"
-    assert args == ["-c"]
+    # 优先 Git Bash（posix），没有则回退 WSL bash
+    assert family in ("posix", "wsl")
     assert path
 
 
 def test_sh_alias_resolves_to_bash():
     ex = ShellExecutor()
     path, args, family = ex.detect_interpreter("sh")
-    assert family == "posix"
-    assert args == ["-c"]
+    assert family in ("posix", "wsl")
+    assert path
 
 
 def test_custom_path_resolves():
-    sh_path = shutil.which("sh") or "/bin/sh"
+    sh_path = shutil.which("sh")
+    if sh_path is None:
+        pytest.skip("系统中未找到 sh")
     ex = ShellExecutor()
     path, args, family = ex.detect_interpreter(sh_path)
     assert path == sh_path
-    assert family == "posix"
-    assert args == ["-c"]
+    # sh 可能是 Git Bash / MSYS sh（posix），也可能是 WSL bash 启动器
+    assert family in ("posix", "wsl")
 
 
 def test_unknown_interpreter_raises():
@@ -104,7 +112,7 @@ def test_windows_auto_no_cmd_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(RuntimeError) as exc_info:
         ex.detect_interpreter("auto")
 
-    assert "cmd.exe" in str(exc_info.value)
+    assert "shell 解释器" in str(exc_info.value)
     assert "PowerShell" in str(exc_info.value)
 
 
@@ -128,40 +136,122 @@ def test_windows_auto_prefers_powershell(monkeypatch: pytest.MonkeyPatch) -> Non
     assert path.endswith("powershell.exe")
 
 
-def test_windows_explicit_cmd_still_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """显式指定 interpreter=cmd 时，仍允许使用 cmd.exe（兼容旧入口，但不推荐）。"""
+def test_windows_explicit_cmd_degraded_to_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
+    """显式指定 interpreter=cmd 时，应降级为 powershell（cmd 已移除）。"""
     ex = ShellExecutor()
     monkeypatch.setattr(ex, "_is_windows", True)
-    monkeypatch.setattr(shutil, "which", lambda name: r"C:\Windows\System32\cmd.exe" if name == "cmd" else None)
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: {
+            "pwsh": r"C:\Program Files\PowerShell\7\pwsh.exe",
+            "powershell": r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        }.get(name),
+    )
 
     path, args, family = ex.detect_interpreter("cmd")
-    assert family == "cmd"
-    assert args == ["/c"]
-    assert path.endswith("cmd.exe")
+    # cmd 被降级为 powershell，不再返回 cmd family
+    assert family == "powershell"
+    assert args == ["-NoProfile", "-Command"]
+    assert path.endswith("pwsh.exe") or path.endswith("powershell.exe")
 
 
-@pytest.mark.asyncio
-@pytest.mark.skipif(__import__("os").name != "nt", reason="Windows-only")
-async def test_windows_git_bash_cwd_keeps_windows_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Windows + Git Bash 时 cwd 必须保持 Windows 路径，避免 WinError 267。"""
+def test_windows_cmd_no_fallback_when_no_powershell(monkeypatch: pytest.MonkeyPatch) -> None:
+    """cmd 请求且 PowerShell 不可用时，应抛出异常而非回退到 cmd.exe。"""
     ex = ShellExecutor()
-    fake_bash = r"C:\Program Files\Git\bin\bash.exe"
     monkeypatch.setattr(ex, "_is_windows", True)
-    monkeypatch.setattr(ex, "_find_git_bash", lambda: fake_bash)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
 
+    with pytest.raises(RuntimeError, match="cmd.*已移除"):
+        ex.detect_interpreter("cmd")
+
+
+def _make_fake_spawn_captor(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """创建一个假的 create_subprocess_exec，捕获 spawn 参数。"""
     captured: dict[str, object] = {}
 
     async def fake_create_subprocess_exec(*args, **kwargs):
         captured["args"] = args
         captured["cwd"] = kwargs.get("cwd")
+
         class FakeProc:
             stdin = None
             stdout = None
             stderr = None
+
         return FakeProc()
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create_subprocess_exec)
+    return captured
 
-    await ex.spawn("echo hi", options=ShellOptions(cwd=r"C:\Users\ke\workspace"), interpreter="bash")
+
+@pytest.mark.asyncio
+async def test_windows_git_bash_cwd_keeps_windows_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Windows + Git Bash 时 cwd 必须保持 Windows 路径，避免 WinError 267。"""
+    ex = ShellExecutor()
+    monkeypatch.setattr(ex, "_is_windows", True)
+
+    captured = _make_fake_spawn_captor(monkeypatch)
+
+    await ex.spawn(
+        "echo hi", options=ShellOptions(cwd=r"C:\Users\ke\workspace"), interpreter="bash"
+    )
 
     assert captured["cwd"] == r"C:\Users\ke\workspace"
+
+
+@pytest.mark.asyncio
+async def test_windows_wsl_cwd_prepends_cd_and_keeps_host_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows + WSL shell 时 host_cwd 保持 Windows 路径，命令前加 cd 切换到 WSL 挂载路径。"""
+    ex = ShellExecutor()
+    monkeypatch.setattr(ex, "_is_windows", True)
+    fake_wsl = r"C:\Windows\System32\wsl.exe"
+    monkeypatch.setattr(ex, "_find_wsl_bash", lambda: fake_wsl)
+    # bash 关键字在 Windows 上若 Git Bash 不可用则回退到 WSL
+    monkeypatch.setattr(ex, "_find_git_bash", lambda: None)
+    monkeypatch.setattr(ex, "_find_bash", lambda: None)
+
+    captured = _make_fake_spawn_captor(monkeypatch)
+
+    await ex.spawn("echo hi", options=ShellOptions(cwd=r"C:\Users\ke\workspace"), interpreter="wsl")
+
+    # host_cwd 必须是 Windows 原生路径，传给 CreateProcessW
+    assert captured["cwd"] == r"C:\Users\ke\workspace"
+    # 命令前应已加 cd /mnt/c/Users/ke/workspace
+    argv = captured["args"]
+    command_arg = argv[-1]
+    assert command_arg.startswith("cd ")
+    assert "/mnt/c/Users/ke/workspace" in command_arg
+    assert "echo hi" in command_arg
+
+
+@pytest.mark.asyncio
+async def test_native_posix_cwd_passed_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """原生 Linux/macOS 上 cwd 直接透传给子进程。"""
+    ex = ShellExecutor()
+    # 确保不是 Windows、不是 WSL 后端
+    monkeypatch.setattr(ex, "_is_windows", False)
+    monkeypatch.setattr(ShellExecutor, "is_wsl", staticmethod(lambda: False))
+
+    captured = _make_fake_spawn_captor(monkeypatch)
+
+    workspace = "/tmp/aiasys-test-workspace"
+    await ex.spawn("echo hi", options=ShellOptions(cwd=workspace), interpreter="bash")
+
+    assert captured["cwd"] == workspace
+
+
+@pytest.mark.asyncio
+async def test_cwd_none_when_not_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """不设置 cwd 时 spawn_kwargs 的 cwd 应为 None。"""
+    ex = ShellExecutor()
+    monkeypatch.setattr(ex, "_is_windows", False)
+    monkeypatch.setattr(ShellExecutor, "is_wsl", staticmethod(lambda: False))
+
+    captured = _make_fake_spawn_captor(monkeypatch)
+
+    await ex.spawn("echo hi", interpreter="bash")
+
+    assert captured["cwd"] is None

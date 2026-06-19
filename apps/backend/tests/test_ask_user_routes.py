@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.agents.tools.ask_user.models import AskUserRequest, AskUserStore, AskUserType
+from app.api.routes import ask_user as ask_user_routes
 from app.api.routes.ask_user import (
     AskUserDevCreateRequest,
     AskUserResolveRequest,
@@ -13,9 +14,7 @@ from app.api.routes.ask_user import (
     get_pending_requests,
     resolve_ask_user,
 )
-from app.api.routes import ask_user as ask_user_routes
 from app.models.user import UserInfo
-
 
 OWNER_USER = UserInfo(user_id="ask-user-owner", role="user", auth_provider="none")
 OTHER_USER = UserInfo(user_id="ask-user-other", role="user", auth_provider="none")
@@ -157,7 +156,9 @@ async def test_create_dev_pending_request_creates_visible_pending_item() -> None
 
 
 @pytest.mark.asyncio
-async def test_create_dev_pending_request_hidden_outside_local_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_create_dev_pending_request_hidden_outside_local_auth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(ask_user_routes, "AUTH_MODE", "sso")
 
     with pytest.raises(HTTPException) as exc_info:

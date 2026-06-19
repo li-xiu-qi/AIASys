@@ -5,20 +5,19 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+import app.agents.tools.local_ipython_box as local_ipython_box_module
 import app.api.routes.agent as agent_module
 import app.api.routes.agent_config as agent_config_route
 import app.api.routes.sessions as sessions_module
 import app.api.routes.sessions_branches as sessions_branches_module
 import app.api.routes.sessions_execution as sessions_execution_module
-import app.agents.tools.local_ipython_box as local_ipython_box_module
 import app.services.agent as agent_service_module
 import app.services.session.config_projection as config_projection_module
 from app.models.session import StructuredMessage
 from app.models.user import UserInfo
-from app.services.agent_config import AgentMode, AgentConfigService
+from app.services.agent_config import AgentConfigService, AgentMode
 from app.services.history import SessionExecutionJournal
 from app.services.session import SessionManager
-
 
 CURRENT_USER = UserInfo(user_id="session-structure-user", role="user", auth_provider="none")
 
@@ -332,6 +331,7 @@ async def test_get_session_execution_records_summary_prefers_session_metadata(
     assert payload["summary"]["recovery_policy"] == "manual_replay"
     assert payload["summary"]["execution_record_count"] == 1
 
+
 @pytest.mark.asyncio
 async def test_reset_session_history_clears_messages_and_execution_records(
     isolated_session_manager: SessionManager,
@@ -384,8 +384,13 @@ async def test_reset_session_history_clears_messages_and_execution_records(
         ACTIVE_SESSION_STATE_DIR_NAME,
         HISTORY_SNAPSHOT_FILE_NAME,
     )
+
     snapshot_path = (
-        session_dir / ".aiasys" / "session" / ACTIVE_SESSION_STATE_DIR_NAME / HISTORY_SNAPSHOT_FILE_NAME
+        session_dir
+        / ".aiasys"
+        / "session"
+        / ACTIVE_SESSION_STATE_DIR_NAME
+        / HISTORY_SNAPSHOT_FILE_NAME
     )
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     assert snapshot.get("messages") == []
@@ -421,8 +426,7 @@ async def test_get_session_history_preserves_archived_context_and_execution_mark
     legacy_sdk_dir = session_dir / ".aiasys" / "session" / session_id
     legacy_sdk_dir.mkdir(parents=True, exist_ok=True)
     (legacy_sdk_dir / "display_history.jsonl").write_text(
-        json.dumps({"role": "user", "content": "legacy ui"}, ensure_ascii=False)
-        + "\n",
+        json.dumps({"role": "user", "content": "legacy ui"}, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
     journal = SessionExecutionJournal(session_dir, session_id)
@@ -557,7 +561,11 @@ async def test_rewrite_session_from_message_truncates_tail_and_archives(
     ]
     assert not any("bad answer" in str(m) for m in persisted_context)
 
-    archives = list((session_dir / ".aiasys" / "session" / "ui-history-archives").glob("*-message-rewritten.json"))
+    archives = list(
+        (session_dir / ".aiasys" / "session" / "ui-history-archives").glob(
+            "*-message-rewritten.json"
+        )
+    )
     assert len(archives) == 1
     archive_payload = json.loads(archives[0].read_text(encoding="utf-8"))
     assert archive_payload["reason"] == "message_rewritten"
@@ -890,9 +898,7 @@ async def test_update_session_recovery_policy_updates_session_status(
     payload = await sessions_execution_module.update_session_recovery_policy(
         user_id,
         session_id,
-        sessions_execution_module.UpdateRecoveryPolicyRequest(
-            recovery_policy="manual_replay"
-        ),
+        sessions_execution_module.UpdateRecoveryPolicyRequest(recovery_policy="manual_replay"),
         current_user=CURRENT_USER,
     )
 
@@ -955,9 +961,7 @@ async def test_update_session_recovery_policy_rejects_started_session(
         await sessions_execution_module.update_session_recovery_policy(
             user_id,
             session_id,
-            sessions_execution_module.UpdateRecoveryPolicyRequest(
-                recovery_policy="manual_replay"
-            ),
+            sessions_execution_module.UpdateRecoveryPolicyRequest(recovery_policy="manual_replay"),
             current_user=CURRENT_USER,
         )
 

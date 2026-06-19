@@ -168,8 +168,10 @@ describe("canReuseService 真实场景", () => {
       const url = `http://${HOST}:${mockServer.port}/`;
       // 先获取实际进程命令，用它作为 expectedPaths
       const processInfo = readListeningProcess(mockServer.port);
-      const expectedPaths = processInfo?.command
-        ? [processInfo.command.split(" ")[0]]
+      // 提取可执行文件路径，处理 Windows 路径含空格的情况（如 C:\Program Files\...）
+      const cmd = processInfo?.command || "";
+      const expectedPaths = cmd
+        ? [cmd.match(/^"?[^"]+"?/)?.[0]?.replace(/^"|"$/g, "") || cmd.split(/\s+/)[0]]
         : [process.cwd()];
 
       const result = await canReuseService({

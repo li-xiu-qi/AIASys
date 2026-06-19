@@ -45,7 +45,6 @@ const FAMILY_LABELS: Record<string, string> = {
   wsl: "WSL",
   busybox: "busybox-w32 (ash)",
   powershell: "PowerShell",
-  cmd: "CMD",
 };
 
 export function ShellEnvironmentPanel() {

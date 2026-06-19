@@ -49,6 +49,11 @@ interface PixiGraphOptions {
   selectedNodeId: string | null;
   searchQuery: string;
   onSelectNode: (nodeId: string | null) => void;
+  initialPositions?: Record<string, { x: number; y: number }> | null;
+}
+
+export interface PixiExplorerHandle {
+  getNodePositions: () => Record<string, { x: number; y: number }>;
 }
 
 export class PixiGraphController implements PixiGraphViewport {
@@ -65,6 +70,7 @@ export class PixiGraphController implements PixiGraphViewport {
   private edgeViews = new Map<string, PixiEdgeView>();
   private selectedNodeId: string | null;
   private searchQuery: string;
+  private readonly initialPositions: Record<string, { x: number; y: number }> | null;
   private hoveredNodeId: string | null = null;
   private draggingNodeId: string | null = null;
   private nodePointerStart: Point | null = null;
@@ -100,6 +106,7 @@ export class PixiGraphController implements PixiGraphViewport {
     this.selectedNodeId = options.selectedNodeId;
     this.searchQuery = options.searchQuery;
     this.onSelectNode = options.onSelectNode;
+    this.initialPositions = options.initialPositions ?? null;
 
     this.scene.sortableChildren = true;
     this.edgeLayer.zIndex = 1;
@@ -228,6 +235,18 @@ export class PixiGraphController implements PixiGraphViewport {
     );
   }
 
+  getNodePositions(): Record<string, { x: number; y: number }> {
+    const result: Record<string, { x: number; y: number }> = {};
+    if (!this.forceLayout) {
+      return result;
+    }
+    for (const node of this.forceLayout.nodes) {
+      const position = getForceNodePosition(node);
+      result[node.id] = { x: position.x, y: position.y };
+    }
+    return result;
+  }
+
   private rebuildGraph() {
     this.stopSimulation();
     this.edgeLayer.removeChildren().forEach((child) => child.destroy());
@@ -241,6 +260,19 @@ export class PixiGraphController implements PixiGraphViewport {
       this.size.width,
       this.size.height,
     );
+
+    // 应用已保存的布局位置：固定节点坐标，跳过力导向自动布局
+    if (this.initialPositions) {
+      for (const node of this.forceLayout.nodes) {
+        const saved = this.initialPositions[node.id];
+        if (saved) {
+          node.x = saved.x;
+          node.y = saved.y;
+          node.fx = saved.x;
+          node.fy = saved.y;
+        }
+      }
+    }
 
     for (const edge of this.graphData.edges) {
       if (!this.forceLayout.nodeById.has(edge.source) || !this.forceLayout.nodeById.has(edge.target)) {

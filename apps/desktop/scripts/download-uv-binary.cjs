@@ -61,31 +61,49 @@ function curlDownload(url, dest) {
   console.log(`[download-uv] 已保存: ${dest} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
 }
 
+function resolvePython() {
+  const candidates = [process.env.PYTHON, process.env.PYTHON3, "py", "python3", "python"].filter(Boolean);
+  for (const cmd of candidates) {
+    const result = spawnSync(cmd, ["--version"], { encoding: "utf-8", stdio: "pipe" });
+    if (result.status === 0) return cmd;
+  }
+  return null;
+}
+
 function extractArchive(archivePath, targetDir, isZip) {
   console.log(`[download-uv] 解压: ${archivePath}`);
   fs.mkdirSync(targetDir, { recursive: true });
   let result;
   if (isZip) {
-    // 优先使用系统 unzip；WSL 等环境可能未安装 unzip，fallback 到 python zipfile
-    const unzipResult = spawnSync("unzip", ["-q", "-o", archivePath, "-d", targetDir], {
+    // Windows 10+ 内置 tar 命令支持 zip 格式；Unix 上优先用 unzip，fallback 到 Python zipfile
+    const isWindows = process.platform === "win32";
+    const primaryCmd = isWindows ? "tar" : "unzip";
+    const primaryArgs = isWindows
+      ? ["-xf", archivePath, "-C", targetDir]
+      : ["-q", "-o", archivePath, "-d", targetDir];
+    const primaryResult = spawnSync(primaryCmd, primaryArgs, {
       encoding: "utf-8",
       stdio: "pipe",
     });
-    if (unzipResult.status === 0) {
-      result = unzipResult;
-    } else if (unzipResult.error && unzipResult.error.code === "ENOENT") {
-      console.log("[download-uv] 未找到 unzip，使用 python zipfile 解压");
+    if (primaryResult.status === 0) {
+      result = primaryResult;
+    } else if (primaryResult.error && primaryResult.error.code === "ENOENT") {
+      const pyCmd = resolvePython();
+      if (!pyCmd) {
+        throw new Error("未找到可用的 Python 解释器（尝试 py/python3/python），无法解压 zip");
+      }
+      console.log(`[download-uv] 未找到 ${primaryCmd}，使用 ${pyCmd} zipfile 解压`);
       const pyResult = spawnSync(
-        "python3",
+        pyCmd,
         ["-m", "zipfile", "-e", archivePath, targetDir],
         { encoding: "utf-8", stdio: "pipe" }
       );
       if (pyResult.status !== 0) {
-        throw new Error(`python zipfile 解压失败: ${pyResult.stderr || pyResult.error}`);
+        throw new Error(`${pyCmd} zipfile 解压失败: ${pyResult.stderr || pyResult.error}`);
       }
       result = pyResult;
     } else {
-      result = unzipResult;
+      result = primaryResult;
     }
   } else {
     result = spawnSync("tar", ["-xzf", archivePath, "-C", targetDir], {

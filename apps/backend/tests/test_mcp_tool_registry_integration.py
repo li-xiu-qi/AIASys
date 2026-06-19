@@ -5,12 +5,10 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import AsyncMock
 
-import pytest
-
-from app.services.agent.runtime_backends.aiasys.tool_registry import ToolRegistry
-from app.services.agent.runtime_backends.aiasys.tools.mcp_tool import MCPTool
 from app.agents.tools.file_tools import WriteFile
 from app.agents.tools.shell_tool import Shell
+from app.services.agent.runtime_backends.aiasys.tool_registry import ToolRegistry
+from app.services.agent.runtime_backends.aiasys.tools.mcp_tool import MCPTool
 
 
 class _FakeMCPClient:

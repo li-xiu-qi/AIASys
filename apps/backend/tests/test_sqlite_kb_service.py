@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from app.core.time import utc_now_naive
 from app.document_extraction import DocumentExtractionMode, DocumentExtractionResult
 from app.knowledge.models import (
     KnowledgeBaseCreate,
@@ -11,7 +12,6 @@ from app.knowledge.models import (
     QueryRequest,
     SearchMode,
 )
-from app.core.time import utc_now_naive
 from app.knowledge.sqlite_kb_service import SQLiteKBService
 
 

@@ -104,7 +104,7 @@ export function SetupChecklist({
         is_windows: boolean;
       }>(API_ENDPOINTS.SHELL_ENVIRONMENT);
       const family = res.recommended_family;
-      if (res.is_windows && (family === "powershell" || family === "cmd")) {
+      if (res.is_windows && family === "powershell") {
         setSteps((prev) =>
           prev.map((s) =>
             s.id === "shell"

@@ -384,6 +384,26 @@ class SubAgentLifecycleManager:
         child_skills_dir = launch_spec.get("child_skills_dir")
         collaboration_policy = launch_spec.get("collaboration_policy") or {}
 
+        # 尝试从活跃的 Host session 获取 parent_registry
+        # resume 时 parent_registry 是运行时对象，无法从持久化恢复，
+        # 但如果 Host session 仍然活跃，可以直接引用其 tool_registry
+        parent_registry = None
+        try:
+            import app.services.agent as agent_service_module
+
+            agent_service = getattr(agent_service_module, "agent_service", None)
+            if agent_service is not None:
+                host_session_key = f"{user_id}/{host_session_id}"
+                host_session = agent_service._active_sessions.get(host_session_key)
+                if host_session is not None and hasattr(host_session, "_tool_registry"):
+                    parent_registry = host_session._tool_registry
+                    logger.debug(
+                        "恢复子 Agent 时从 Host session 获取到 parent_registry: %s",
+                        agent_id,
+                    )
+        except Exception:
+            logger.debug("获取 Host session 的 parent_registry 失败", exc_info=True)
+
         spec = RuntimeSessionCreateSpec(
             work_dir=WorkspacePath(str(session_root)),
             session_id=agent_id,
@@ -395,7 +415,7 @@ class SubAgentLifecycleManager:
             yolo=bool(launch_spec.get("yolo", False)),
             mcp_configs=launch_spec.get("mcp_configs"),
             is_subagent=True,
-            parent_registry=None,
+            parent_registry=parent_registry,
             tool_policy=str(launch_spec.get("tool_policy") or "inherit"),
             fork_turns=0,
             fork_messages=None,

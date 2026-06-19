@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi import HTTPException
 
 from app.api.routes import workspaces_resources_mounts as workspace_route
 from app.models.database_connector import DatabaseConnectorDraft

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.core.config import WORKSPACE_DIR
+from app.utils.path_utils import as_system_path
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     """原子写入 JSON 文件（先写临时文件再重命名）。"""
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     try:
-        tmp_path.write_text(
+        Path(as_system_path(tmp_path)).write_text(
             json.dumps(data, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
@@ -148,13 +149,13 @@ class SubAgentStorage:
         self._upsert_instance_record(meta)
 
         # 初始化 wire.jsonl（写入 metadata 首行）
-        self.wire_file.write_text(
+        Path(as_system_path(self.wire_file)).write_text(
             json.dumps({"type": "metadata", "protocol_version": "1.0"}, ensure_ascii=False) + "\n",
             encoding="utf-8",
         )
 
         # 初始化空的 context.jsonl
-        self.context_file.write_text("", encoding="utf-8")
+        Path(as_system_path(self.context_file)).write_text("", encoding="utf-8")
 
         logger.info(
             "SubAgent workspace created: user=%s session=%s agent=%s task=%s",
@@ -207,7 +208,7 @@ class SubAgentStorage:
         try:
             if not self.meta_file.exists():
                 return None
-            return json.loads(self.meta_file.read_text(encoding="utf-8"))
+            return json.loads(Path(as_system_path(self.meta_file)).read_text(encoding="utf-8"))
         except Exception:
             logger.warning("读取 meta.json 失败: %s", self.meta_file, exc_info=True)
             return None
@@ -238,7 +239,7 @@ class SubAgentStorage:
         self._wire_buffer.clear()
         async with self._lock:
             try:
-                with open(self.wire_file, "a", encoding="utf-8") as f:
+                with open(as_system_path(self.wire_file), "a", encoding="utf-8") as f:
                     f.write("".join(lines))
             except Exception as first_err:
                 logger.warning(
@@ -247,7 +248,7 @@ class SubAgentStorage:
                     first_err,
                 )
                 try:
-                    with open(self.wire_file, "a", encoding="utf-8") as f:
+                    with open(as_system_path(self.wire_file), "a", encoding="utf-8") as f:
                         f.write("".join(lines))
                 except Exception as second_err:
                     logger.error(
@@ -266,7 +267,7 @@ class SubAgentStorage:
         self._context_buffer.clear()
         async with self._lock:
             try:
-                with open(self.context_file, "a", encoding="utf-8") as f:
+                with open(as_system_path(self.context_file), "a", encoding="utf-8") as f:
                     f.write("".join(lines))
             except Exception as first_err:
                 logger.warning(
@@ -275,7 +276,7 @@ class SubAgentStorage:
                     first_err,
                 )
                 try:
-                    with open(self.context_file, "a", encoding="utf-8") as f:
+                    with open(as_system_path(self.context_file), "a", encoding="utf-8") as f:
                         f.write("".join(lines))
                 except Exception as second_err:
                     logger.error(

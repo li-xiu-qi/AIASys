@@ -1,7 +1,7 @@
 """跨平台 Shell 执行器。
 
 为 Shell 工具、Monitor 工具、RunCode 等提供统一的子进程创建、输出收集、
-超时控制和进程清理能力。把平台差异（POSIX vs Windows、bash vs PowerShell vs cmd、
+超时控制和进程清理能力。把平台差异（POSIX vs Windows、bash vs PowerShell、
 WSL 路径转换、进程树清理）集中在此模块处理，避免散落在各工具中。
 """
 
@@ -11,6 +11,7 @@ import asyncio
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -91,26 +92,33 @@ class ShellExecutor:
             "pwsh": "powershell",
             "ps": "powershell",
             "ps1": "powershell",
-            "command_prompt": "cmd",
-            "cmd.exe": "cmd",
         }
         return aliases.get(name.lower(), name)
 
     @staticmethod
+    def _is_wsl_bash_path(path: str) -> bool:
+        """判断给定路径是否为 Windows 内置 WSL bash 启动器。"""
+        if os.name != "nt" or not path:
+            return False
+        lower = path.lower()
+        return "windows\\system32\\bash" in lower or "windows\\syswow64\\bash" in lower
+
+    @staticmethod
     def _detect_family_from_name(name: str) -> str | None:
-        """根据可执行文件名猜测 shell family。"""
+        """根据可执行文件名或路径猜测 shell family。"""
         lower = name.lower()
         if "wsl" in lower:
             return "wsl"
         if lower.endswith("bash.exe") or lower.endswith("bash") or lower.endswith("sh"):
-            # busybox 也包含 sh，但前面已特判；这里把 bash/sh 归为 posix
+            # busybox 也包含 sh，但前面已特判
+            # Windows 内置 WSL bash 按 wsl family 处理
+            if ShellExecutor._is_wsl_bash_path(name):
+                return "wsl"
             return "posix"
         if "busybox" in lower:
             return "busybox"
         if "powershell" in lower or lower.endswith("pwsh") or lower.endswith("pwsh.exe"):
             return "powershell"
-        if lower.endswith("cmd.exe") or lower.endswith("cmd"):
-            return "cmd"
         return None
 
     def _resolve_custom_interpreter(self, interpreter: str) -> tuple[str, list[str], str] | None:
@@ -125,13 +133,10 @@ class ShellExecutor:
                 return None
 
         path = str(candidate)
-        name = candidate.name
-        family = self._detect_family_from_name(name) or "custom"
+        family = self._detect_family_from_name(path) or "custom"
 
         if family == "powershell":
             return (path, ["-NoProfile", "-Command"], family)
-        if family == "cmd":
-            return (path, ["/c"], family)
         if family == "wsl":
             return (path, ["bash", "-c"], family)
         if family == "busybox":
@@ -142,8 +147,8 @@ class ShellExecutor:
     def detect_interpreter(self, interpreter: str = "auto") -> tuple[str, list[str], str]:
         """返回 (shell_path, args_prefix, shell_family)。
 
-        shell_family 用于上层判断是 posix/powershell/cmd/wsl，以便做命令适配。
-        支持关键字（auto/bash/wsl/busybox/powershell/cmd）、常见别名（pwsh/sh/ash）
+        shell_family 用于上层判断是 posix/powershell/wsl，以便做命令适配。
+        支持关键字（auto/bash/wsl/busybox/powershell）、常见别名（pwsh/sh/ash）
         以及可执行文件绝对/相对路径。
         """
         result: tuple[str, list[str], str] | None = None
@@ -185,10 +190,19 @@ class ShellExecutor:
             result = (path, ["-NoProfile", "-Command"], "powershell")
 
         elif name == "cmd":
+            # cmd.exe 已彻底移除，不接受 cmd 作为解释器。
+            # 如果模型传入 cmd，直接降级到 powershell，不执行任何 cmd.exe 调用。
             if not self._is_windows:
                 raise RuntimeError("interpreter='cmd' 仅在 Windows 上可用")
-            path = shutil.which("cmd") or "cmd.exe"
-            result = (path, ["/c"], "cmd")
+            ps = shutil.which("pwsh") or shutil.which("powershell")
+            if ps:
+                logger.warning("interpreter='cmd' 已移除，自动使用 powershell。")
+                result = (ps, ["-NoProfile", "-Command"], "powershell")
+            else:
+                raise RuntimeError(
+                    "interpreter='cmd' 已移除，且系统未找到 PowerShell。"
+                    "请安装 PowerShell 或使用 auto/bash/wsl/busybox。"
+                )
 
         elif name != "auto":
             # 尝试作为路径/短名解析
@@ -196,7 +210,7 @@ class ShellExecutor:
             if custom is None:
                 raise ValueError(
                     f"不支持的 interpreter: {original}，"
-                    "可选值: auto、bash、wsl、busybox、powershell、cmd，"
+                    "可选值: auto、bash、wsl、busybox、powershell，"
                     "或传入可执行文件路径"
                 )
             result = custom
@@ -220,13 +234,10 @@ class ShellExecutor:
                             if ps:
                                 result = (ps, ["-NoProfile", "-Command"], "powershell")
                             else:
-                                # 对齐 Copilot：Windows 上不再使用 cmd.exe 作为 auto fallback。
-                                # cmd 的引号解析和 POSIX 命令语法支持问题（mkdir -p、rm -rf 等）
-                                # 会导致 WinError 267 / os error 123 等不可靠行为。
+                                # Windows 上不使用 cmd.exe。
                                 raise RuntimeError(
                                     "Windows 上未找到可用的 shell 解释器。请安装 Git for Windows、WSL、"
-                                    "busybox-w32，或确认 PowerShell 已在系统 PATH 中。AIASys 已对齐 Copilot "
-                                    "策略，不再使用 cmd.exe 作为默认 shell。"
+                                    "busybox-w32，或确认 PowerShell 已在系统 PATH 中。"
                                 )
             else:
                 bash = shutil.which("bash")
@@ -282,7 +293,15 @@ class ShellExecutor:
         return None
 
     def _find_bash(self) -> str | None:
-        return shutil.which("bash")
+        r"""查找非 WSL 的 bash（如 Git Bash、MSYS2 bash）。
+
+        Windows 上 `C:\Windows\System32\bash.exe` 是 WSL 启动器，会被识别为
+        wsl family，因此这里不直接返回它。
+        """
+        path = shutil.which("bash")
+        if path and self._is_wsl_bash_path(path):
+            return None
+        return path
 
     def _find_git_bash(self) -> str | None:
         """在 Windows 上查找 Git Bash。
@@ -496,23 +515,34 @@ class ShellExecutor:
         options = options or ShellOptions()
         shell_path, shell_args, shell_family = self.detect_interpreter(interpreter)
 
+        # Windows 上 create_subprocess_exec 最终调用 CreateProcessW，cwd 必须是
+        # 原生 Windows 路径。对于 WSL shell，Windows 路径传给 CreateProcessW，
+        # 命令前加 cd 切换到 WSL 挂载路径，确保 bash 内部工作目录正确。
+        host_cwd: str | None = None
         cwd = options.cwd
         if cwd is not None:
             cwd = str(cwd)
-            # Windows + Git Bash：保持 Windows 路径传给 CreateProcessW。
-            # bash.exe 是 Windows 可执行文件，cwd 必须能被 Windows 子系统识别；
-            # 转成 /c/foo/bar 会导致 WinError 267 "目录名称无效"。
             if shell_family == "wsl":
+                # WSL: wsl.exe 是 Windows 可执行文件，host_cwd 用 Windows 原生路径。
+                # bash 内部需要 WSL 挂载路径，通过命令前加 cd 显式切换。
                 wsl_cwd = self.win_path_to_wsl(cwd)
                 if wsl_cwd:
-                    cwd = wsl_cwd
+                    command = f"cd {shlex.quote(wsl_cwd)} && {command}"
+                host_cwd = cwd
             elif self._is_windows and shell_family == "busybox":
                 # busybox-w32 接受 C:/foo/bar 风格，保留驱动器字母
-                cwd = cwd.replace("\\", "/")
+                host_cwd = cwd.replace("\\", "/")
+            elif self._is_windows and shell_family == "posix":
+                # Git Bash: bash.exe 是 Windows 可执行文件，直接用 Windows 原生路径。
+                # 转成 /c/foo/bar 会导致 CreateProcessW 报 WinError 267。
+                host_cwd = cwd
             elif self.is_wsl():
+                # 后端运行在 WSL 中，cwd 可能是 Windows 路径，转成 WSL 挂载路径
                 wsl_cwd = self.win_path_to_wsl(cwd)
-                if wsl_cwd:
-                    cwd = wsl_cwd
+                host_cwd = wsl_cwd or cwd
+            else:
+                # 原生 Linux/macOS，路径直接可用
+                host_cwd = cwd
 
         if self._is_windows and shell_family in ("posix", "wsl", "busybox"):
             command = self.rewrite_windows_null_redirect(command)
@@ -520,13 +550,18 @@ class ShellExecutor:
         argv = [shell_path, *shell_args, command]
         env = self._build_env(options.env, shell_family)
 
-        logger.debug("ShellExecutor.spawn argv=%s cwd=%s family=%s", argv, cwd, shell_family)
+        logger.debug(
+            "ShellExecutor.spawn argv=%s cwd=%s family=%s",
+            argv,
+            host_cwd,
+            shell_family,
+        )
 
         spawn_kwargs: dict[str, Any] = {
             "stdin": options.stdin,
             "stdout": options.stdout,
             "stderr": options.stderr,
-            "cwd": cwd,
+            "cwd": host_cwd,
             "env": env,
         }
         if self._is_windows:
@@ -535,7 +570,8 @@ class ShellExecutor:
             # POSIX 上新建会话/进程组，避免 killpg 误伤父进程
             spawn_kwargs["start_new_session"] = True
 
-        return await asyncio.create_subprocess_exec(*argv, **spawn_kwargs)
+        proc = await asyncio.create_subprocess_exec(*argv, **spawn_kwargs)
+        return proc
 
     async def execute(
         self,
@@ -572,8 +608,13 @@ class ShellExecutor:
         env["GIT_TERMINAL_PROMPT"] = env.get("GIT_TERMINAL_PROMPT", "0")
         if self._is_windows:
             env.setdefault("PYTHONIOENCODING", "utf-8")
-            env.setdefault("LC_ALL", "C.UTF-8")
-            env.setdefault("LANG", "C.UTF-8")
+            # LC_ALL/LANG 仅对 POSIX shell 有意义；对 cmd 设置反而会在 WSL
+            # 或中文环境下造成 stderr 乱码。
+            if shell_family in ("posix", "wsl", "busybox"):
+                env.setdefault("LC_ALL", "C.UTF-8")
+                env.setdefault("LANG", "C.UTF-8")
+            # WSL 默认使用 ANSI 代码页输出，设置 UTF-8 可减少中文/路径乱码
+            env.setdefault("WSL_UTF8", "1")
         if override:
             env.update(override)
         return env

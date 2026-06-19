@@ -5,14 +5,14 @@ from pathlib import Path
 import pytest
 from fastapi import BackgroundTasks
 
+import app.services.agent as agent_module
+import app.services.auto_tasks.engine as auto_task_engine
+from app.agents.tools.local_ipython_box import LocalIPythonBox
 from app.api.routes import sessions_branches as session_route
 from app.api.routes import workspaces_core as workspace_route
 from app.api.routes.sessions_branches import delete_session
 from app.api.routes.workspaces_core import delete_workspace
-from app.agents.tools.local_ipython_box import LocalIPythonBox
 from app.models.user import UserInfo
-import app.services.agent as agent_module
-import app.services.auto_tasks.engine as auto_task_engine
 from app.services.auto_tasks.engine import AutoTaskStore
 from app.services.auto_tasks.models import AutoTask, AutoTaskTriggerType, TaskStatus
 from app.services.session import SessionManager
@@ -41,7 +41,9 @@ async def test_delete_session_removes_workspace_binding_and_updates_current_conv
         return None
 
     monkeypatch.setattr(session_route.agent_service, "stop_session", _fake_stop_session)
-    monkeypatch.setattr(LocalIPythonBox, "shutdown_kernel", staticmethod(lambda *_args, **_kwargs: None))
+    monkeypatch.setattr(
+        LocalIPythonBox, "shutdown_kernel", staticmethod(lambda *_args, **_kwargs: None)
+    )
 
     detail = service.create_workspace(
         user_id="local_default",
@@ -90,7 +92,9 @@ async def test_delete_session_cleans_ghost_workspace_binding_when_session_dir_mi
         return None
 
     monkeypatch.setattr(session_route.agent_service, "stop_session", _fake_stop_session)
-    monkeypatch.setattr(LocalIPythonBox, "shutdown_kernel", staticmethod(lambda *_args, **_kwargs: None))
+    monkeypatch.setattr(
+        LocalIPythonBox, "shutdown_kernel", staticmethod(lambda *_args, **_kwargs: None)
+    )
 
     detail = service.create_workspace(
         user_id="local_default",
@@ -107,7 +111,9 @@ async def test_delete_session_cleans_ghost_workspace_binding_when_session_dir_mi
         title="幽灵会话",
     )
 
-    detached = service.session_manager.detach_session_for_deletion(ghost.session_id, "local_default")
+    detached = service.session_manager.detach_session_for_deletion(
+        ghost.session_id, "local_default"
+    )
     assert detached is not None
     service.session_manager.purge_detached_session(detached)
 
@@ -226,5 +232,7 @@ async def test_delete_workspace_route_stops_all_workspace_sessions_before_delete
     assert response.workspace_id == "workspace-delete-route-stop"
     assert {session_id for action, session_id in calls if action == "stop"} == expected_session_ids
     assert {session_id for action, session_id in calls if action == "wait"} == expected_session_ids
-    assert {session_id for action, session_id in calls if action == "shutdown"} == expected_session_ids
+    assert {
+        session_id for action, session_id in calls if action == "shutdown"
+    } == expected_session_ids
     assert not (tmp_path / "local_default" / "workspace-delete-route-stop").exists()

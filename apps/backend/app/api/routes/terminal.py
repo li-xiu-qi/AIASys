@@ -21,6 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from app.core.auth import require_auth
+from app.core.encoding_utils import smart_decode
 from app.models.user import UserInfo
 from app.services.terminal.pty_manager import (
     PtyUnsupportedError,
@@ -122,7 +123,7 @@ async def terminal_websocket(
             return
         try:
             merged = b"".join(chunks)
-            text = merged.decode("utf-8", errors="replace")
+            text = smart_decode(merged)
             await websocket.send_json({"type": "output", "terminal_id": tid, "data": text})
         except Exception as exc:
             logger.debug("发送终端输出失败: %s", exc)

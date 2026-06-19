@@ -5,8 +5,8 @@ import asyncio
 import pytest
 
 from app.models.session import SessionBudget
-from app.services.auto_tasks.executor import _build_prompt
 from app.services.auto_tasks import engine as auto_task_engine
+from app.services.auto_tasks.executor import _build_prompt
 from app.services.auto_tasks.models import (
     AutoTask,
     AutoTaskTriggerType,

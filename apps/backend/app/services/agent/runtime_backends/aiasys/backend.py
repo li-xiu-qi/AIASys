@@ -269,11 +269,13 @@ class AiasysRuntimeBackend:
                 primary=provider_entry,
                 fallbacks=fallback_providers,
                 model=str(resolved_model_name),
+                model_config=model_entry,
             )
         else:
             client = create_llm_client(
                 provider_entry,
                 model=str(resolved_model_name),
+                model_config=model_entry,
             )
 
         registry = ToolRegistry()
@@ -330,6 +332,18 @@ class AiasysRuntimeBackend:
                 except ValueError:
                     logger.debug("忽略重复工具注册: %s", name)
         else:
+            if (
+                spec.is_subagent
+                and tool_policy in ("inherit", "denylist")
+                and spec.parent_registry is None
+            ):
+                logger.warning(
+                    "子 Agent tool_policy=%s 但 parent_registry 为 None，"
+                    "无法继承父 Agent 工具，仅加载 manifest 声明的工具。"
+                    "session_id=%s",
+                    tool_policy,
+                    spec.session_id,
+                )
             for tool_path in _iter_tool_paths(agent_manifest, spec=spec):
                 tool: AiasysTool | None = None
                 try:
@@ -341,8 +355,19 @@ class AiasysRuntimeBackend:
                 except Exception:
                     logger.exception("加载工具失败: %s", tool_path)
                 if tool is None and spec.parent_registry is not None:
+                    # 兜底：从父 registry 获取工具实例
+                    # 先尝试完整 tool_path，再尝试 short name 匹配
                     tool = spec.parent_registry.get_tool(tool_path)
+                    if tool is None:
+                        short_name = tool_path.split(":")[-1].split(".")[-1]
+                        tool = spec.parent_registry.get_tool(short_name)
                 if tool is None:
+                    if spec.is_subagent and spec.parent_registry is None:
+                        logger.warning(
+                            "子 Agent 无法加载工具 %s：parent_registry 为 None "
+                            "且 _instantiate_tool 失败，该工具将不可用",
+                            tool_path,
+                        )
                     continue
                 try:
                     registry.register(tool)

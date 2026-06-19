@@ -5,7 +5,6 @@ import pytest
 from app.api.routes import system as system_route
 from app.models.user import UserInfo
 from app.services import capability_registry as capability_registry_module
-from app.services.capability_registry import CapabilityRegistryService
 from app.services.agent.system_presets import (
     AUTO_TASK_TOOL_PATHS,
     CANVAS_TOOL_PATHS,
@@ -15,6 +14,7 @@ from app.services.agent.system_presets import (
     RUNTIME_ENVIRONMENT_TOOL_PATH,
     SESSION_TASK_PLAN_TOOL_PATHS,
 )
+from app.services.capability_registry import CapabilityRegistryService
 from app.services.runtime_tooling import (
     NATIVE_TASK_TOOL_PATH,
     READ_MEDIA_TOOL_PATH,
@@ -160,52 +160,26 @@ async def test_system_tool_categories_return_functional_capability_mappings(
         "automation",
     }.issubset(categories)
     assert "runtime.read_file" in categories["workspace-files"].capability_ids
-    assert "runtime.manage_workspace_runtime_environment" in categories[
-        "environment"
-    ].capability_ids
+    assert (
+        "runtime.manage_workspace_runtime_environment" in categories["environment"].capability_ids
+    )
     assert "native.knowledge_query" in categories["knowledge-base"].capability_ids
     assert "native.create_knowledge_base" in categories["knowledge-base"].capability_ids
     assert "native.update_knowledge_base" in categories["knowledge-base"].capability_ids
-    assert "native.upload_knowledge_base_documents" in categories[
-        "knowledge-base"
-    ].capability_ids
-    assert "native.list_knowledge_base_documents" in categories[
-        "knowledge-base"
-    ].capability_ids
-    assert "native.delete_knowledge_base_documents" in categories[
-        "knowledge-base"
-    ].capability_ids
+    assert "native.upload_knowledge_base_documents" in categories["knowledge-base"].capability_ids
+    assert "native.list_knowledge_base_documents" in categories["knowledge-base"].capability_ids
+    assert "native.delete_knowledge_base_documents" in categories["knowledge-base"].capability_ids
     assert "native.delete_knowledge_base" in categories["knowledge-base"].capability_ids
-    assert "native.graphrag_entity_search" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.create_knowledge_graph" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.delete_knowledge_graph" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.create_graph_entity" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.update_graph_entity" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.delete_graph_entity" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.create_graph_relation" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.graphrag_entity_relations" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.graphrag_community_report" in categories[
-        "knowledge-graph"
-    ].capability_ids
-    assert "native.graphrag_document_upload" in categories[
-        "knowledge-graph"
-    ].capability_ids
+    assert "native.graphrag_entity_search" in categories["knowledge-graph"].capability_ids
+    assert "native.create_knowledge_graph" in categories["knowledge-graph"].capability_ids
+    assert "native.delete_knowledge_graph" in categories["knowledge-graph"].capability_ids
+    assert "native.create_graph_entity" in categories["knowledge-graph"].capability_ids
+    assert "native.update_graph_entity" in categories["knowledge-graph"].capability_ids
+    assert "native.delete_graph_entity" in categories["knowledge-graph"].capability_ids
+    assert "native.create_graph_relation" in categories["knowledge-graph"].capability_ids
+    assert "native.graphrag_entity_relations" in categories["knowledge-graph"].capability_ids
+    assert "native.graphrag_community_report" in categories["knowledge-graph"].capability_ids
+    assert "native.graphrag_document_upload" in categories["knowledge-graph"].capability_ids
     assert "native.create_data_table" in categories["data-tables"].capability_ids
     assert "native.read_data_table_schema" in categories["data-tables"].capability_ids
     assert "native.query_data_table" in categories["data-tables"].capability_ids
@@ -224,6 +198,4 @@ async def test_system_tool_categories_return_functional_capability_mappings(
     assert "native.update_auto_task" in categories["automation"].capability_ids
     assert "native.control_auto_task" in categories["automation"].capability_ids
     assert "runtime.manage_notebook" in categories["notebook"].capability_ids
-    assert "app.agents.tools.notebook_tool:ManageNotebook" in categories[
-        "notebook"
-    ].tool_names
+    assert "app.agents.tools.notebook_tool:ManageNotebook" in categories["notebook"].tool_names

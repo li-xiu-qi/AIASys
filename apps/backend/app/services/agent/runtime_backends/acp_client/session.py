@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import queue
 import subprocess
 import threading
@@ -17,6 +18,7 @@ from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
+from app.core.encoding_utils import smart_decode
 from app.services.agent.runtime_backends.base import (
     AgentRuntimeEvent,
     RuntimeSessionCreateSpec,
@@ -86,17 +88,24 @@ class AcpClientRuntimeSession:
         self.mcp_configs = spec.mcp_configs
         self._cancel_event = asyncio.Event()
         self._closed = False
-        self._active_process: subprocess.Popen[str] | None = None
+        self._active_process: subprocess.Popen[bytes] | None = None
         self._active_process_lock = threading.Lock()
 
     def cancel(self) -> None:
         self._cancel_event.set()
-        proc: subprocess.Popen[str] | None
+        proc: subprocess.Popen[bytes] | None
         with self._active_process_lock:
             proc = self._active_process
         if proc is not None:
             try:
-                proc.terminate()
+                if os.name == "nt":
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                else:
+                    proc.terminate()
             except Exception:
                 pass
 
@@ -104,14 +113,21 @@ class AcpClientRuntimeSession:
         if self._closed:
             return
         self._closed = True
-        proc: subprocess.Popen[str] | None
+        proc: subprocess.Popen[bytes] | None
         with self._active_process_lock:
             proc = self._active_process
             self._active_process = None
         if proc is not None:
             try:
-                proc.terminate()
-                proc.wait(timeout=2)
+                if os.name == "nt":
+                    subprocess.run(
+                        ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                else:
+                    proc.terminate()
+                    proc.wait(timeout=2)
             except Exception:
                 try:
                     proc.kill()
@@ -167,7 +183,6 @@ class AcpClientRuntimeSession:
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
                 bufsize=1,
                 cwd=self._acp_cwd,
             )
@@ -191,15 +206,15 @@ class AcpClientRuntimeSession:
         def _stdout_reader() -> None:
             for line in proc.stdout:
                 try:
-                    inbox.put(json.loads(line))
+                    inbox.put(json.loads(smart_decode(line)))
                 except Exception:
-                    inbox.put({"raw": line.rstrip("\n")})
+                    inbox.put({"raw": smart_decode(line).rstrip("\n")})
 
         def _stderr_reader() -> None:
             if proc.stderr is None:
                 return
             for line in proc.stderr:
-                stderr_tail.append(line.rstrip("\n"))
+                stderr_tail.append(smart_decode(line).rstrip("\n"))
 
         out_thread = threading.Thread(target=_stdout_reader, daemon=True)
         err_thread = threading.Thread(target=_stderr_reader, daemon=True)
@@ -224,7 +239,7 @@ class AcpClientRuntimeSession:
                 "method": method,
                 "params": params,
             }
-            proc.stdin.write(json.dumps(payload) + "\n")
+            proc.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
             proc.stdin.flush()
 
             deadline = time.time() + _DEFAULT_TIMEOUT_SECONDS
@@ -303,7 +318,7 @@ class AcpClientRuntimeSession:
             self._close_process()
 
     def _close_process(self) -> None:
-        proc: subprocess.Popen[str] | None
+        proc: subprocess.Popen[bytes] | None
         with self._active_process_lock:
             proc = self._active_process
             self._active_process = None
@@ -322,7 +337,7 @@ class AcpClientRuntimeSession:
         self,
         msg: dict[str, Any],
         *,
-        process: subprocess.Popen[str],
+        process: subprocess.Popen[bytes],
         cwd: str,
         text_parts: list[str] | None,
         reasoning_parts: list[str] | None,
@@ -360,7 +375,7 @@ class AcpClientRuntimeSession:
         elif method == "fs/read_text_file":
             try:
                 path = _ensure_path_within_cwd(str(params.get("path") or ""), cwd)
-                content = path.read_text() if path.exists() else ""
+                content = path.read_text(encoding="utf-8") if path.exists() else ""
                 line = params.get("line")
                 limit = params.get("limit")
                 if isinstance(line, int) and line > 1:
@@ -379,7 +394,7 @@ class AcpClientRuntimeSession:
             try:
                 path = _ensure_path_within_cwd(str(params.get("path") or ""), cwd)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(str(params.get("content") or ""))
+                path.write_text(str(params.get("content") or ""), encoding="utf-8")
                 response = {"jsonrpc": "2.0", "id": message_id, "result": None}
             except Exception as exc:
                 response = _jsonrpc_error(message_id, -32602, str(exc))
@@ -390,6 +405,6 @@ class AcpClientRuntimeSession:
                 f"ACP client method '{method}' is not supported by AIASys yet.",
             )
 
-        process.stdin.write(json.dumps(response) + "\n")
+        process.stdin.write((json.dumps(response) + "\n").encode("utf-8"))
         process.stdin.flush()
         return True

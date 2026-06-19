@@ -114,7 +114,7 @@ export function PreflightCheck({ onNavigateSettings }: PreflightCheckProps) {
         is_windows: boolean;
       }>(API_ENDPOINTS.SHELL_ENVIRONMENT);
       const family = res.recommended_family;
-      if (res.is_windows && (family === "powershell" || family === "cmd")) {
+      if (res.is_windows && family === "powershell") {
         setItems((prev) =>
           prev.map((item) =>
             item.id === "shell"

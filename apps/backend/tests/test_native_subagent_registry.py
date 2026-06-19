@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from app.services.agent.subagent_registry import SubAgentRegistry, get_subagent_registry
 
 

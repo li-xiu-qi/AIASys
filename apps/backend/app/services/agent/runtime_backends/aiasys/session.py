@@ -406,31 +406,28 @@ class AiasysRuntimeSession(
             "posix": (
                 "当前 Windows 使用 Git Bash。你可以编写标准 POSIX 命令 "
                 "（ls、cat、grep、sed、awk、find、python 等），路径使用 /c/foo/bar 风格。"
-                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell/cmd。"
+                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell。"
             ),
             "wsl": (
                 "当前 Windows 未安装 Git Bash，但检测到 WSL。shell 命令将通过 `wsl.exe bash -c` 执行。"
                 "你可以使用常见 POSIX 命令；访问 Windows 路径时请注意 /mnt/c/ 挂载转换。"
-                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell/cmd。"
+                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell。"
             ),
             "busybox": (
                 "当前 Windows 使用 busybox-w32（ash）作为轻量 POSIX fallback。"
                 "仅支持基础 POSIX 命令，避免使用 GNU bash 数组、[[ ]]、进程替换等扩展特性；"
                 "复杂任务建议用户安装 Git for Windows：https://git-scm.com/download/win。"
-                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell/cmd。"
+                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell。"
             ),
             "powershell": (
                 "当前 Windows 未检测到 POSIX shell，shell 命令将使用 PowerShell 执行。"
                 "请优先使用跨平台命令或 PowerShell cmdlet（Get-Content、Select-String、Where-Object 等）；"
                 "如需完整 POSIX 环境，建议用户安装 Git for Windows：https://git-scm.com/download/win。"
-                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell/cmd。"
+                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell。"
             ),
             "cmd": (
-                "当前 Windows 未检测到 POSIX shell / PowerShell，shell 命令将使用 CMD 执行。"
-                "请仅使用 CMD 兼容命令（dir、type、findstr、copy、move 等），路径用双引号包裹；"
-                "如需 POSIX 环境，建议安装 Git for Windows：https://git-scm.com/download/win "
-                "或下载轻量 fallback busybox-w32：https://frippery.org/busybox/。"
-                "若需要显式切换解释器，可在 Shell 工具的 interpreter 参数中指定 bash/wsl/busybox/powershell/cmd。"
+                "cmd 解释器已移除，AIASys 不再支持 cmd.exe。"
+                "请改用 powershell，或安装 POSIX shell（Git Bash / WSL / busybox-w32）。"
             ),
         }
 
@@ -561,7 +558,10 @@ class AiasysRuntimeSession(
         self._pending_token_estimate += estimate_text_tokens([message])
 
     def _load_persisted_messages(self) -> list[InternalMessage]:
-        session_dir = Path(str(self._spec.work_dir))
+        # 使用 session_dir 而非 work_dir，确保与 SessionManager 写入路径一致。
+        # 当 workspace 绑定时 work_dir 指向 workspace 目录，而 history.json
+        # 由 SessionManager 写入 session 目录。
+        session_dir = self._spec.session_dir or Path(str(self._spec.work_dir))
         history_path = (
             session_dir
             / ".aiasys"
@@ -636,7 +636,8 @@ class AiasysRuntimeSession(
         压缩完成后调用，确保会话重建时能看到压缩后的状态。
         只保存 user/assistant/tool 消息，system prompt 由 __init__ 重新注入。
         """
-        session_dir = Path(str(self._spec.work_dir))
+        # 使用 session_dir 而非 work_dir，与 SessionManager 写入路径对齐
+        session_dir = self._spec.session_dir or Path(str(self._spec.work_dir))
         history_path = (
             session_dir
             / ".aiasys"

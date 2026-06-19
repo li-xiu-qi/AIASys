@@ -141,6 +141,15 @@ export interface GraphVisualizationEdge {
   metadata: Record<string, unknown>;
 }
 
+export interface GraphLayoutPosition {
+  x: number;
+  y: number;
+}
+
+export interface GraphLayoutResponse {
+  positions: Record<string, GraphLayoutPosition>;
+}
+
 export interface GraphVisualizationResponse {
   source: string;
   nodes: GraphVisualizationNode[];
@@ -148,6 +157,7 @@ export interface GraphVisualizationResponse {
   truncated: boolean;
   total_nodes: number;
   total_edges: number;
+  layout_positions?: Record<string, GraphLayoutPosition> | null;
 }
 
 export interface GraphQueryResponse {

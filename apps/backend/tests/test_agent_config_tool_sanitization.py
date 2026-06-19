@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 
-from app.api.routes import agent_config as agent_config_route
 from app.models.user import UserInfo
-from app.services.agent_config.models import AgentMode
-from app.services.agent_config.service import AgentConfigService
 from app.services.agent_config import service as service_module
+from app.services.agent_config.models import AgentMode
 from app.services.runtime_tooling import NATIVE_TASK_TOOL_PATH, RuntimeToolAvailability
 
 TODO_LIST_TOOL_PATH = "app.agents.tools.task_plan_tools:SetTodoList"
@@ -20,7 +17,9 @@ def test_filter_supported_tools_canonicalizes_and_filters(monkeypatch) -> None:
         return RuntimeToolAvailability(
             tool_name=tool_name,
             available=tool_name != "app.agents.tools.unknown:Missing",
-            reason="available" if tool_name != "app.agents.tools.unknown:Missing" else "module_import_error",
+            reason="available"
+            if tool_name != "app.agents.tools.unknown:Missing"
+            else "module_import_error",
         )
 
     monkeypatch.setattr(service_module, "probe_runtime_tool", fake_probe)
@@ -85,4 +84,3 @@ def _write_legacy_tools_config(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-

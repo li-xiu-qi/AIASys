@@ -3,8 +3,8 @@
  *
  * 专门处理用户消息的渲染，包括文本和附件
  */
-import { Check, FileText, Pencil, X } from "lucide-react";
-import { useState } from "react";
+import { Check, ChevronDown, FileText, Pencil, X, Hash } from "lucide-react";
+import { useState, useMemo } from "react";
 import { MarkdownImage } from "../MarkdownImage";
 import { useChatAreaContext } from "./context";
 import { TableIcon } from "./chatAreaIcons";
@@ -27,6 +27,59 @@ function AttachmentIcon({ filename }: { filename: string }) {
     return <TableIcon className="h-3 w-3 text-muted-foreground" />;
   }
   return <FileText size={12} className="text-muted-foreground" />;
+}
+
+const FILE_MENTION_RE = /@(\/(?:workspace|global)\/[^\s]+)/g;
+
+/** 超过此行数的用户消息自动折叠 */
+const COLLAPSE_LINE_THRESHOLD = 15;
+/** 折叠状态下的最大高度 */
+const COLLAPSED_MAX_HEIGHT = "max-h-[300px]";
+
+interface MentionSegment {
+  type: "text" | "mention";
+  content: string;
+  fullPath?: string;
+  scope?: "workspace" | "global";
+}
+
+function splitMentions(content: string): MentionSegment[] {
+  const segments: MentionSegment[] = [];
+  let lastIndex = 0;
+  for (const match of content.matchAll(FILE_MENTION_RE)) {
+    const index = match.index ?? 0;
+    if (index > lastIndex) {
+      segments.push({ type: "text", content: content.slice(lastIndex, index) });
+    }
+    const fullPath = match[1];
+    segments.push({
+      type: "mention",
+      content: fullPath.split("/").pop() || fullPath,
+      fullPath,
+      scope: fullPath.startsWith("/global/") ? "global" : "workspace",
+    });
+    lastIndex = index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    segments.push({ type: "text", content: content.slice(lastIndex) });
+  }
+  return segments;
+}
+
+function MentionTag({ segment }: { segment: MentionSegment }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 align-middle bg-accent/60 border border-border/60 rounded px-1.5 py-0.5 text-xs text-foreground mx-0.5"
+      title={segment.fullPath}
+    >
+      {segment.scope === "global" ? (
+        <Hash size={10} className="text-muted-foreground" />
+      ) : (
+        <FileText size={10} className="text-muted-foreground" />
+      )}
+      <span className="truncate max-w-[160px]">{segment.content}</span>
+    </span>
+  );
 }
 
 export function UserMessageContent() {
@@ -54,6 +107,14 @@ export function UserMessageContent() {
   const [draftContent, setDraftContent] = useState(content);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const segments = useMemo(() => splitMentions(content), [content]);
+
+  // 长消息折叠：超过阈值行数时默认折叠，提供展开/收起切换
+  const isCollapsible = useMemo(
+    () => content.split("\n").length > COLLAPSE_LINE_THRESHOLD,
+    [content],
+  );
+  const [isCollapsed, setIsCollapsed] = useState(isCollapsible);
 
   const handleStartEdit = () => {
     if (!canRewrite || isRunning) {
@@ -169,9 +230,38 @@ export function UserMessageContent() {
         </div>
       ) : content ? (
         <div className="group/user-message relative">
-          <div className="whitespace-pre-wrap break-words pr-7 [overflow-wrap:anywhere]">
-            {content}
+          <div className="relative">
+            <div
+              className={`whitespace-pre-wrap break-words pr-7 [overflow-wrap:anywhere] ${
+                isCollapsed ? `${COLLAPSED_MAX_HEIGHT} overflow-hidden` : ""
+              }`}
+            >
+              {segments.map((segment, idx) =>
+                segment.type === "mention" ? (
+                  <MentionTag key={`${segment.fullPath}-${idx}`} segment={segment} />
+                ) : (
+                  <span key={`${idx}`}>{segment.content}</span>
+                ),
+              )}
+            </div>
+            {/* 折叠时的底部渐变遮罩 */}
+            {isCollapsed && (
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-muted to-transparent" />
+            )}
           </div>
+          {/* 展开/收起按钮 */}
+          {isCollapsible && (
+            <button
+              type="button"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="mt-1 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span>{isCollapsed ? "展开全部" : "收起"}</span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
+              />
+            </button>
+          )}
           {canRewrite ? (
             <Button
               type="button"

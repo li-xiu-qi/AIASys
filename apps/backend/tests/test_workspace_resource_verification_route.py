@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -9,7 +9,6 @@ from app.api.routes import workspaces_resource_utils
 from app.api.routes import workspaces_resources_verification as workspace_route
 from app.models.mcp import MCPServerConfig
 from app.models.user import UserInfo
-
 from app.services.session import SessionManager
 from app.services.workspace_registry import WorkspaceRegistryService
 
@@ -43,11 +42,11 @@ async def test_workspace_resource_verification_route_returns_unified_status(
     conversation = detail.current_conversation
     assert conversation is not None
 
-    import app.services.llm as llm_module
     import app.api.routes.mcp_session as mcp_session_route
-    import app.knowledge as knowledge_module
     import app.graphrag as graphrag_module
+    import app.knowledge as knowledge_module
     import app.services.connector as connector_module
+    import app.services.llm as llm_module
     import app.services.session.config_projection as config_projection_module
 
     class FakeMCPSessionService:
@@ -95,7 +94,9 @@ async def test_workspace_resource_verification_route_returns_unified_status(
             return SimpleNamespace(total=1)
 
     class FakeGraphService:
-        def __init__(self, kb_id: str, auto_init_llm: bool, user_id: str | None = None, graph_store=None):
+        def __init__(
+            self, kb_id: str, auto_init_llm: bool, user_id: str | None = None, graph_store=None
+        ):
             assert kb_id == "system"
 
         async def health_check(self):
@@ -147,7 +148,9 @@ async def test_workspace_resource_verification_route_returns_unified_status(
                 },
             )
 
-        def list_attached_connector_tables(self, *, user_id: str, session_id: str, connector_id: str):
+        def list_attached_connector_tables(
+            self, *, user_id: str, session_id: str, connector_id: str
+        ):
             assert user_id == "local_default"
             assert session_id == conversation.session_id
             assert connector_id == "conn-1"
@@ -176,6 +179,7 @@ async def test_workspace_resource_verification_route_returns_unified_status(
         "get_sqlite_kb_service",
         lambda: FakeKnowledgeService(),
     )
+
     async def fake_list_available_knowledge_graphs(user_id: str = "local_default"):
         return [
             {
@@ -199,6 +203,7 @@ async def test_workspace_resource_verification_route_returns_unified_status(
     )
     # Mock find_db_path to return a valid path so GraphRAGService gets created
     from app.graphrag.core import SQLiteGraphStore
+
     db_file = tmp_path / "test-system.db"
     db_file.touch()
     monkeypatch.setattr(
@@ -289,9 +294,9 @@ async def test_workspace_resource_verification_degrades_per_resource(
     conversation = detail.current_conversation
     assert conversation is not None
 
-    import app.services.llm as llm_module
     import app.knowledge as knowledge_module
     import app.services.connector as connector_module
+    import app.services.llm as llm_module
     import app.services.session.config_projection as config_projection_module
 
     class FakeMCPSessionService:

@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from app.api.routes import notebooks as notebook_route
-from app.api.routes import notebooks_core as notebooks_core_mod
 from app.api.routes import notebooks_execution as notebooks_execution_mod
 from app.api.routes import notebooks_utils as notebooks_utils_mod
 from app.models.notebook import (
@@ -648,7 +647,9 @@ async def test_diff_promote_and_variables_routes_cover_scope_and_runtime_helpers
             ]
 
         @classmethod
-        async def restart_kernel(cls, session_id, notebook_path, user_id, *, cwd=None, helper_env=None):
+        async def restart_kernel(
+            cls, session_id, notebook_path, user_id, *, cwd=None, helper_env=None
+        ):
             _ = (session_id, notebook_path, user_id, cwd, helper_env)
             return True
 

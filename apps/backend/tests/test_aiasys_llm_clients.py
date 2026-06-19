@@ -6,7 +6,12 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from openai.types.chat import ChatCompletionChunk
 
+from app.services.agent.runtime_backends.aiasys.llm_clients import create_llm_client
+from app.services.agent.runtime_backends.aiasys.llm_clients.anthropic_client import (
+    AnthropicChatClient,
+)
 from app.services.agent.runtime_backends.aiasys.llm_clients.base import (
     LlmChunk,
     LlmDelta,
@@ -24,13 +29,9 @@ from app.services.agent.runtime_backends.aiasys.llm_clients.openai_client import
     OpenAIChatClient,
 )
 from app.services.agent.runtime_backends.aiasys.llm_clients.retry_utils import jittered_backoff
-from app.services.agent.runtime_backends.aiasys.llm_clients.anthropic_client import (
-    AnthropicChatClient,
-)
-from app.services.agent.runtime_backends.aiasys.llm_clients import create_llm_client
-
 
 # ── Error Classifier Tests ──────────────────────────────────────────────
+
 
 class FakeHttpError(Exception):
     def __init__(self, message: str, status_code: int | None = None):
@@ -184,6 +185,7 @@ def test_classified_error_is_auth_property():
 
 # ── Retry Utils Tests ───────────────────────────────────────────────────
 
+
 def test_jittered_backoff_increases_with_attempt():
     d1 = jittered_backoff(1)
     d2 = jittered_backoff(2)
@@ -213,7 +215,7 @@ def test_jittered_backoff_decorrelation():
 
 # ── Provider Router Tests ───────────────────────────────────────────────
 
-from app.services.agent.models.llm_config import LlmProviderConfig
+from app.services.agent.models.llm_config import LlmModelConfig, LlmProviderConfig
 from app.services.agent.runtime_backends.aiasys.provider_router import ProviderRouter
 
 
@@ -260,8 +262,8 @@ class _FakeFailingClientFactory:
 @pytest.fixture(autouse=True)
 def _patch_create_llm_client(monkeypatch):
     """在测试中将 create_llm_client 替换为可控版本。"""
-    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
     import app.services.agent.runtime_backends.aiasys.llm_clients as lc_mod
+    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
 
     _original_pr = pr_mod.create_llm_client
     _original_lc = lc_mod.create_llm_client
@@ -295,9 +297,7 @@ async def test_router_primary_succeeds():
         thinking_effort="high",
         thinking_budget_tokens=8192,
     )
-    chunks = [
-        c async for c in router.chat_stream([], None, 0.7, 1024, request_options)
-    ]
+    chunks = [c async for c in router.chat_stream([], None, 0.7, 1024, request_options)]
     assert len(chunks) == 1
     assert chunks[0].delta.content == "ok"
     assert primary.calls[0][4] is request_options
@@ -396,7 +396,9 @@ async def test_router_aclose_closes_current_client():
 
 # ── Credential Pool Tests ───────────────────────────────────────────────
 
-from app.services.agent.runtime_backends.aiasys.llm_clients.credential_pool import CredentialPool, PooledCredential
+from app.services.agent.runtime_backends.aiasys.llm_clients.credential_pool import (
+    CredentialPool,
+)
 
 
 def test_pool_from_single_key_returns_none():
@@ -405,9 +407,7 @@ def test_pool_from_single_key_returns_none():
 
 
 def test_pool_from_multiple_keys():
-    pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2", "k3"]
-    )
+    pool = CredentialPool.from_provider_config("p1", api_key="k1", api_keys=["k2", "k3"])
     assert pool is not None
     assert pool.size == 3
     assert pool.has_available is True
@@ -415,9 +415,7 @@ def test_pool_from_multiple_keys():
 
 @pytest.mark.asyncio
 async def test_pool_round_robin():
-    pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2", "k3"]
-    )
+    pool = CredentialPool.from_provider_config("p1", api_key="k1", api_keys=["k2", "k3"])
     c1 = await pool.get_next()
     c2 = await pool.get_next()
     c3 = await pool.get_next()
@@ -430,9 +428,7 @@ async def test_pool_round_robin():
 
 @pytest.mark.asyncio
 async def test_pool_mark_exhausted():
-    pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2"]
-    )
+    pool = CredentialPool.from_provider_config("p1", api_key="k1", api_keys=["k2"])
     c1 = await pool.get_next()
     next_cred = await pool.mark_exhausted(c1.id, reason="billing")
     assert next_cred is not None
@@ -442,9 +438,7 @@ async def test_pool_mark_exhausted():
 
 @pytest.mark.asyncio
 async def test_pool_all_exhausted():
-    pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2"]
-    )
+    pool = CredentialPool.from_provider_config("p1", api_key="k1", api_keys=["k2"])
     c1 = await pool.get_next()
     await pool.mark_exhausted(c1.id, reason="billing")
     c2 = await pool.get_next()
@@ -455,9 +449,7 @@ async def test_pool_all_exhausted():
 
 @pytest.mark.asyncio
 async def test_pool_cooldown_recovery(monkeypatch):
-    pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2"]
-    )
+    pool = CredentialPool.from_provider_config("p1", api_key="k1", api_keys=["k2"])
     assert pool is not None
     c1 = await pool.get_next()
     await pool.mark_exhausted(c1.id, reason="rate_limit")
@@ -465,6 +457,7 @@ async def test_pool_cooldown_recovery(monkeypatch):
 
     # 模拟时间前进超过冷却期
     import time as time_mod
+
     future = time_mod.time() + 4000
     monkeypatch.setattr(time_mod, "time", lambda: future)
     assert c1.is_available is True
@@ -473,7 +466,9 @@ async def test_pool_cooldown_recovery(monkeypatch):
 @pytest.mark.asyncio
 async def test_pool_random_strategy():
     pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2", "k3", "k4"],
+        "p1",
+        api_key="k1",
+        api_keys=["k2", "k3", "k4"],
         strategy="random",
     )
     keys = {(await pool.get_next()).api_key for _ in range(20)}
@@ -483,7 +478,9 @@ async def test_pool_random_strategy():
 @pytest.mark.asyncio
 async def test_pool_least_used_strategy():
     pool = CredentialPool.from_provider_config(
-        "p1", api_key="k1", api_keys=["k2", "k3"],
+        "p1",
+        api_key="k1",
+        api_keys=["k2", "k3"],
         strategy="least_used",
     )
     c1 = await pool.get_next()
@@ -493,6 +490,7 @@ async def test_pool_least_used_strategy():
 
 
 # ── ProviderRouter + CredentialPool Integration Tests ───────────────────
+
 
 class _FakeKeyTrackingClient:
     """记录传入的 api_key_override 的 fake client。"""
@@ -530,8 +528,8 @@ class _FakeKeyTrackingFactory:
 
 async def test_router_rotates_credentials_within_provider(monkeypatch):
     """同一 provider 配置了多个 key，第一个 key billing 耗尽后应切换到第二个 key。"""
-    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
     import app.services.agent.runtime_backends.aiasys.llm_clients as lc_mod
+    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
 
     _orig_pr = pr_mod.create_llm_client
     _orig_lc = lc_mod.create_llm_client
@@ -560,8 +558,8 @@ async def test_router_rotates_credentials_within_provider(monkeypatch):
 
 async def test_router_fallback_when_all_credentials_exhausted(monkeypatch):
     """同一 provider 所有 key 耗尽后应 fallback 到下一个 provider。"""
-    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
     import app.services.agent.runtime_backends.aiasys.llm_clients as lc_mod
+    import app.services.agent.runtime_backends.aiasys.provider_router as pr_mod
 
     _orig_pr = pr_mod.create_llm_client
     _orig_lc = lc_mod.create_llm_client
@@ -909,6 +907,42 @@ def test_create_llm_client_returns_openai_client_for_chat_completions_protocol()
     asyncio.run(client.aclose())
 
 
+def test_create_llm_client_model_reasoning_key_overrides_provider():
+    """模型级别的 reasoning_key 应覆盖 provider 级别的配置。"""
+    provider = LlmProviderConfig(
+        api_key="test-key",
+        base_url="https://api.stepfun.com/step_plan/v1",
+        type="openai_chat_completions",
+        reasoning_key="reasoning_content",
+    )
+    model = LlmModelConfig(
+        model="step-3.7-flash",
+        reasoning_key="reasoning",
+    )
+
+    client = create_llm_client(provider, "step-3.7-flash", model_config=model)
+
+    assert isinstance(client, OpenAIChatClient)
+    assert client._reasoning_key == "reasoning"
+    asyncio.run(client.aclose())
+
+
+def test_create_llm_client_falls_back_to_provider_reasoning_key():
+    """模型未配置 reasoning_key 时，回退到 provider 级别。"""
+    provider = LlmProviderConfig(
+        api_key="test-key",
+        base_url="https://api.stepfun.com/step_plan/v1",
+        type="openai_chat_completions",
+        reasoning_key="reasoning_details",
+    )
+
+    client = create_llm_client(provider, "step-3.7-flash")
+
+    assert isinstance(client, OpenAIChatClient)
+    assert client._reasoning_key == "reasoning_details"
+    asyncio.run(client.aclose())
+
+
 # ── OpenAIChatClient thinking 优化测试 ──────────────────────────────────
 
 
@@ -948,6 +982,104 @@ def test_openai_client_does_not_add_reasoning_effort_when_thinking_disabled() ->
     assert "reasoning_effort" not in kwargs
 
 
+# ── OpenAIChatClient StepFun / reasoning 字段兼容测试 ───────────────────
+
+
+def _make_openai_chunk(
+    delta: dict[str, Any], usage: dict[str, int] | None = None
+) -> ChatCompletionChunk:
+    """用原始 dict 构造 ChatCompletionChunk，模拟 Step Plan 等厂商的非标准字段。"""
+    return ChatCompletionChunk.model_validate(
+        {
+            "id": "test-chunk",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "step-3.7-flash",
+            "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            "usage": usage,
+        }
+    )
+
+
+def test_openai_client_extracts_reasoning_from_step_plan_stream() -> None:
+    """Step Plan 流式 delta 同时携带 reasoning 和 reasoning_content 时应正确提取。"""
+    client = OpenAIChatClient.__new__(OpenAIChatClient)
+    client._reasoning_key = None
+
+    chunks = [
+        client._normalize_chunk(_make_openai_chunk({"role": "assistant", "content": ""})),
+        client._normalize_chunk(
+            _make_openai_chunk(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "reasoning": "用户",
+                    "reasoning_content": "用户",
+                }
+            )
+        ),
+        client._normalize_chunk(
+            _make_openai_chunk(
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "reasoning": "现在说",
+                    "reasoning_content": "现在说",
+                }
+            )
+        ),
+        client._normalize_chunk(_make_openai_chunk({"role": "assistant", "content": "好"})),
+    ]
+
+    assert chunks[0] is not None
+    assert chunks[0].delta.content == ""
+    assert chunks[0].delta.reasoning_content is None
+
+    assert chunks[1] is not None
+    assert chunks[1].delta.content == ""
+    assert chunks[1].delta.reasoning_content == "用户"
+
+    assert chunks[2] is not None
+    assert chunks[2].delta.reasoning_content == "现在说"
+
+    assert chunks[3] is not None
+    assert chunks[3].delta.content == "好"
+    assert chunks[3].delta.reasoning_content is None
+
+
+def test_openai_client_extracts_reasoning_from_alternate_keys() -> None:
+    """当 provider 只返回 reasoning（没有 reasoning_content）时也应识别。"""
+    client = OpenAIChatClient.__new__(OpenAIChatClient)
+    client._reasoning_key = None
+
+    chunk = client._normalize_chunk(
+        _make_openai_chunk({"role": "assistant", "content": "", "reasoning": "内部推理"})
+    )
+
+    assert chunk is not None
+    assert chunk.delta.reasoning_content == "内部推理"
+
+
+def test_openai_client_prefers_explicit_reasoning_key() -> None:
+    """显式配置 reasoning_key 时，优先从该字段读取。"""
+    client = OpenAIChatClient.__new__(OpenAIChatClient)
+    client._reasoning_key = "reasoning"
+
+    chunk = client._normalize_chunk(
+        _make_openai_chunk(
+            {
+                "role": "assistant",
+                "content": "",
+                "reasoning_content": "不应被选中",
+                "reasoning": "应被选中",
+            }
+        )
+    )
+
+    assert chunk is not None
+    assert chunk.delta.reasoning_content == "应被选中"
+
+
 # ── AnthropicChatClient adaptive thinking 优化测试 ─────────────────────
 
 
@@ -960,9 +1092,7 @@ def test_anthropic_client_uses_adaptive_thinking_for_opus_46() -> None:
         thinking_enabled=True,
         thinking_effort="high",
     )
-    kwargs = _extract_anthropic_kwargs(
-        client, request_options=request_options, max_tokens=8192
-    )
+    kwargs = _extract_anthropic_kwargs(client, request_options=request_options, max_tokens=8192)
 
     assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert kwargs["output_config"] == {"effort": "high"}
@@ -1007,9 +1137,7 @@ def test_anthropic_client_uses_legacy_thinking_for_claude_35() -> None:
         thinking_enabled=True,
         thinking_effort="medium",
     )
-    kwargs = _extract_anthropic_kwargs(
-        client, request_options=request_options, max_tokens=4096
-    )
+    kwargs = _extract_anthropic_kwargs(client, request_options=request_options, max_tokens=4096)
 
     assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 4096}
     assert kwargs["max_tokens"] >= 4096 + 2048
@@ -1056,9 +1184,7 @@ def test_anthropic_client_does_not_force_temperature_for_adaptive() -> None:
         thinking_enabled=True,
         thinking_effort="high",
     )
-    kwargs = _extract_anthropic_kwargs(
-        client, request_options=request_options, temperature=0.5
-    )
+    kwargs = _extract_anthropic_kwargs(client, request_options=request_options, temperature=0.5)
 
     assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert kwargs["temperature"] == 0.5

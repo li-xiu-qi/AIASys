@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -296,4 +295,7 @@ async def test_resume_agent_reconstructs_session(tmp_path, lifecycle, registry):
     assert resumed
     assert registry.is_active("agent_1")
     assert registry.get_status("agent_1") == SubAgentRegistry.STATUS_IDLE
-    assert mock_session.messages == [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}]
+    assert mock_session.messages == [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "hi"},
+    ]

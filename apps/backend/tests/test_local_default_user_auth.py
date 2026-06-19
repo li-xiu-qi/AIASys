@@ -3,15 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fastapi import Response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from fastapi import Response
 from starlette.requests import Request
 
 from app.api.routes import auth as auth_route
 from app.core import auth as auth_module
-from app.core.database import Base, User
 from app.core import database as database_module
+from app.core.database import Base, User
 
 
 def _build_test_session_local(tmp_path: Path):

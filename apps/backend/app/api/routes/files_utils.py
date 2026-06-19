@@ -23,6 +23,7 @@ from app.models.user import UserInfo
 from app.services.export import MARKDOWN_EXTENSIONS
 from app.services.runtime.notebook_activity import is_notebook_session_busy
 from app.services.workspace_registry import get_workspace_registry_service
+from app.utils.path_utils import as_system_path
 
 logger = logging.getLogger(__name__)
 
@@ -839,7 +840,7 @@ def _get_session_owner_user_id(user_id: str, session_id: str) -> Optional[str]:
         session_dir = _get_work_dir(user_id, session_id)
         meta_path = session_dir / "metadata.json"
         if meta_path.exists():
-            data = json.loads(meta_path.read_text(encoding="utf-8"))
+            data = json.loads(Path(as_system_path(meta_path)).read_text(encoding="utf-8"))
             return data.get("user_id")
     except Exception:
         pass
@@ -884,7 +885,7 @@ def _read_csv_preview_page(
     data_stop_index = data_start_index + safe_page_size
 
     try:
-        with file_path.open("r", encoding="utf-8", newline="") as csv_file:
+        with Path(as_system_path(file_path)).open("r", encoding="utf-8", newline="") as csv_file:
             reader = csv.reader(csv_file)
             headers = next(reader, [])
             total_columns = len(headers)
@@ -956,7 +957,7 @@ def _update_csv_preview_page(
     updated_rows = 0
     temp_path: Path | None = None
     try:
-        with file_path.open("r", encoding="utf-8", newline="") as source:
+        with Path(as_system_path(file_path)).open("r", encoding="utf-8", newline="") as source:
             reader = csv.reader(source)
             fd, temp_name = tempfile.mkstemp(
                 prefix=f".{file_path.name}.",
@@ -966,7 +967,7 @@ def _update_csv_preview_page(
             )
             os.close(fd)
             temp_path = Path(temp_name)
-            with temp_path.open("w", encoding="utf-8", newline="") as target:
+            with Path(as_system_path(temp_path)).open("w", encoding="utf-8", newline="") as target:
                 writer = csv.writer(target)
                 for physical_index, source_row in enumerate(reader):
                     if physical_index == 0:

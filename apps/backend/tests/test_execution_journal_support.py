@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.services.session.core import SessionManager
 from app.services.runtime.execution_support import (
     ExecutionJournalContext,
     append_execution_record_if_possible,
 )
+from app.services.session.core import SessionManager
 
 
 def test_append_execution_record_persists_agent_config_snapshot(tmp_path: Path) -> None:

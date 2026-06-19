@@ -5,7 +5,6 @@ import pytest
 from app.services.agent_config.models import AgentMode
 from app.services.agent_config.service import AgentConfigService
 
-
 SEARCH_WEB_TOOL = "app.agents.tools.read_media_tool:ReadMediaFile"
 FETCH_URL_TOOL = "app.agents.tools.notebook_session_tool:ListSessionNotebooks"
 

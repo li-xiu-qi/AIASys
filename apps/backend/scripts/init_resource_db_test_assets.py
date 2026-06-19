@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
@@ -104,10 +103,7 @@ def write_metadata_table(conn: sqlite3.Connection, metadata: dict[str, Any]) -> 
     )
     conn.executemany(
         f"INSERT INTO {RESOURCE_METADATA_TABLE} (key, value) VALUES (?, ?)",
-        [
-            (str(key), encode_metadata_value(value))
-            for key, value in sorted(metadata.items())
-        ],
+        [(str(key), encode_metadata_value(value)) for key, value in sorted(metadata.items())],
     )
 
 
@@ -448,7 +444,6 @@ def resolve_or_create_target(
             workspace_id=resolved_workspace_id,
             title="资源型 DB metadata smoke",
             description="用于验证工作区资产树中的资源型 SQLite 文件识别与渲染。",
-
             initial_conversation_id=resolved_session_id or DEFAULT_SESSION_ID,
             initial_conversation_title="资源型 DB 测试会话",
         )

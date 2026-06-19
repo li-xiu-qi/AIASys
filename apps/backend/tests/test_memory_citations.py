@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from app.services.memory.pipeline import (
     MemoryPipelineService,
-    get_memory_state_runtime,
 )
 from app.services.memory.state_runtime import MemoryStateRuntime
 

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from app.core.auth import LOCAL_DEFAULT_USER_ID
 from app.core.config import get_user_global_config_dir
 from app.core.encryption import decrypt_api_key, encrypt_api_key
+from app.utils.path_utils import as_system_path
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class LLMProviderStorage:
             return {"providers": [], "models": []}
 
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(as_system_path(config_path), "r", encoding="utf-8") as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"加载配置失败 ({config_path}): {e}")
@@ -49,7 +50,7 @@ class LLMProviderStorage:
         config_path = self._get_user_config_path(user_id)
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(config_path, "w", encoding="utf-8") as f:
+        with open(as_system_path(config_path), "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False, default=str)
 
     def _decrypt_provider(self, provider: Dict[str, Any]) -> Dict[str, Any]:

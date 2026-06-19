@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.services.workspace_registry import WorkspaceRegistryService
 
 from app.core.config import WORKSPACE_DIR
+from app.core.encoding_utils import smart_decode
 from app.models.runtime_environment import (
     RuntimeEnvCommandResult,
     RuntimeEnvPackage,
@@ -593,7 +594,6 @@ class RuntimeEnvironmentService:
                 command,
                 cwd=str(cwd),
                 env=env,
-                text=True,
                 capture_output=True,
                 timeout=300,
                 check=False,
@@ -610,8 +610,8 @@ class RuntimeEnvironmentService:
             command=command,
             cwd=str(cwd),
             returncode=completed.returncode,
-            stdout=_safe_tail(completed.stdout or ""),
-            stderr=_safe_tail(completed.stderr or ""),
+            stdout=_safe_tail(smart_decode(completed.stdout or b"")),
+            stderr=_safe_tail(smart_decode(completed.stderr or b"")),
         )
 
     def _list_uv_packages(self, python_bin: Path) -> list[RuntimeEnvPackage]:
@@ -627,7 +627,6 @@ class RuntimeEnvironmentService:
         try:
             completed = subprocess.run(
                 [str(python_bin), "-m", "pip", "list", "--format=json"],
-                text=True,
                 capture_output=True,
                 timeout=30,
                 check=False,
@@ -637,7 +636,7 @@ class RuntimeEnvironmentService:
         if completed.returncode != 0:
             return []
         try:
-            data = json.loads(completed.stdout or "[]")
+            data = json.loads(smart_decode(completed.stdout or b"[]"))
         except Exception:
             return []
         packages = []
@@ -669,7 +668,6 @@ print(json.dumps(packages))
         try:
             completed = subprocess.run(
                 [str(python_bin), "-c", script],
-                text=True,
                 capture_output=True,
                 timeout=30,
                 check=False,
@@ -679,7 +677,7 @@ print(json.dumps(packages))
         if completed.returncode != 0:
             return []
         try:
-            data = json.loads(completed.stdout or "[]")
+            data = json.loads(smart_decode(completed.stdout or b"[]"))
         except Exception:
             return []
         packages = []
@@ -702,7 +700,6 @@ print(json.dumps(packages))
                     "-c",
                     "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')",
                 ],
-                text=True,
                 capture_output=True,
                 timeout=10,
                 check=False,
@@ -711,7 +708,7 @@ print(json.dumps(packages))
             return None
         if completed.returncode != 0:
             return None
-        return (completed.stdout or "").strip() or None
+        return smart_decode(completed.stdout or b"").strip() or None
 
     def _read_python_version(self, env_dir: Path) -> str | None:
         version_file = env_dir / ".python-version"

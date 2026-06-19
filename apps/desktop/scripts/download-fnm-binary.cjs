@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
 const FNM_VERSION = "1.39.0";
@@ -65,12 +66,15 @@ function curlDownload(url, dest) {
 }
 
 function verifySha256(filePath, expectedHash) {
-  const result = spawnSync("sha256sum", [filePath], { encoding: "utf-8", stdio: "pipe" });
-  if (result.status !== 0) {
-    console.warn("[download-fnm] sha256sum 不可用，跳过校验");
+  // 使用 Node.js 内置 crypto 计算 SHA256，避免依赖外部命令 sha256sum（Windows 无此命令）
+  let buf;
+  try {
+    buf = fs.readFileSync(filePath);
+  } catch (err) {
+    console.warn(`[download-fnm] 读取文件失败，跳过校验: ${err.message}`);
     return true;
   }
-  const actualHash = (result.stdout || "").trim().split(/\s+/)[0];
+  const actualHash = crypto.createHash("sha256").update(buf).digest("hex");
   if (actualHash !== expectedHash) {
     throw new Error(
       `SHA256 校验失败: 期望 ${expectedHash}, 实际 ${actualHash}`
@@ -80,14 +84,38 @@ function verifySha256(filePath, expectedHash) {
   return true;
 }
 
+function resolvePython() {
+  const candidates = [process.env.PYTHON, process.env.PYTHON3, "py", "python3", "python"].filter(Boolean);
+  for (const cmd of candidates) {
+    const result = spawnSync(cmd, ["--version"], { encoding: "utf-8", stdio: "pipe" });
+    if (result.status === 0) return cmd;
+  }
+  return null;
+}
+
 function unzip(zipPath, targetDir) {
   console.log(`[download-fnm] 解压: ${zipPath}`);
   const result = spawnSync("unzip", ["-q", "-o", zipPath, "-d", targetDir], {
     encoding: "utf-8", stdio: "pipe",
   });
-  if (result.status !== 0) {
-    throw new Error(`解压失败: ${result.stderr || result.error}`);
+  if (result.status === 0) return;
+  if (result.error && result.error.code === "ENOENT") {
+    const pyCmd = resolvePython();
+    if (!pyCmd) {
+      throw new Error("未找到可用的 Python 解释器（尝试 py/python3/python），无法解压 zip");
+    }
+    console.log(`[download-fnm] 未找到 unzip，使用 ${pyCmd} zipfile 解压`);
+    const pyResult = spawnSync(
+      pyCmd,
+      ["-m", "zipfile", "-e", zipPath, targetDir],
+      { encoding: "utf-8", stdio: "pipe" }
+    );
+    if (pyResult.status !== 0) {
+      throw new Error(`${pyCmd} zipfile 解压失败: ${pyResult.stderr || pyResult.error}`);
+    }
+    return;
   }
+  throw new Error(`解压失败: ${result.stderr || result.error}`);
 }
 
 async function downloadForPlatform(slug) {

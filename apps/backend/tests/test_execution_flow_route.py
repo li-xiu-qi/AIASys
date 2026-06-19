@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
-from app.core.workspace_path import WorkspacePath
 
 from app.api.routes import agent as agent_route
+from app.core.workspace_path import WorkspacePath
 from app.models.user import UserInfo
 
 

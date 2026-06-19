@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 PREFERRED_FONT_FAMILIES = (
     "Noto Sans CJK SC",
     "Noto Sans SC",

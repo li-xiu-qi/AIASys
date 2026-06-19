@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from app.core.agent_tool import AiasysTool
 from app.core.tool_result import ToolResult
 from app.services.history import current_workspace
+from app.utils.path_utils import as_system_path
 
 MAX_MEDIA_MEGABYTES = 100
 _CONTAINER_WORKSPACE_ROOT: Final = PurePosixPath("/workspace")
@@ -204,7 +205,7 @@ class ReadMediaFile(AiasysTool):
 
     @staticmethod
     def _read_header(path: Path) -> bytes:
-        with path.open("rb") as file:
+        with Path(as_system_path(path)).open("rb") as file:
             return file.read(_FALLBACK_MEDIA_SNIFF_BYTES)
 
     def _validate_file_type(
@@ -280,7 +281,7 @@ class ReadMediaFile(AiasysTool):
             ]
             return ToolResult(content=content_parts)
 
-        data = host_path.read_bytes()
+        data = Path(as_system_path(host_path)).read_bytes()
         data_url = _to_data_url(file_type.mime_type, data)
         wrapped = _wrap_media_payload("video", data_url, visible_path)
         return ToolResult(content=wrapped)

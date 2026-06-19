@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import types
-
 import pytest
 
 from app.api.routes import mcp as mcp_route

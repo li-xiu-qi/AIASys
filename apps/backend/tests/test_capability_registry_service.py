@@ -1,13 +1,6 @@
 from __future__ import annotations
 
 from app.services import capability_registry as capability_registry_module
-from app.services.capability_registry import CapabilityRegistryService
-from app.services.runtime_tooling import (
-    NATIVE_TASK_TOOL_PATH,
-    READ_MEDIA_TOOL_PATH,
-    RuntimeToolAvailability,
-    probe_runtime_tool,
-)
 from app.services.agent.system_presets import (
     AUTO_TASK_TOOL_PATHS,
     CANVAS_TOOL_PATHS,
@@ -16,6 +9,13 @@ from app.services.agent.system_presets import (
     KNOWLEDGE_GRAPH_TOOL_PATHS,
     RUNTIME_ENVIRONMENT_TOOL_PATH,
     SESSION_TASK_PLAN_TOOL_PATHS,
+)
+from app.services.capability_registry import CapabilityRegistryService
+from app.services.runtime_tooling import (
+    NATIVE_TASK_TOOL_PATH,
+    READ_MEDIA_TOOL_PATH,
+    RuntimeToolAvailability,
+    probe_runtime_tool,
 )
 
 
@@ -160,7 +160,8 @@ def test_capability_registry_includes_mode_presets(monkeypatch) -> None:
     assert task_capability.config_schema["source"] == "system_preset"
     assert "runtime.read_file" not in analysis_preset.capability_ids
     runtime_env_capability = next(
-        item for item in registry.capabilities
+        item
+        for item in registry.capabilities
         if item.capability_id == "runtime.manage_workspace_runtime_environment"
     )
     assert runtime_env_capability.config_schema["tool_name"] == RUNTIME_ENVIRONMENT_TOOL_PATH

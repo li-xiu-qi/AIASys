@@ -2,7 +2,7 @@
  * useShellEnvStatus — 轻量级 Shell 环境状态 hook
  *
  * 在对话页面侧栏展示当前推荐的 Shell 类型。
- * 如果 Windows 上 fallback 到 PowerShell/CMD，显示警告样式。
+ * 如果 Windows 上 fallback 到 PowerShell，显示警告样式。
  */
 import { useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api/httpClient";
@@ -37,7 +37,7 @@ export function useShellEnvStatus() {
         family,
         isWindows: res.is_windows,
         needsAttention:
-          res.is_windows && (family === "powershell" || family === "cmd"),
+          res.is_windows && family === "powershell",
       };
       cachedResult = result;
       cacheTimestamp = Date.now();
@@ -59,7 +59,6 @@ const FAMILY_LABELS: Record<string, string> = {
   wsl: "WSL",
   busybox: "busybox",
   powershell: "PowerShell",
-  cmd: "CMD",
 };
 
 export function shellFamilyLabel(family: string): string {

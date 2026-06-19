@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import tempfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -46,6 +45,7 @@ async def test_invoke_stream_sets_cancelled_status_on_cancelled_error(
     class CancelledAsyncIterator:
         def __aiter__(self):
             return self
+
         async def __anext__(self):
             raise asyncio.CancelledError("Simulated SSE disconnect")
 
@@ -96,14 +96,12 @@ async def test_invoke_stream_sets_cancelled_status_on_cancelled_error(
     mock_session.prompt.assert_called_once()
 
     # 验证 storage 目录已创建且状态为 cancelled
-    from app.services.agent.subagent_storage import SubAgentStorage
 
     # agent_id 格式: {subagent_name}_{uuid.hex[:12]}
     # 需要从实际创建的 storage 中读取，但 agent_id 在 invoke_stream 内部生成。
     # 我们通过扫描 subagents 目录来找到它。
     subagents_dir = (
-        temp_workspace / "test_user" / "test_session"
-        / ".aiasys" / "session" / "subagents"
+        temp_workspace / "test_user" / "test_session" / ".aiasys" / "session" / "subagents"
     )
     assert subagents_dir.exists(), f"subagents dir not found at {subagents_dir}"
 
@@ -116,9 +114,7 @@ async def test_invoke_stream_sets_cancelled_status_on_cancelled_error(
     import json
 
     meta = json.loads(meta_file.read_text())
-    assert meta["status"] == "cancelled", (
-        f"Expected status 'cancelled', got '{meta['status']}'"
-    )
+    assert meta["status"] == "cancelled", f"Expected status 'cancelled', got '{meta['status']}'"
     assert meta["subagent_type"] == "coder"
 
     # 验证 session.close 被调用（在 finally 中）
@@ -145,6 +141,7 @@ async def test_invoke_stream_sets_failed_status_on_generic_exception(
     class FailingAsyncIterator:
         def __aiter__(self):
             return self
+
         async def __anext__(self):
             raise RuntimeError("Something went wrong")
 
@@ -195,8 +192,7 @@ async def test_invoke_stream_sets_failed_status_on_generic_exception(
     assert "执行异常" in results[-1].content
 
     subagents_dir = (
-        temp_workspace / "test_user" / "test_session"
-        / ".aiasys" / "session" / "subagents"
+        temp_workspace / "test_user" / "test_session" / ".aiasys" / "session" / "subagents"
     )
     agent_dirs = [d for d in subagents_dir.iterdir() if d.is_dir()]
     assert len(agent_dirs) == 1
@@ -204,6 +200,4 @@ async def test_invoke_stream_sets_failed_status_on_generic_exception(
     import json
 
     meta = json.loads((agent_dirs[0] / "meta.json").read_text())
-    assert meta["status"] == "failed", (
-        f"Expected status 'failed', got '{meta['status']}'"
-    )
+    assert meta["status"] == "failed", f"Expected status 'failed', got '{meta['status']}'"

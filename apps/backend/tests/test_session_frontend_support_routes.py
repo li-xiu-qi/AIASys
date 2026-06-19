@@ -9,7 +9,6 @@ from app.models.expert import ExpertRoleSummary, SessionExpertPolicyResponse
 from app.models.user import UserInfo
 from app.services.history.session_execution_journal import SessionExecutionJournal
 from app.services.session import SessionManager
-
 from app.services.workspace_registry import WorkspaceRegistryService
 
 
@@ -86,7 +85,6 @@ async def test_session_settings_artifacts_and_references_support_frontend(
     workspace_dir = tmp_path / "local_default" / "task-support"
     (workspace_dir / "root-report.md").write_text("root", encoding="utf-8")
 
-
     session_dir = tmp_path / "local_default" / "branch-support"
     session_dir.mkdir(parents=True, exist_ok=True)
     (session_dir / "branch-private.ipynb").write_text("{}", encoding="utf-8")
@@ -122,9 +120,7 @@ async def test_session_settings_artifacts_and_references_support_frontend(
         current_user=_build_user(),
     )
     assert reference_search.workspace_id == "task-support"
-    assert [item.reference_id for item in reference_search.items] == [
-        "file:root-report.md"
-    ]
+    assert [item.reference_id for item in reference_search.items] == ["file:root-report.md"]
 
     expert_search = await sessions_branches_route.search_session_references(
         "local_default",
@@ -142,8 +138,6 @@ async def test_session_settings_artifacts_and_references_support_frontend(
         ),
         current_user=_build_user(),
     )
-    assert [item.reference_id for item in resolved.resolved] == [
-        "file:root-report.md"
-    ]
+    assert [item.reference_id for item in resolved.resolved] == ["file:root-report.md"]
     assert resolved.unresolved_reference_ids == ["missing:item"]
     assert resolved.task_resource_context["direct_reference_object_count"] >= 1

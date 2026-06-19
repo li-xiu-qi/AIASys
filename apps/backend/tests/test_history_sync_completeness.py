@@ -6,16 +6,15 @@
 """
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from app.services.session.core import SessionManager
 from app.services.session.constants import (
     ACTIVE_SESSION_STATE_DIR_NAME,
     HISTORY_SNAPSHOT_FILE_NAME,
 )
+from app.services.session.core import SessionManager
 
 
 @pytest.fixture

@@ -32,6 +32,7 @@ from app.services.connector.constants import (
     _PASSWORD_FIELD_RE,
 )
 from app.services.runtime.execution_replay_risk import derive_execution_replay_risk
+from app.utils.path_utils import as_system_path
 
 logger = logging.getLogger(__name__)
 EXECUTION_JOURNAL_TOOL_NAMES = {"LocalIPythonBox"}
@@ -128,7 +129,7 @@ class SessionExecutionJournal:
         """
         if clear_conversation:
             self.active_state_dir.mkdir(parents=True, exist_ok=True)
-            self.history_path.write_text(
+            Path(as_system_path(self.history_path)).write_text(
                 json.dumps({"_schema_version": 1, "messages": []}, ensure_ascii=False),
                 encoding="utf-8",
             )
@@ -280,7 +281,7 @@ class SessionExecutionJournal:
         )
 
         with self._records_lock:
-            with open(self.records_path, "a", encoding="utf-8") as f:
+            with open(as_system_path(self.records_path), "a", encoding="utf-8") as f:
                 f.write(json.dumps(record.model_dump(), ensure_ascii=False) + "\n")
 
         self._write_json(
@@ -350,7 +351,7 @@ class SessionExecutionJournal:
         }
 
         with self._replay_runs_lock:
-            with open(self.replay_runs_path, "a", encoding="utf-8") as f:
+            with open(as_system_path(self.replay_runs_path), "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
         return payload
@@ -361,7 +362,7 @@ class SessionExecutionJournal:
             return []
 
         records: list[ExecutionRecord] = []
-        with open(self.records_path, "r", encoding="utf-8") as f:
+        with open(as_system_path(self.records_path), "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -414,7 +415,7 @@ class SessionExecutionJournal:
         target_dir = self.stdout_dir if stream_name == "stdout" else self.stderr_dir
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / f"{record_id}.log"
-        target_path.write_text(str(content), encoding="utf-8")
+        Path(as_system_path(target_path)).write_text(str(content), encoding="utf-8")
         return str(target_path.relative_to(self.session_dir).as_posix())
 
     def _derive_preview_text(
@@ -470,13 +471,13 @@ class SessionExecutionJournal:
         if not path.exists():
             return dict(default)
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return json.loads(Path(as_system_path(path)).read_text(encoding="utf-8"))
         except Exception as exc:
             logger.warning("读取 JSON 失败，回退默认值: path=%s error=%s", path, exc)
             return dict(default)
 
     def _write_json(self, path: Path, payload: dict) -> None:
-        path.write_text(
+        Path(as_system_path(path)).write_text(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )

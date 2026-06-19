@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -205,5 +204,6 @@ class TestMCPWorkspaceRoutes:
         # 验证工作区配置中已删除
         workspace_config = tmp_path / TEST_USER_ID / "workspace-3" / ".aiasys" / "mcp_config.json"
         import json
+
         ws_data = json.loads(workspace_config.read_text(encoding="utf-8"))
         assert "custom-server" not in ws_data.get("servers", {})

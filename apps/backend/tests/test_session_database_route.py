@@ -9,7 +9,6 @@ from app.models.database_access import (
     RuntimeDatabaseExecuteRequest,
     RuntimeDatabaseQueryRequest,
 )
-from app.services.database import create_runtime_database_token
 from app.services.connector import (
     DatabaseConnectorApprovalRejectedError,
     DatabaseConnectorApprovalTimeoutError,
@@ -18,15 +17,12 @@ from app.services.connector import (
     DatabaseConnectorRemoteExecutionError,
     DatabaseConnectorRemotePermissionError,
 )
+from app.services.database import create_runtime_database_token
 
 
 class _Request:
     def __init__(self, token: str | None = None) -> None:
-        self.headers = (
-            {"authorization": f"Bearer {token}"}
-            if token is not None
-            else {}
-        )
+        self.headers = {"authorization": f"Bearer {token}"} if token is not None else {}
 
 
 class _FakeBroker:

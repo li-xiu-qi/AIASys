@@ -7,6 +7,7 @@ from app.services.agent.message_content import build_content_signature
 from app.services.runtime.session_runtime_state import (
     format_runtime_summary_for_prompt,
 )
+from app.utils.path_utils import as_system_path
 
 USER_PROMPT_EXECUTION_CONTRACT_HEADER = """[执行契约]
 下面的 USER_TASK 就是用户当前要你执行的唯一任务。
@@ -120,7 +121,7 @@ def append_display_history_entry(
     if transport_content is not None:
         entry["transport_content"] = transport_content
 
-    with open(display_history_path, "a", encoding="utf-8") as f:
+    with open(as_system_path(display_history_path), "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
@@ -135,7 +136,7 @@ def load_display_history_entries(
         return []
 
     entries: List[Dict[str, Any]] = []
-    with open(display_history_path, "r", encoding="utf-8") as f:
+    with open(as_system_path(display_history_path), "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:

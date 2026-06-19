@@ -19,6 +19,7 @@ from app.services.export import (
     MarkdownExportError,
     export_markdown_file,
 )
+from app.utils.path_utils import as_system_path
 
 from .files_utils import (
     EDITABLE_EXTENSIONS,
@@ -96,7 +97,7 @@ async def upload_file(
             file_path.parent.mkdir(parents=True, exist_ok=True)
         else:
             file_path = work_dir / safe_filename
-        with open(file_path, "wb") as f:
+        with open(as_system_path(file_path), "wb") as f:
             from .files_utils import _copyfileobj_with_limit
 
             _copyfileobj_with_limit(file.file, f)
@@ -171,7 +172,7 @@ async def create_file(
         )
         overwritten = file_path.exists()
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_bytes(content_bytes)
+        Path(as_system_path(file_path)).write_bytes(content_bytes)
 
         if _is_workspace_memory_mirror_path(normalized_path):
             _sync_workspace_memory_from_mirror(
@@ -484,7 +485,7 @@ async def get_file_content(
 
         # 读取文件内容
         try:
-            content = file_path.read_text(encoding="utf-8")
+            content = Path(as_system_path(file_path)).read_text(encoding="utf-8")
             file_size = file_path.stat().st_size
         except UnicodeDecodeError:
             raise HTTPException(status_code=400, detail="文件不是有效的文本文件")
@@ -635,12 +636,14 @@ async def update_file_content(
         if file_path.exists():
             backup_path = file_path.with_suffix(f"{file_path.suffix}.backup")
             try:
-                backup_path.write_text(file_path.read_text(encoding="utf-8"), encoding="utf-8")
+                Path(as_system_path(backup_path)).write_text(
+                    Path(as_system_path(file_path)).read_text(encoding="utf-8"), encoding="utf-8"
+                )
             except Exception:
                 pass  # 备份失败不影响主流程
 
         # 写入新内容
-        file_path.write_bytes(content_bytes)
+        Path(as_system_path(file_path)).write_bytes(content_bytes)
 
         if _is_workspace_memory_mirror_path(normalized_path):
             _sync_workspace_memory_from_mirror(

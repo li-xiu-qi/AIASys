@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -27,6 +28,8 @@ from app.services.shell_executor import ShellOptions, get_shell_executor
 
 MAX_OUTPUT_BYTES = 16_384  # 16KB，参考 Codex CLI
 DEFAULT_TIMEOUT = 60
+
+logger = logging.getLogger(__name__)
 MAX_TIMEOUT = 300  # 5分钟
 
 
@@ -118,10 +121,10 @@ class ShellParams(BaseModel):
         default="auto",
         description=(
             "指定使用的 shell 解释器。支持："
-            "auto（自动选择，默认）、bash、wsl、busybox、powershell、cmd；"
+            "auto（自动选择，默认）、bash、wsl、busybox、powershell；"
             "也支持常见别名如 pwsh/sh/ash；"
             "还可以传入可执行文件路径（如 C:\\Program Files\\PowerShell\\7\\pwsh.exe）。"
-            "Windows 上 auto 的优先级为：Git Bash → WSL → busybox-w32 → PowerShell → CMD。"
+            "Windows 上 auto 的优先级为：Git Bash → WSL → busybox-w32 → PowerShell。"
         ),
     )
 
@@ -204,6 +207,23 @@ class Shell(AiasysTool):
             )
 
         executor = get_shell_executor()
+        interpreter = params.interpreter
+        # Windows UV 环境绑定的是 Windows 宿主路径与 uv 可执行文件，
+        # WSL bash 无法直接访问。若解释器被探测为 wsl，自动回退到 powershell，
+        # 避免报 "uv: command not found" 等错误。
+        if (
+            os.name == "nt"
+            and not params.container
+            and plan.env is not None
+            and plan.env.kind == "uv"
+        ):
+            _, _, family = executor.detect_interpreter(interpreter)
+            if family == "wsl":
+                logger.warning(
+                    "UV runtime with WSL interpreter detected, falling back to powershell"
+                )
+                interpreter = "powershell"
+
         options = ShellOptions(
             cwd=str(cwd),
             env=env,
@@ -211,9 +231,7 @@ class Shell(AiasysTool):
         )
 
         try:
-            result = await executor.execute(
-                command, options=options, interpreter=params.interpreter
-            )
+            result = await executor.execute(command, options=options, interpreter=interpreter)
         except TimeoutError:
             return ToolResult(
                 content=f"命令执行超时（{params.timeout}秒），已终止",

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.services.workspace_registry import WorkspaceRegistryService
 
 from app.core.config import WORKSPACE_DIR
+from app.core.encoding_utils import smart_decode
 from app.models.runtime_environment import (
     NodeRuntimeEnv,
     NodeRuntimeEnvRegistryResponse,
@@ -665,13 +666,12 @@ class NodeRuntimeService:
             completed = subprocess.run(
                 [fnm_bin, "env", "--json"],
                 capture_output=True,
-                text=True,
                 timeout=10,
             )
             if completed.returncode == 0:
                 import json as _json
 
-                _json.loads(completed.stdout)
+                _json.loads(smart_decode(completed.stdout or b""))
                 # fnm env --json 包含 PATH，从中提取 npm 版本
                 # 这里简化处理，返回 None 让调用方自行检测
         except Exception:
@@ -756,7 +756,6 @@ class NodeRuntimeService:
                 command,
                 cwd=str(workspace_dir),
                 env=env,
-                text=True,
                 capture_output=True,
                 timeout=300,
                 check=False,
@@ -774,8 +773,8 @@ class NodeRuntimeService:
             command=command,
             cwd=str(workspace_dir),
             returncode=completed.returncode,
-            stdout=_safe_tail(completed.stdout or ""),
-            stderr=_safe_tail(completed.stderr or ""),
+            stdout=_safe_tail(smart_decode(completed.stdout or b"")),
+            stderr=_safe_tail(smart_decode(completed.stderr or b"")),
         )
 
     # ------------------------------------------------------------------

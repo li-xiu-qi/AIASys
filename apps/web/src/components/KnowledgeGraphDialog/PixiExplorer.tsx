@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { GraphVisualizationResponse } from "@/types/graphrag";
 import { useContainerSize } from "./hooks/useContainerSize";
 import { GraphControls } from "./components/GraphControls";
@@ -10,10 +10,12 @@ import {
 import { findFirstMatchedNodeId } from "./lib/graphInteractions";
 import {
   PixiGraphController,
+  type PixiExplorerHandle,
   type PixiGraphViewport,
 } from "./lib/pixiGraph";
 
 export type { LayoutMode };
+export type { PixiExplorerHandle };
 
 interface PixiExplorerProps {
   data: GraphVisualizationResponse;
@@ -21,15 +23,18 @@ interface PixiExplorerProps {
   searchQuery: string;
   layoutMode: LayoutMode;
   onSelectNode: (nodeId: string | null) => void;
+  initialPositions?: Record<string, { x: number; y: number }> | null;
 }
 
-export function PixiExplorer({
-  data,
-  selectedNodeId,
-  searchQuery,
-  layoutMode,
-  onSelectNode,
-}: PixiExplorerProps) {
+export const PixiExplorer = forwardRef<PixiExplorerHandle, PixiExplorerProps>(
+  function PixiExplorer({
+    data,
+    selectedNodeId,
+    searchQuery,
+    layoutMode,
+    onSelectNode,
+    initialPositions,
+  }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const controllerRef = useRef<PixiGraphController | null>(null);
   const viewportRef = useRef<PixiGraphViewport | null>(null);
@@ -38,6 +43,10 @@ export function PixiExplorer({
 
   const graphData = useMemo(() => buildGraphData(data), [data]);
   const normalizedLayoutMode = normalizeLayoutMode(layoutMode);
+
+  useImperativeHandle(ref, () => ({
+    getNodePositions: () => controllerRef.current?.getNodePositions() ?? {},
+  }), []);
 
   useEffect(() => {
     return () => {
@@ -69,6 +78,7 @@ export function PixiExplorer({
         selectedNodeId,
         searchQuery,
         onSelectNode,
+        initialPositions,
       });
 
       if (cancelled) {
@@ -86,7 +96,7 @@ export function PixiExplorer({
     return () => {
       cancelled = true;
     };
-  }, [graphData, onSelectNode, searchQuery, selectedNodeId, size]);
+  }, [graphData, onSelectNode, searchQuery, selectedNodeId, size, initialPositions]);
 
   useEffect(() => {
     controllerRef.current?.setData(graphData);
@@ -125,4 +135,4 @@ export function PixiExplorer({
       <GraphControls graphRef={viewportRef} graphReady={graphReady} />
     </div>
   );
-}
+});

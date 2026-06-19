@@ -116,9 +116,9 @@ async def test_workspace_overview_returns_backend_projection(
         result_preview_text="overview",
     )
 
+    import app.api.routes.workspaces_overview_utils as overview_utils_module
     import app.core.config as config_module
     import app.knowledge as knowledge_module
-    import app.api.routes.workspaces_overview_utils as overview_utils_module
     import app.services.session.config_projection as config_projection_module
 
     class FakeKnowledgeService:
@@ -195,15 +195,17 @@ async def test_workspace_overview_returns_backend_projection(
     )
     monkeypatch.setattr(
         "app.graphrag.core.SQLiteGraphStore.list_graphs",
-        classmethod(lambda cls, user_id: [
-            {
-                "kg_id": "graph-overview",
-                "name": "概览图谱",
-                "entity_count": 3,
-                "relation_count": 2,
-                "document_count": 1,
-            }
-        ]),
+        classmethod(
+            lambda cls, user_id: [
+                {
+                    "kg_id": "graph-overview",
+                    "name": "概览图谱",
+                    "entity_count": 3,
+                    "relation_count": 2,
+                    "document_count": 1,
+                }
+            ]
+        ),
     )
     monkeypatch.setattr(
         config_projection_module,

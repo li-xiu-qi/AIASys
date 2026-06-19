@@ -52,10 +52,15 @@ continueInstall:
 
 !macro customUnInstall
   ; 在卸载文件完成后，询问是否删除用户数据
-  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除用户数据（工作区文件、会话历史、日志、本地数据库）？选择「是」将彻底删除 %APPDATA%\AIASys Desktop 下的所有数据。选择「否」仅卸载程序，保留用户数据。" IDYES deleteData IDNO keepData
+  ; 注意：用户数据目录名由 Electron app name（package.json 的 name 字段）决定，
+  ; 实际为 aiasys-desktop，不是 productName（AIASys_Desktop），也不是带空格的 AIASys Desktop。
+  MessageBox MB_YESNO|MB_ICONQUESTION "是否同时删除用户数据（工作区文件、会话历史、日志、本地数据库）？选择「是」将彻底删除 %APPDATA%\aiasys-desktop 下的所有数据。选择「否」仅卸载程序，保留用户数据。" IDYES deleteData IDNO keepData
 
 deleteData:
-  RMDir /r "$APPDATA\AIASys Desktop"
+  ; Electron 始终把用户数据写在 per-user 的 Roaming 下；卸载时强制切到 current 上下文，
+  ; 避免 per-machine 安装时 $APPDATA 指向 ProgramData 而漏删。
+  SetShellVarContext current
+  RMDir /r "$APPDATA\aiasys-desktop"
   DetailPrint "已删除用户数据"
   Goto dataDone
 

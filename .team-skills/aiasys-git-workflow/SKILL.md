@@ -317,14 +317,21 @@ git branch -d feature/mcp-config
 
 ## 变更记录更新
 
-当前仓库可能不存在稳定的 `docs/changelog/` 主入口。
+`docs/changelog/` 是当前仓库稳定的人类可维护 changelog 入口，位于 `docs/changelog/README.md` 有详细编写规范。
 
-因此默认规则改为：
+规则：
 
-- 先以 Git 提交本身作为交付记录主链
-- 需要 AI 侧持续追踪时，优先写入当前 active task session
-- 只有当仓库当前明确保留人类可维护的 changelog 目录时，才额外补写 changelog 文件
-- 如果 `docs/changelog/` 已被清空或重建中，不要为了一条提交重新造一套旧目录结构
+- **任何用户可感知的功能新增、bug 修复、性能优化、接口不兼容修改，必须随 PR 同步更新 `docs/changelog/`**。
+- 文档-only 改动（如 README、AGENTS.md）默认不写 changelog；若文档更新伴随真实功能修复，应记录功能修复本身。
+- 纯版本号变更、纯格式整理、运维操作不写 changelog。
+- 每个 release 必须有一份对应的 `docs/changelog/vX.Y.Z_YYYY-MM-DD.md`。
+
+AI 在协助用户准备 PR 时：
+
+1. 先判断本次改动是否包含用户可感知的行为变化。
+2. 若包含，检查是否已存在对应的 changelog 文件或条目。
+3. 若不存在，按 `docs/changelog/README.md` 规范补充。
+4. 不要把 changelog 更新和代码改动塞进同一个 commit，应独立为 `docs(changelog): ...` commit。
 
 ---
 
@@ -350,21 +357,50 @@ gh release create v0.0.0-beta.1 --prerelease --title "Beta v0.0.0-beta.1"
 
 ## Beta 版本发布检查清单
 
-适合从 `dev` 合并到 `main` 后发布 beta 预发布版本：
+适合从 `dev` 合并到 `main` 后发布 beta 预发布版本。
+
+### 推荐方式：使用发布脚本
+
+```bash
+# 在 main 分支上执行
+./scripts/dev/release.sh X.Y.Z-beta.N
+```
+
+脚本会自动完成：分支检查、工作区检查、changelog 检查、三端版本号同步、提交、打 tag。
+
+演练模式（不实际提交/tag）：
+
+```bash
+./scripts/dev/release.sh --dry-run X.Y.Z-beta.N
+```
+
+### 手动方式
 
 1. **合并主线**：feature → dev → main（均通过 PR，不要直接 push）。
 2. **同步版本号**：修改以下三处为同一版本：
-   - `apps/web/package.json`
-   - `apps/desktop/package.json`
-   - `apps/backend/pyproject.toml`
+  - `apps/web/package.json`
+  - `apps/desktop/package.json`
+  - `apps/backend/pyproject.toml`
 3. **更新 changelog**：在 `docs/changelog/` 新建 `v{version}_{YYYY-MM-DD}.md`，记录主要变更。
-4. **打 tag 并推送**：
-   ```bash
-   git tag vX.Y.Z-beta.N
-   git push upstream vX.Y.Z-beta.N
-   ```
-5. **等待 CI 构建**：`v*` tag 会触发 `.github/workflows/ci-desktop.yml`，在 Linux / Windows / macOS 三端构建桌面安装包并上传到 release。
-6. **验证产物**：通过 `gh release view vX.Y.Z-beta.N --json assets` 确认 AppImage / exe / dmg / zip 已上传。
+4. **提交版本号变更**：
+  ```bash
+  git add apps/web/package.json apps/desktop/package.json apps/backend/pyproject.toml
+  git commit -m "chore(release): bump version to X.Y.Z-beta.N"
+  ```
+5. **打 tag 并推送**：
+  ```bash
+  git tag vX.Y.Z-beta.N
+  git push upstream main
+  git push upstream vX.Y.Z-beta.N
+  ```
+6. **等待 CI 构建**：`v*` tag 会触发 `.github/workflows/ci-desktop.yml`，在 Linux / Windows / macOS 三端构建桌面安装包并上传到 release。
+7. **验证产物**：通过 `gh release view vX.Y.Z-beta.N --json assets` 确认 AppImage / exe / dmg / zip 已上传。
+
+### 发布纪律
+
+- **禁止直接 push `main` 或 `dev`**，管理员自己的改动也必须走 PR。
+- 发布前确认 CI 在 `main` 上通过。
+- 每个 release 必须有对应的 changelog。
 
 ---
 

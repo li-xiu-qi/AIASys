@@ -252,18 +252,142 @@ git add ...
 git commit -m "feat(mcp): ..."
 
 # 3. 保持与主分支同步
-git fetch origin
-git rebase origin/dev
+git fetch upstream
+git rebase upstream/dev
 
-# 4. 推送分支
+# 4. 推送分支到自己的 fork
 git push -u origin feature/mcp-config
 
-# 5. 创建 PR（GitHub/GitLab）
+# 5. 创建 PR（从 fork 向 upstream/dev）
 
 # 6. 合并后清理
 git checkout main
-git pull origin main
+git pull upstream main
 git branch -d feature/mcp-config
+```
+
+### 在 fork 上完成 CI 验证
+
+所有工作流文件都在仓库中，fork 仓库默认会运行 GitHub Actions。外部贡献者和管理员都可以**在自己的 fork 上**完成 CI 验证：
+
+**常规检查**：push 到 fork 的功能分支后，lint / type-check / test 工作流会自动运行。
+
+**桌面端构建**：`.github/workflows/ci-desktop.yml` 监听 `v*` 标签。在 fork 上可以这样触发：
+
+```bash
+# 将功能分支合并到 fork main（或直接在 main 上验证）
+git checkout main
+git merge feature/mcp-config
+git push origin main
+
+# 打 tag 并推送，触发 fork 的 Desktop Build CI
+git tag v0.4.17-fork-test.1
+git push origin v0.4.17-fork-test.1
+```
+
+注意：
+- fork 上的 tag 仅用于验证构建，不应与上游正式 tag 冲突。
+- 正式发版仍按上游流程：从 `upstream/dev` PR 到 `upstream/main`，合并后在 `upstream/main` 上打 tag。
+
+### fork 先行 CI 与上游选择性发版
+
+项目采用「fork 先行验证，上游选择性发布」的双层模型：
+
+```
+贡献者 fork
+├── feature/xxx 分支开发
+├── push 到 fork 触发 lint / test / type-check
+├── 合并到 fork main + 打 v* tag 触发桌面构建 CI
+└── 确认 CI 通过后，向 upstream/dev 提 PR
+
+upstream 主仓库
+├── dev 接收并审查 PR
+├── main 只合入经过验证的 release 批次
+└── 管理员选择性在 main 上打 tag，触发正式桌面发布
+```
+
+**对贡献者的要求：**
+
+1. **常规改动**：至少让 fork 上的 lint / test / type-check CI 通过后再提 PR。
+2. **涉及桌面端**：建议先在 fork 上合并到 main 并打 `vX.Y.Z-fork-test.N` tag，确认 Desktop Build CI 通过后再向上游提 PR。
+3. **修正 commit**：根据 review 意见，在自己的 fork 分支上 rebase / amend，force push 到 fork，不要直接 push 到 upstream。
+
+**对上游维护者的要求：**
+
+1. **不替贡献者跑 CI**：桌面构建在 fork 侧完成，上游只 review 代码和 CI 结果。
+2. **选择性打 tag**：只有准备发布时，才在 `upstream/main` 上打正式 `v*` tag 触发全局桌面发布。
+3. **上游 tag 即正式发布**：fork 的 tag 是验证 tag，upstream 的 tag 是 release tag，两者语义不同。
+
+### 修正 commit
+
+在 PR 审查过程中，作者应在自己的 fork 分支上修正 commit：
+
+```bash
+# 本地整理历史（未 push 或仅 push 到自己 fork 时）
+git rebase -i upstream/dev
+
+# 合并上游最新改动后解决冲突
+git fetch upstream
+git rebase upstream/dev
+
+# 已 push 到自己 fork，安全更新
+git push --force-with-lease origin feature/mcp-config
+```
+
+红线：
+- 禁止对已合并到 `upstream/dev` / `upstream/main` 的 commit 做 rebase / force push。
+- 禁止替外部贡献者 rebase 其 PR 分支，除非对方明确授权。
+
+---
+
+## Rebase 使用规范
+
+### 核心原则
+
+Rebase 用于**整理自己的本地历史**，不是用于改写已共享的历史。
+
+> **绝对禁止**：对已经合并到 `dev` / `main` 的 commit 做 rebase 或 force push。
+
+### 适用场景
+
+| 场景 | 是否推荐 | 说明 |
+|---|---|---|
+| 本地分支尚未 push | ✅ 推荐 | 整理 commit、清理临时提交，无协作副作用 |
+| 自己 fork 上的分支，刚 push，无他人基于它工作 | ✅ 可以 | 整理后再提 PR，可 force push 到自己 fork |
+| 外部贡献者的 PR 分支 | ❌ 禁止 | 不要替作者 rebase，会破坏对方本地分支和 review 上下文 |
+| 多人协作的功能分支 | ❌ 禁止 | 一旦有人基于旧 commit 工作，历史会分叉 |
+| 已合并到 `dev` / `main` 的历史 | ❌ 绝对禁止 | 等同于重写项目主历史 |
+
+### 与贡献记录的关系
+
+- `git rebase` 默认**保留每个 commit 的 author 信息**，只改变 commit hash
+- GitHub 贡献统计基于 author，因此正常 rebase **不会抹除贡献记录**
+- 会抹除贡献记录的行为：
+  - `git commit --amend --author=...` 改写他人 commit 的作者
+  - Squash merge 时把多个作者的 commit 压成一个，且未加 `Co-authored-by:`
+  - 用 `git rebase -i` 配合 `exec 'git commit --amend --reset-author --no-edit'` 批量重置 author
+
+### 推荐操作
+
+```bash
+# 1. 本地整理历史（未 push 前）
+git rebase -i HEAD~5
+
+# 2. 自己的 fork 分支在提 PR 前保持与 upstream/dev 同步
+git fetch upstream
+git rebase upstream/dev
+
+# 3. 如果已经 push 到 fork，需要 force push（仅当自己分支无他人依赖时）
+git push --force-with-lease origin feature/mcp-config
+```
+
+### 多人协作时的替代方案
+
+如果分支有多人协作，或外部贡献者已基于该分支工作，**用 merge 代替 rebase**：
+
+```bash
+git fetch upstream
+git merge upstream/dev
 ```
 
 ---

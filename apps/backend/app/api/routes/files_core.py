@@ -94,7 +94,7 @@ async def upload_file(
         # 统一保存到对应目录，对应容器内 /workspace/uploads/{filename}
         if relative_dir:
             file_path = work_dir / relative_dir / safe_filename
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            Path(as_system_path(file_path.parent)).mkdir(parents=True, exist_ok=True)
         else:
             file_path = work_dir / safe_filename
         with open(as_system_path(file_path), "wb") as f:
@@ -171,7 +171,7 @@ async def create_file(
             normalized_path,
         )
         overwritten = file_path.exists()
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(as_system_path(file_path.parent)).mkdir(parents=True, exist_ok=True)
         Path(as_system_path(file_path)).write_bytes(content_bytes)
 
         if _is_workspace_memory_mirror_path(normalized_path):
@@ -305,9 +305,9 @@ async def delete_file(
                     status_code=400,
                     detail="目标是一个目录，需要传入 recursive=true 才能删除",
                 )
-            shutil.rmtree(file_path)
+            shutil.rmtree(as_system_path(file_path))
         else:
-            file_path.unlink()
+            Path(as_system_path(file_path)).unlink()
         logger.info(f"文件删除: {user_id}/{session_id}/{filename} by {current_user.user_id}")
 
         return {"success": True, "deleted_by": current_user.user_id}
@@ -630,7 +630,7 @@ async def update_file_content(
         content_bytes = request.content.encode("utf-8")
 
         # 确保目录存在
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(as_system_path(file_path.parent)).mkdir(parents=True, exist_ok=True)
 
         # 备份原文件（如果存在）
         if file_path.exists():
@@ -707,9 +707,9 @@ async def move_file(
             pass
 
         # 确保目标父目录存在
-        target_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(as_system_path(target_path.parent)).mkdir(parents=True, exist_ok=True)
 
-        shutil.move(str(source_path), str(target_path))
+        shutil.move(str(as_system_path(source_path)), str(as_system_path(target_path)))
 
         logger.info(
             "文件移动: %s/%s %s -> %s by %s",
@@ -777,11 +777,13 @@ async def copy_file(
             except ValueError:
                 pass
 
-        target_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(as_system_path(target_path.parent)).mkdir(parents=True, exist_ok=True)
         if source_path.is_dir():
-            shutil.copytree(source_path, target_path, symlinks=True)
+            shutil.copytree(
+                str(as_system_path(source_path)), str(as_system_path(target_path)), symlinks=True
+            )
         else:
-            shutil.copy2(source_path, target_path)
+            shutil.copy2(str(as_system_path(source_path)), str(as_system_path(target_path)))
 
         logger.info(
             "文件复制: %s/%s %s -> %s by %s",

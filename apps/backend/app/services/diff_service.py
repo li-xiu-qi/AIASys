@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from app.core.encoding_utils import smart_decode
 from app.utils.path_utils import as_system_path
 
 DiffStatus = Literal["added", "deleted", "modified", "unchanged", "skipped"]
@@ -411,9 +412,9 @@ class DiffService:
         if self._looks_binary(content[:4096]):
             return None, "二进制文件不展示内容差异"
         try:
-            return content.decode("utf-8"), None
-        except UnicodeDecodeError:
-            return None, "文件不是有效的 UTF-8 文本"
+            return smart_decode(content), None
+        except (UnicodeDecodeError, ValueError):
+            return None, "文件不是有效的文本"
 
     def _unified_diff(
         self,

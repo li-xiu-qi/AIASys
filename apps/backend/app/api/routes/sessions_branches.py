@@ -31,6 +31,7 @@ from app.services.session.config_projection import (
     ensure_workspace_layout,
 )
 from app.services.workspace_registry import get_workspace_registry_service
+from app.utils.path_utils import as_system_path
 
 from .sessions_helpers import (
     _build_session_status_payload,
@@ -1191,7 +1192,7 @@ async def cleanup_draft_sessions(
             age = now - draft["created_at"]
             if age > effective_threshold:
                 try:
-                    shutil.rmtree(draft["dir"])
+                    shutil.rmtree(as_system_path(draft["dir"]))
                     cleaned.append(draft["session_id"])
                     logger.info(
                         f"清理草稿: {current_user.user_id}/{draft['session_id']} (marked={is_marked})"

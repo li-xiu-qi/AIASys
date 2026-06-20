@@ -228,7 +228,40 @@ git diff --name-only origin/dev...HEAD | grep -E 'apps/backend/app/core/|apps/ba
 
 ---
 
-### 11. 临时文件/调试脚本残留检查
+### 11. Fork CI 状态检查
+
+项目采用 **fork 先行 CI 验证** 模型：所有 GitHub Actions 工作流都在仓库内，fork 默认会运行同样的 CI。外部贡献者和管理员都应先在自己的 fork 上确认 CI 通过，再向 `upstream/dev` 提 PR。
+
+**常规改动**：
+
+```bash
+# 推送功能分支到 fork 后，检查 CI 状态
+gh run list --repo <your-fork>/AIASys --branch $(git branch --show-current) --limit 5
+```
+
+**桌面端改动**：
+
+如果 PR 涉及桌面端（`apps/desktop/`、打包脚本、跨平台 Shell/路径逻辑），建议先在 fork 上合并到 `main` 并打 `v*-fork-test.N` tag，确认 Desktop Build CI 通过：
+
+```bash
+git checkout main
+git merge feature/xxx
+git push origin main
+git tag v0.0.0-fork-test.1
+git push origin v0.0.0-fork-test.1
+
+# 检查 run 状态
+gh run list --repo <your-fork>/AIASys --workflow "Desktop Build CI" --limit 5
+```
+
+**判定**：
+- fork 上 lint / test / type-check 未通过 → 建议先在 fork 分支修复，再提 PR。
+- 涉及桌面端且未在 fork 上验证 Desktop Build CI → 建议补充验证；若改动明显不影响桌面端，可在 PR 描述中说明。
+- fork CI 通过后再提 PR → 加速 upstream review，减少来回修改。
+
+---
+
+### 12. 临时文件/调试脚本残留检查
 
 开发过程中会产生大量临时脚本和调试产物。如果不清理就提交，会导致仓库膨胀、混淆正式代码。
 
@@ -288,7 +321,8 @@ Agent 在创建/审查 PR 时应按以下顺序执行：
 1. **快速阻断检查**（1-4）：gitignore 违规、敏感文件、冲突标记 → 任一命中则阻断
 2. **质量检查**（5-7）：commit message、行尾符、大文件 → 建议修复
 3. **完整性检查**（8-10）：二进制文件、Skill 注册、AGENTS.md 影响 → 按情况判断
-4. **卫生检查**（11）：临时文件/调试脚本残留 → 清理后提交
+4. **CI 预检查**（11）：fork 上 lint / test / type-check / Desktop Build 是否通过 → 未通过建议先修复
+5. **卫生检查**（12）：临时文件/调试脚本残留 → 清理后提交
 
 ## 自动执行脚本
 

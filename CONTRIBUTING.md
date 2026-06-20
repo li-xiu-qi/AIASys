@@ -32,11 +32,13 @@
 3. 添加上游仓库：`git remote add upstream https://github.com/AIAsys/AIASys.git`
 4. 创建分支：`git checkout -b feature/your-feature-name`
 5. 实现改动：优先遵循仓库现有结构，不额外引入平行方案或重复入口。
-6. 自检验证：
-  - 后端：在 `apps/backend/` 至少运行 `make test`
-  - 后端静态检查：如有必要再运行 `make lint`
-  - 前端：在 `apps/web/` 至少运行 `npm run build`
-  - 前端补充检查：按需要运行 `npm run lint`、`npm run test:e2e:lifecycle`
+6. 自检验证（本地或 fork CI）：
+  - 本地验证：
+    - 后端：在 `apps/backend/` 至少运行 `make test`
+    - 后端静态检查：如有必要再运行 `make lint`
+    - 前端：在 `apps/web/` 至少运行 `npm run build`
+    - 前端补充检查：按需要运行 `npm run lint`、`npm run test:e2e:lifecycle`
+  - fork CI 验证：推送后 GitHub Actions 会自动运行 lint、类型检查和测试。桌面端构建见下方「在 fork 上触发桌面版 CI」。
 7. 推送到你的 fork：`git push origin feature/your-feature-name`
 8. 从你的 fork 向 `AIAsys/AIASys` 的 `dev` 分支提交 PR
 
@@ -67,6 +69,8 @@ type(scope): 简短说明
 ### 3.2 Commit 拆分原则
 
 **每个 commit 只做一个逻辑单元。** 不要把前端 UI、后端 API、bugfix、文档、截图混在一个 commit 里。
+
+> PR 可以包含多个 commit，只要每个 commit 都是一个可独立理解的逻辑单元；不要为了凑单 commit 而强行 squash。
 
 **不好的示例（不要这样做）：**
 
@@ -124,6 +128,63 @@ git push origin dev
 
 - **任何改动都不要直接 push 到 `main` 或 `dev`，必须走 PR 流程**。维护者/管理员自己的改动也不例外，至少在 GitHub 上留下 PR 记录和 review 痕迹。
 - CODEOWNERS（`.github/CODEOWNERS`）定义了各路径的默认审查人，PR 会自动请求对应 Owner 审查。
+
+### 在 fork 上触发桌面版 CI
+
+本仓库的 `.github/workflows/ci-desktop.yml` 监听 `v*` 标签推送。你**可以在自己的 fork上**完成桌面端构建验证，无需等待上游发布：
+
+```bash
+# 1. 确保你的功能分支已合并到 fork 的 main（或直接从 main 发布验证）
+git checkout main
+git merge feature/your-feature-name
+
+# 2. 推送 main 到你的 fork
+git push origin main
+
+# 3. 打 tag 并推送，触发 fork 的 Desktop Build & Pre-release CI
+git tag v0.0.0-fork-test.1
+git push origin v0.0.0-fork-test.1
+```
+
+注意事项：
+- fork 上的 tag 版本号建议与最终上游版本区分开，避免混淆（如 `v0.4.17-fork-test.1`）。
+- CI 成功仅代表构建产物可生成；最终发布版本仍需按上游流程从 `upstream/main` 打 tag。
+- 如果不需要桌面版构建，普通 push 到功能分支已足够触发 lint / test / type-check 工作流。
+
+#### fork 先行 CI，上游选择性发版
+
+项目鼓励贡献者**先在自己的 fork 上完成 CI 验证**，再向上游提 PR：
+
+1. **常规改动**：push 到 fork 的功能分支后，等待 lint / test / type-check 通过。
+2. **涉及桌面端**：将功能分支合并到 fork main，打 `vX.Y.Z-fork-test.N` tag，确认 Desktop Build CI 通过。
+3. **向上游提 PR**：CI 通过后，从 fork 向 `AIAsys/AIASys/dev` 创建 PR。
+
+上游维护者**选择性打 tag**：只有准备正式发布时，才会在 `upstream/main` 上打正式 `v*` tag 触发全局桌面发布。fork 的 tag 只用于验证，upstream 的 tag 才是 release。
+
+### 修正 commit
+
+在 PR 被 review 要求修改、或自己想整理提交历史时，可以在**自己 fork 的分支**上修正 commit：
+
+```bash
+# 1. 获取 upstream 最新状态
+git fetch upstream
+
+# 2. 回到你的功能分支
+git checkout feature/your-feature-name
+
+# 3. 在本地整理历史（未 push 或仅 push 到自己 fork 且无他人依赖时）
+git rebase -i upstream/dev
+
+# 4. 如果需要合并到 upstream/dev 之后修复冲突
+git rebase upstream/dev
+
+# 5. 已 push 到自己 fork 后，使用 force-with-lease 安全更新
+git push --force-with-lease origin feature/your-feature-name
+```
+
+禁止：
+- 对已合并到 `upstream/dev` 或 `upstream/main` 的 commit 做 rebase / force push。
+- 替外部贡献者 rebase 其 PR 分支，除非对方明确开启 "Allow edits by maintainers" 且你确认无风险。
 - 若只有一位维护者，可启用 self-review，但仍需通过 PR 合并，不能直接 push。
 
 ### 4.2 Pre-commit Hooks
@@ -234,10 +295,18 @@ AIASys/
 ## 7. 相关规范索引
 
 - 仓库权威规范：`AGENTS.md`（同时存在于 `.kimi-code/AGENTS.md` 供 Kimi Code 读取）
-- Git 工作流 Skill：`.team-skills/aiasys-git-workflow/SKILL.md`
+- 团队共享 Skill 池：`.team-skills/`
+  - Git 工作流：`.team-skills/aiasys-git-workflow/SKILL.md`
+  - PR 提交前检查：`.team-skills/pr-check/SKILL.md`
+  - 团队 Skill 治理：`.team-skills/team-skill-governance/SKILL.md`
+  - Skill 路由总览：`.team-skills/team-skill-guide/SKILL.md`
+  - 前端架构：`.team-skills/aiasys-frontend-architecture/SKILL.md`
+  - 系统设计：`.team-skills/aiasys-system-design/SKILL.md`
+  - 工具开发：`.team-skills/aiasys-tool-dev/SKILL.md`
+  - Commit 历史审计：`.team-skills/commit-history-audit/SKILL.md`
+  - 跨平台兼容：`.team-skills/aiasys-cross-platform/SKILL.md`
 - 维护者发版流程：`docs/guides/maintainers/RELEASE_PROCESS.md`
 - Changelog 编写规范：`docs/changelog/README.md`
-- PR 提交前检查：`.team-skills/pr-check/SKILL.md`
 
 ## 8. 获取帮助
 

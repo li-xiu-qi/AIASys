@@ -289,6 +289,35 @@ git push origin v0.4.17-fork-test.1
 - fork 上的 tag 仅用于验证构建，不应与上游正式 tag 冲突。
 - 正式发版仍按上游流程：从 `upstream/dev` PR 到 `upstream/main`，合并后在 `upstream/main` 上打 tag。
 
+### fork 先行 CI 与上游选择性发版
+
+项目采用「fork 先行验证，上游选择性发布」的双层模型：
+
+```
+贡献者 fork
+├── feature/xxx 分支开发
+├── push 到 fork 触发 lint / test / type-check
+├── 合并到 fork main + 打 v* tag 触发桌面构建 CI
+└── 确认 CI 通过后，向 upstream/dev 提 PR
+
+upstream 主仓库
+├── dev 接收并审查 PR
+├── main 只合入经过验证的 release 批次
+└── 管理员选择性在 main 上打 tag，触发正式桌面发布
+```
+
+**对贡献者的要求：**
+
+1. **常规改动**：至少让 fork 上的 lint / test / type-check CI 通过后再提 PR。
+2. **涉及桌面端**：建议先在 fork 上合并到 main 并打 `vX.Y.Z-fork-test.N` tag，确认 Desktop Build CI 通过后再向上游提 PR。
+3. **修正 commit**：根据 review 意见，在自己的 fork 分支上 rebase / amend，force push 到 fork，不要直接 push 到 upstream。
+
+**对上游维护者的要求：**
+
+1. **不替贡献者跑 CI**：桌面构建在 fork 侧完成，上游只 review 代码和 CI 结果。
+2. **选择性打 tag**：只有准备发布时，才在 `upstream/main` 上打正式 `v*` tag 触发全局桌面发布。
+3. **上游 tag 即正式发布**：fork 的 tag 是验证 tag，upstream 的 tag 是 release tag，两者语义不同。
+
 ### 修正 commit
 
 在 PR 审查过程中，作者应在自己的 fork 分支上修正 commit：

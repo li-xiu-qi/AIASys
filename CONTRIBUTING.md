@@ -151,6 +151,16 @@ git push origin v0.0.0-fork-test.1
 - CI 成功仅代表构建产物可生成；最终发布版本仍需按上游流程从 `upstream/main` 打 tag。
 - 如果不需要桌面版构建，普通 push 到功能分支已足够触发 lint / test / type-check 工作流。
 
+#### fork 先行 CI，上游选择性发版
+
+项目鼓励贡献者**先在自己的 fork 上完成 CI 验证**，再向上游提 PR：
+
+1. **常规改动**：push 到 fork 的功能分支后，等待 lint / test / type-check 通过。
+2. **涉及桌面端**：将功能分支合并到 fork main，打 `vX.Y.Z-fork-test.N` tag，确认 Desktop Build CI 通过。
+3. **向上游提 PR**：CI 通过后，从 fork 向 `AIAsys/AIASys/dev` 创建 PR。
+
+上游维护者**选择性打 tag**：只有准备正式发布时，才会在 `upstream/main` 上打正式 `v*` tag 触发全局桌面发布。fork 的 tag 只用于验证，upstream 的 tag 才是 release。
+
 ### 修正 commit
 
 在 PR 被 review 要求修改、或自己想整理提交历史时，可以在**自己 fork 的分支**上修正 commit：

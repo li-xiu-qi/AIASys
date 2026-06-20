@@ -252,19 +252,62 @@ git add ...
 git commit -m "feat(mcp): ..."
 
 # 3. 保持与主分支同步
-git fetch origin
-git rebase origin/dev
+git fetch upstream
+git rebase upstream/dev
 
-# 4. 推送分支
+# 4. 推送分支到自己的 fork
 git push -u origin feature/mcp-config
 
-# 5. 创建 PR（GitHub/GitLab）
+# 5. 创建 PR（从 fork 向 upstream/dev）
 
 # 6. 合并后清理
 git checkout main
-git pull origin main
+git pull upstream main
 git branch -d feature/mcp-config
 ```
+
+### 在 fork 上完成 CI 验证
+
+所有工作流文件都在仓库中，fork 仓库默认会运行 GitHub Actions。外部贡献者和管理员都可以**在自己的 fork 上**完成 CI 验证：
+
+**常规检查**：push 到 fork 的功能分支后，lint / type-check / test 工作流会自动运行。
+
+**桌面端构建**：`.github/workflows/ci-desktop.yml` 监听 `v*` 标签。在 fork 上可以这样触发：
+
+```bash
+# 将功能分支合并到 fork main（或直接在 main 上验证）
+git checkout main
+git merge feature/mcp-config
+git push origin main
+
+# 打 tag 并推送，触发 fork 的 Desktop Build CI
+git tag v0.4.17-fork-test.1
+git push origin v0.4.17-fork-test.1
+```
+
+注意：
+- fork 上的 tag 仅用于验证构建，不应与上游正式 tag 冲突。
+- 正式发版仍按上游流程：从 `upstream/dev` PR 到 `upstream/main`，合并后在 `upstream/main` 上打 tag。
+
+### 修正 commit
+
+在 PR 审查过程中，作者应在自己的 fork 分支上修正 commit：
+
+```bash
+# 本地整理历史（未 push 或仅 push 到自己 fork 时）
+git rebase -i upstream/dev
+
+# 合并上游最新改动后解决冲突
+git fetch upstream
+git rebase upstream/dev
+
+# 已 push 到自己 fork，安全更新
+git push --force-with-lease origin feature/mcp-config
+```
+
+红线：
+- 禁止对已合并到 `upstream/dev` / `upstream/main` 的 commit 做 rebase / force push。
+- 禁止替外部贡献者 rebase 其 PR 分支，除非对方明确授权。
 
 ---
 

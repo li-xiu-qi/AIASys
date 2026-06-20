@@ -1,10 +1,9 @@
 ---
 name: team-skill-governance
 description: |
-  AIASys 团队 Skill 治理规则。
-  明确 `.team-skills/` 是项目团队直接在 AIASys 仓库中维护的共享 Skill 池，与私人 Skill 解耦：
-  私人 Skill 在 pkm-hub 中维护并通过 deploy.py 部署到 `.kimi-code/skills/`；
-  Team Skill 在 `.team-skills/` 中直接创建、编辑和维护，不是从私人 Skill 分发而来。
+  AIASys 团队 Skill 治理规则与管理指南。
+  明确 `.team-skills/` 是项目团队直接在 AIASys 仓库中维护的共享 Skill 池，与私人 Skill 解耦；
+  规定 Team Skill 的准入标准、生命周期、写作规范和维护流程。
   当需要决定某个 Skill 是否适合进团队池、如何维护团队 Skill、或处理团队 Skill 与私人 Skill 边界时触发。
 ---
 
@@ -13,6 +12,8 @@ description: |
 ## 定位
 
 `.team-skills/` 是 **AIASys 项目团队的共享 Skill 池**，直接在 AIASys 仓库中维护（git 跟踪）。
+
+它回答的问题是："**AIASys 项目团队需要共同遵守哪些规则、掌握哪些方法？**"
 
 它里面放的 Skill 满足以下特征：
 
@@ -25,7 +26,10 @@ description: |
 
 - 私人 Skill 的备份或复制。
 - 从 pkm-hub 私人 Skill 自动部署出来的产物。
-- 任何人的个人收藏夹。
+- 管理员个人的工作流手册。
+- 任何人的个人收藏夹或偏好集合。
+
+---
 
 ## 核心关系：Team Skill 与私人 Skill 解耦
 
@@ -57,6 +61,8 @@ Team Skill（.team-skills/）
 3. **允许互相启发**：私人 Skill 里的好经验可以激发新的 Team Skill；Team Skill 里的好方法也可以被吸收进私人 Skill。但这是**手动提炼**，不是自动同步。
 4. **AI 读取优先级**：AI 执行 AIASys 任务时，优先读取 `.kimi-code/skills/` 里的私人 Skill；遇到团队共享规则类问题时，也读取 `.team-skills/`。
 
+---
+
 ## 谁能改 `.team-skills/`？
 
 | 操作 | 团队成员 | 管理员 |
@@ -67,6 +73,8 @@ Team Skill（.team-skills/）
 | 提议新增/修改 Team Skill | ✅ | ✅ |
 
 **核心原则**：任何人都可以为团队 Skill 池贡献，但贡献的是**去个人化的项目经验**，不是自己的私人 Skill。
+
+---
 
 ## 准入标准：什么适合进 `.team-skills/`？
 
@@ -82,7 +90,29 @@ Team Skill（.team-skills/）
 | **去敏感** | 不涉及网盘、支付、个人账号、私有仓库地址 | 个人网盘、私有 CI 密钥 |
 | **可独立使用** | 团队成员拿到就能用，不需要了解你的私人配置 | 依赖你的个人 Skill 才能看懂 |
 
-**判定口诀**：这是“AIASys 项目需要大家知道的事”，不是“我个人怎么顺手的事”。
+**判定口诀**：这是"AIASys 项目需要大家知道的事"，不是"我个人怎么顺手的事"。
+
+### 内容边界示例
+
+**适合放进 `.team-skills/` 的内容**：
+
+| 类型 | 示例 |
+|------|------|
+| 项目架构约定 | `aiasys-frontend-architecture`、`aiasys-system-design` |
+| 开发流程规范 | `api-dev`、`sop-workflow`、`aiasys-git-workflow` |
+| 团队协作规则 | `team-skill-governance`、`pr-check` |
+
+**不适合放进 `.team-skills/` 的内容**：
+
+| 类型 | 反例 | 原因 |
+|------|------|------|
+| 个人开发环境 | WSL/Windows 专属命令、个人路径 | 去环境化要求 |
+| 个人账号/密钥 | API key、个人 token、私有仓库地址 | 去敏感要求 |
+| 个人偏好 | 自己喜欢的 commit 格式、快捷键 | 去个人化要求 |
+| 私人工作流 | 个人 Skill 部署、个人知识库管理 | 这是私人 Skill 的事 |
+| 仅管理员操作 | deploy.py、私人 Skill 源码仓库管理 | 团队 Skill 不管这个 |
+
+---
 
 ## Team Skill 的生命周期
 
@@ -114,6 +144,35 @@ Team Skill（.team-skills/）
    - 移动到 `.team-skills/_archived/<skill>/`。
    - 提交到 AIASys git。
 
+---
+
+## 写作规范
+
+Team Skill 的 `SKILL.md` 应遵循：
+
+1. **项目视角**：用"AIASys 项目"做主语，不用"我"。
+2. **跨系统优先**：默认写作要同时适用于 Windows、macOS、Linux。如果必须提及某个系统，必须说明三个系统分别怎么处理，除非本 Skill 就是专门讲该系统的。
+3. **去环境化**：不写特定个人操作系统或开发环境的命令。
+4. **去个人化**：不出现个人姓名、账号、私有路径。
+5. **自包含**：不依赖 `.team-skills/` 外的 Skill 才能看懂。
+6. **可操作**：给出明确的触发条件、执行步骤、验收标准。
+
+---
+
+## 最小自检清单
+
+新增或修改 Team Skill 前，确认：
+
+- [ ] 内容与 AIASys 项目直接相关
+- [ ] 团队里多人能用得上
+- [ ] 不含个人身份、私有路径、个人账号
+- [ ] 不绑定特定开发环境（如 WSL/Windows 专属）
+- [ ] 不引用外部私有资源
+- [ ] 不泄露敏感信息
+- [ ] 不直接复制私人 Skill 原文
+
+---
+
 ## 与私人 Skill 的重复怎么办？
 
 允许重复，但各自独立：
@@ -123,12 +182,17 @@ Team Skill（.team-skills/）
 - 两者不自动同步。私人 Skill 更新了，Team Skill 不需要跟进；Team Skill 更新了，私人 Skill 也不需要跟进。
 - 如果个人认为 Team Skill 的某个改进很好，可以手动吸收到自己的私人 Skill 里。
 
+---
+
 ## 常见反模式
 
 - **把私人 Skill 直接复制到 `.team-skills/`**：团队 Skill 必须重写为项目通用视角。
-- **在 `.team-skills/` 里放个人偏好**：比如“我喜欢的 commit message 格式”“我常用的快捷键”。
+- **在 `.team-skills/` 里放个人偏好**：比如"我喜欢的 commit message 格式""我常用的快捷键"。
 - **试图让 `.team-skills/` 和私人 Skill 保持同步**：两者解耦，不需要同步。
 - **把不适合团队的内容硬塞进团队池**：比如绑定个人环境、私有账号的 Skill。
+- **Skill 名与项目无关**：团队 Skill 名建议带 `aiasys-` 前缀以表明项目归属，通用技术 Skill 可不带。
+
+---
 
 ## 输出规范
 

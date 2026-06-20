@@ -20,21 +20,25 @@ description: |
 AIASys/
 ├── .team-skills/                ← 团队共享 Skill（本指南所在，git 跟踪）
 │   ├── team-skill-guide/        ← 本指南：Skill 路由总览
-│   ├── team-skill-governance/   ← 管理机制
+│   ├── team-skill-governance/   ← 管理机制与准入标准
 │   ├── aiasys-frontend-architecture/
-│   ├── aiasys-system-design/
+│   ├── aiasys-cross-platform/
 │   ├── aiasys-git-workflow/
-│   ├── aiasys-skill-maintenance/  ← 新增：Skill 维护工作流
-│   ├── commit-history-audit/      ← 新增：Commit 历史审计
+│   ├── aiasys-llm-config/
+│   ├── aiasys-mac-desktop-deploy/
+│   ├── aiasys-project-structure/
+│   ├── aiasys-skill-maintenance/
+│   ├── aiasys-system-design/
 │   ├── aiasys-tool-dev/
 │   ├── api-dev/
+│   ├── commit-history-audit/
 │   ├── frontend-pattern/
+│   ├── pr-check/
 │   ├── sop-workflow/
 │   ├── state-flow/
-│   ├── workspace-ops/
 │   └── ...
 │
-└── .kimi-code/skills/           ← 个人 CLI 读取入口
+└── .kimi-code/skills/           ← 个人 CLI 读取入口（私人 Skill 索引卡片）
 ```
 
 ## Skill 快速选择表
@@ -55,8 +59,12 @@ AIASys/
 | 前端模式、组件设计、状态管理 | `frontend-pattern` | 前端模式规范 |
 | SOP 流程、标准操作程序 | `sop-workflow` | SOP 工作流规范 |
 | 状态流、状态机、流程控制 | `state-flow` | 状态流规范 |
-| 团队 Skill 怎么管理、怎么添加新 Skill | `team-skill-governance` | 管理机制 |
+| 团队 Skill 怎么管理、怎么添加新 Skill | `team-skill-governance` | 管理机制与准入标准 |
 | 代码变更后如何同步更新团队 Skill | `aiasys-skill-maintenance` | Skill 维护工作流 |
+| LLM 配置、模型 key 管理、provider 切换 | `aiasys-llm-config` | LLM 配置规范 |
+| Mac 桌面端远程编译打包验证 | `aiasys-mac-desktop-deploy` | Mac 桌面部署 |
+| 项目目录结构、脚本落位、临时文件管理 | `aiasys-project-structure` | 项目结构规范 |
+| 跨平台兼容、路径处理、编码、进程管理 | `aiasys-cross-platform` | 跨平台兼容规范 |
 | 不知道用哪个 Skill、Skill 冲突 | `team-skill-guide`（本指南） | 路由决策 |
 
 ## 强制读取顺序
@@ -74,9 +82,14 @@ AIASys/
 - 涉及系统架构 → 读 `aiasys-system-design`
 - 涉及 Agent 开发 → 读 `aiasys-tool-dev`
 - 涉及 API 设计 → 读 `api-dev`
-- 涉及文件/目录操作 → 读 `workspace-ops`
-- 涉及写作/文档 → 读 `writing-guide`
-- 涉及任务执行 → 读 `task-protocol`
+- 涉及 PR 检查/合并前验证 → 读 `pr-check`
+- 涉及 LLM 配置/模型 key → 读 `aiasys-llm-config`
+- 涉及 Mac 桌面端打包 → 读 `aiasys-mac-desktop-deploy`
+- 涉及项目目录/脚本落位 → 读 `aiasys-project-structure`
+- 涉及跨平台兼容/路径处理/编码 → 读 `aiasys-cross-platform`
+- 涉及文件/目录操作 → 读 `workspace-ops`（`.kimi-code/skills/`）
+- 涉及写作/文档 → 读 `writing-guide`（`.kimi-code/skills/`）
+- 涉及任务执行 → 读 `task-protocol`（`.kimi-code/skills/`）
 - 涉及 Skill 管理 → 读 `team-skill-governance`
 
 ## 团队 Skill 更新了怎么办

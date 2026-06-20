@@ -268,6 +268,58 @@ git branch -d feature/mcp-config
 
 ---
 
+## Rebase 使用规范
+
+### 核心原则
+
+Rebase 用于**整理自己的本地历史**，不是用于改写已共享的历史。
+
+> **绝对禁止**：对已经合并到 `dev` / `main` 的 commit 做 rebase 或 force push。
+
+### 适用场景
+
+| 场景 | 是否推荐 | 说明 |
+|---|---|---|
+| 本地分支尚未 push | ✅ 推荐 | 整理 commit、清理临时提交，无协作副作用 |
+| 自己 fork 上的分支，刚 push，无他人基于它工作 | ✅ 可以 | 整理后再提 PR，可 force push 到自己 fork |
+| 外部贡献者的 PR 分支 | ❌ 禁止 | 不要替作者 rebase，会破坏对方本地分支和 review 上下文 |
+| 多人协作的功能分支 | ❌ 禁止 | 一旦有人基于旧 commit 工作，历史会分叉 |
+| 已合并到 `dev` / `main` 的历史 | ❌ 绝对禁止 | 等同于重写项目主历史 |
+
+### 与贡献记录的关系
+
+- `git rebase` 默认**保留每个 commit 的 author 信息**，只改变 commit hash
+- GitHub 贡献统计基于 author，因此正常 rebase **不会抹除贡献记录**
+- 会抹除贡献记录的行为：
+  - `git commit --amend --author=...` 改写他人 commit 的作者
+  - Squash merge 时把多个作者的 commit 压成一个，且未加 `Co-authored-by:`
+  - 用 `git rebase -i` 配合 `exec 'git commit --amend --reset-author --no-edit'` 批量重置 author
+
+### 推荐操作
+
+```bash
+# 1. 本地整理历史（未 push 前）
+git rebase -i HEAD~5
+
+# 2. 自己的 fork 分支在提 PR 前保持与 upstream/dev 同步
+git fetch upstream
+git rebase upstream/dev
+
+# 3. 如果已经 push 到 fork，需要 force push（仅当自己分支无他人依赖时）
+git push --force-with-lease origin feature/mcp-config
+```
+
+### 多人协作时的替代方案
+
+如果分支有多人协作，或外部贡献者已基于该分支工作，**用 merge 代替 rebase**：
+
+```bash
+git fetch upstream
+git merge upstream/dev
+```
+
+---
+
 ## Worktree 工作流（高级）
 
 ### 何时使用

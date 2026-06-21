@@ -170,8 +170,9 @@ class VisualizationResponse(BaseModel):
 
 # ============ 依赖注入 ============
 
-# 服务实例缓存（key 为 (user_id, db_path)）
+# 服务实例缓存（key 为 (user_id, db_path)），限制大小防止无界增长
 _workspace_graphrag_services: dict[tuple[str | None, str], GraphRAGService] = {}
+_MAX_CACHED_SERVICES = 16
 
 
 def _resolve_request_user_id(request: Request | None) -> str | None:
@@ -290,6 +291,15 @@ def get_graphrag_service(
     cache_key = (effective_user_id, str(resolved_db_path))
     cached = _workspace_graphrag_services.get(cache_key)
     if cached is None:
+        if len(_workspace_graphrag_services) >= _MAX_CACHED_SERVICES:
+            oldest = next(iter(_workspace_graphrag_services))
+            logger.warning(
+                "GraphRAG API 服务缓存已满(%d)，淘汰最旧条目: %s",
+                _MAX_CACHED_SERVICES,
+                oldest,
+            )
+            _workspace_graphrag_services.pop(oldest, None)
+
         # 从文件名提取展示名（kg_id / kb_id）
         display_name = resolved_db_path.stem
         if display_name.endswith(".graph"):
@@ -306,6 +316,10 @@ def get_graphrag_service(
             user_id=effective_user_id,
             graph_store=graph_store,
         )
+        _workspace_graphrag_services[cache_key] = cached
+    else:
+        # LRU：将访问条目移到末尾
+        _workspace_graphrag_services.pop(cache_key, None)
         _workspace_graphrag_services[cache_key] = cached
     return cached
 
@@ -374,9 +388,9 @@ async def upload_document(
                     "hint": "Please configure LLM provider in system settings (Settings > LLM Config)",
                 },
             )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"File upload processing failed: {str(e)}"
@@ -425,7 +439,7 @@ async def create_entity(
         )
         return EntityResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/relations", response_model=RelationResponse, status_code=201)
@@ -444,7 +458,7 @@ async def create_relation(
         )
         return RelationResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/entities/{name}", response_model=EntityResponse)
@@ -649,6 +663,6 @@ async def execute_graph_raw_query(
         result = await service.graph_store.execute_raw_sql(request.sql)
         return RawQueryResponse(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}") from e

@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from app.core.auth import require_auth
 from app.core.config import WORKSPACE_DIR
 from app.models.user import UserInfo
+from app.utils.file_utils import sanitize_content_disposition_filename
 from app.services.export import (
     SessionExportNotFoundError,
     SessionExportScope,
@@ -62,7 +63,7 @@ async def export_session_artifact(
             return StreamingResponse(
                 io.BytesIO(payload),
                 media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+                headers={"Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(download_filename)}"'},
             )
 
         if scope == "workspace":
@@ -81,7 +82,7 @@ async def export_session_artifact(
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+            headers={"Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(download_filename)}"'},
         )
     except SessionExportNotFoundError:
         raise HTTPException(status_code=404, detail="Session export not found")
@@ -89,7 +90,7 @@ async def export_session_artifact(
         raise
     except Exception as e:
         logger.error("会话导出失败: %s", e)
-        raise HTTPException(status_code=500, detail="Export failed")
+        raise HTTPException(status_code=500, detail="Export failed") from e
 
 
 @router.post("/{user_id}/import")
@@ -105,6 +106,10 @@ async def import_session_conversation(
 
     try:
         content = await file.read()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"读取文件失败: {exc}") from exc
+
+    try:
         summary = session_import_service.import_conversation(
             user_id=user_id,
             workspace_id=workspace_id,
@@ -117,4 +122,4 @@ async def import_session_conversation(
         raise
     except Exception as exc:
         logger.error("会话导入失败: %s", exc)
-        raise HTTPException(status_code=500, detail="Import failed")
+        raise HTTPException(status_code=500, detail="Import failed") from exc

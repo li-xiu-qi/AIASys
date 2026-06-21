@@ -100,14 +100,16 @@ class MonitorSession:
     process: asyncio.subprocess.Process | None = None
     stdout_f: Any | None = None
     stderr_f: Any | None = None
+    wait_task: asyncio.Task | None = None
     mode: str = "notify"  # notify | silent
 
     def read_new_output(self) -> str:
         """增量读取输出缓冲文件，更新 offset（供外部 poll API 使用）。"""
-        if not self.out_file.exists():
+        out_path = as_system_path(str(self.out_file))
+        if not Path(out_path).exists():
             return ""
         try:
-            with open(self.out_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(out_path, "r", encoding="utf-8", errors="replace") as f:
                 f.seek(self.output_offset)
                 data = f.read()
                 self.output_offset = f.tell()
@@ -118,10 +120,11 @@ class MonitorSession:
 
     def _read_sse_output(self) -> str:
         """增量读取输出缓冲文件，更新 _sse_offset（供内部 SSE 推送使用）。"""
-        if not self.out_file.exists():
+        out_path = as_system_path(str(self.out_file))
+        if not Path(out_path).exists():
             return ""
         try:
-            with open(self.out_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(out_path, "r", encoding="utf-8", errors="replace") as f:
                 f.seek(self._sse_offset)
                 data = f.read()
                 self._sse_offset = f.tell()
@@ -132,10 +135,11 @@ class MonitorSession:
 
     def read_all_output(self) -> str:
         """读取全部输出（不更新 offset）。"""
-        if not self.out_file.exists():
+        out_path = as_system_path(str(self.out_file))
+        if not Path(out_path).exists():
             return ""
         try:
-            with open(self.out_file, "r", encoding="utf-8", errors="replace") as f:
+            with open(out_path, "r", encoding="utf-8", errors="replace") as f:
                 return f.read()
         except Exception as exc:
             logger.warning("读取 monitor 输出文件失败: %s", exc)
@@ -160,6 +164,14 @@ class MonitorService:
         self._queues: dict[str, asyncio.Queue[dict[str, Any]]] = {}
         self._lock = asyncio.Lock()
 
+    @staticmethod
+    def _cancel_wait_task(session: MonitorSession) -> None:
+        """取消 monitor 的 wait_task，避免 kill/cleanup 后遗留后台 asyncio Task。"""
+        task = session.wait_task
+        if task is not None and not task.done():
+            task.cancel()
+        session.wait_task = None
+
     # ---- 持久化辅助方法 ----------------------------------------------------
 
     @staticmethod
@@ -181,7 +193,9 @@ class MonitorService:
         if session.session_root is None:
             return
         path = MonitorService._meta_path(session.session_root, session.id)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        sys_path = as_system_path(str(path))
+        sys_parent = as_system_path(str(path.parent))
+        Path(sys_parent).mkdir(parents=True, exist_ok=True)
         payload = {
             "id": session.id,
             "command": session.command,
@@ -193,7 +207,9 @@ class MonitorService:
             "completed_at": session.completed_at,
         }
         try:
-            path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            Path(sys_path).write_text(
+                json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
         except Exception as exc:
             logger.warning("写入 monitor meta 失败: %s", exc)
 
@@ -203,7 +219,9 @@ class MonitorService:
         if session.session_root is None or not lines:
             return
         path = self._segments_path(session.session_root, session.id)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        sys_path = as_system_path(str(path))
+        sys_parent = as_system_path(str(path.parent))
+        Path(sys_parent).mkdir(parents=True, exist_ok=True)
         records: list[str] = []
         for line in lines:
             record = {
@@ -216,7 +234,7 @@ class MonitorService:
             session._segment_index += 1
         if records:
             try:
-                with path.open("a", encoding="utf-8") as f:
+                with Path(sys_path).open("a", encoding="utf-8") as f:
                     f.write("\n".join(records) + "\n")
             except Exception as exc:
                 logger.warning("写入 monitor segments 失败: %s", exc)
@@ -366,6 +384,7 @@ class MonitorService:
             name=f"monitor-wait-{monitor_id}",
         )
         _wait_task.add_done_callback(_log_task_exception)
+        session.wait_task = _wait_task
 
         logger.info(
             "Monitor 启动: id=%s session_key=%s command=%r",
@@ -441,6 +460,7 @@ class MonitorService:
                 session.status,
                 session.exit_code,
             )
+            session.wait_task = None
 
     # ---- 按需读取 segments ----------------------------------------------------
 
@@ -468,12 +488,15 @@ class MonitorService:
         is_stderr: bool,
     ) -> bool:
         """读取日志文件的新增内容，生成 segments 并持久化。返回是否有新 segments。"""
-        if not path or not path.exists():
+        if not path:
+            return False
+        sys_path = as_system_path(str(path))
+        if not Path(sys_path).exists():
             return False
 
         offset = session._stderr_offset if is_stderr else session._stdout_offset
         try:
-            with open(as_system_path(str(path)), "rb") as f:
+            with open(sys_path, "rb") as f:
                 f.seek(offset)
                 raw = f.read()
         except Exception as exc:
@@ -679,6 +702,7 @@ class MonitorService:
         session.status = "killed"
         session.exit_code = -1
         session.completed_at = time.time()
+        self._cancel_wait_task(session)
         self._sync_segments_from_logs(session, is_ended=True)
         self._write_meta(session)
         self._emit(session.session_key, self._build_event(session))
@@ -745,6 +769,7 @@ class MonitorService:
                         await executor.kill_process_tree(session.process)
                     except Exception:
                         pass
+                self._cancel_wait_task(session)
                 self._sync_segments_from_logs(session, is_ended=True)
                 session.completed_at = time.time()
                 self._write_meta(session)
@@ -773,6 +798,7 @@ class MonitorService:
                     await executor.kill_process_tree(session.process)
                 except Exception:
                     pass
+            self._cancel_wait_task(session)
             self._sync_segments_from_logs(session, is_ended=True)
             session.completed_at = time.time()
             self._write_meta(session)
@@ -796,6 +822,7 @@ class MonitorService:
                     await executor.kill_process_tree(session.process)
                 except Exception:
                     pass
+            self._cancel_wait_task(session)
             # 清理文件
             if session.session_root is not None:
                 for suffix in (

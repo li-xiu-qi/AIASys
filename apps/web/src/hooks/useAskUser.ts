@@ -5,7 +5,7 @@
  * 支持 per-session 队列：多 session 并发时按 sessionId 隔离请求
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '@/config/api';
 import { apiFetch } from '@/lib/api/httpClient';
 import type {
@@ -83,8 +83,10 @@ export function useAskUser(options: UseAskUserOptions = {}) {
   const activeSessionIdRef = useRef<string>("");
   const currentRequestSessionIdRef = useRef<string>("");
 
-  responseCallbackRef.current = options.onResponse;
-  currentRequestRef.current = currentRequest;
+  useEffect(() => {
+    responseCallbackRef.current = options.onResponse;
+    currentRequestRef.current = currentRequest;
+  }, [options.onResponse, currentRequest]);
 
   const getQueue = useCallback((sessionId: string): AskUserRequest[] => {
     return requestQueueMapRef.current.get(sessionId) || [];

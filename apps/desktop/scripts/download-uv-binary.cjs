@@ -48,14 +48,23 @@ function resolveRepoRoot() {
 
 function curlDownload(url, dest) {
   console.log(`[download-uv] 下载: ${url}`);
-  const result = spawnSync(
+  let result = spawnSync(
     "curl",
     ["-L", "-f", "--connect-timeout", "15", "--max-time", "300", "-o", dest, url],
     { encoding: "utf-8", stdio: "pipe", windowsHide: true }
   );
   if (result.status !== 0) {
-    const detail = result.stderr || result.error || `curl exit ${result.status}`;
-    throw new Error(`下载失败 (${url}): ${detail}`);
+    // Fallback to wget
+    console.log(`[download-uv] curl 不可用，尝试 wget...`);
+    result = spawnSync(
+      "wget",
+      ["-q", "--timeout=15", "--tries=3", "-O", dest, url],
+      { encoding: "utf-8", stdio: "pipe", windowsHide: true }
+    );
+  }
+  if (result.status !== 0) {
+    const detail = result.stderr || result.error || `exit ${result.status}`;
+    throw new Error(`下载失败 (${url}): curl 和 wget 均不可用 (${detail})`);
   }
   const stat = fs.statSync(dest);
   console.log(`[download-uv] 已保存: ${dest} (${(stat.size / 1024 / 1024).toFixed(1)} MB)`);
@@ -84,6 +93,7 @@ function extractArchive(archivePath, targetDir, isZip) {
     const primaryResult = spawnSync(primaryCmd, primaryArgs, {
       encoding: "utf-8",
       stdio: "pipe",
+      windowsHide: true,
     });
     if (primaryResult.status === 0) {
       result = primaryResult;
@@ -96,7 +106,7 @@ function extractArchive(archivePath, targetDir, isZip) {
       const pyResult = spawnSync(
         pyCmd,
         ["-m", "zipfile", "-e", archivePath, targetDir],
-        { encoding: "utf-8", stdio: "pipe" }
+        { encoding: "utf-8", stdio: "pipe", windowsHide: true }
       );
       if (pyResult.status !== 0) {
         throw new Error(`${pyCmd} zipfile 解压失败: ${pyResult.stderr || pyResult.error}`);
@@ -109,6 +119,7 @@ function extractArchive(archivePath, targetDir, isZip) {
     result = spawnSync("tar", ["-xzf", archivePath, "-C", targetDir], {
       encoding: "utf-8",
       stdio: "pipe",
+      windowsHide: true,
     });
   }
   if (result.status !== 0) {

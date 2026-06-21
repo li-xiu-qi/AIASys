@@ -22,6 +22,7 @@ from app.services.export import (
     WorkspaceImportService,
 )
 from app.services.workspace_registry import get_workspace_registry_service
+from app.utils.file_utils import sanitize_content_disposition_filename
 
 logger = logging.getLogger(__name__)
 
@@ -270,7 +271,9 @@ async def export_workspace(
     return StreamingResponse(
         zip_buffer,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(filename)}"'
+        },
     )
 
 

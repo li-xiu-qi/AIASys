@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import mimetypes
@@ -19,6 +20,7 @@ from app.services.export import (
     MarkdownExportError,
     export_markdown_file,
 )
+from app.utils.file_utils import sanitize_content_disposition_filename
 from app.utils.path_utils import as_system_path
 
 from .files_utils import (
@@ -124,8 +126,8 @@ async def upload_file(
     except PermissionError:
         raise HTTPException(status_code=403, detail="Operation failed")
     except Exception as e:
-        logger.error(f"上传失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"上传失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e
 
 
 @router.post(
@@ -203,7 +205,7 @@ async def create_file(
         raise
     except Exception as e:
         logger.error("新建文件失败: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to create file")
+        raise HTTPException(status_code=500, detail="Failed to create file") from e
 
 
 @router.get("/download/{user_id}/{session_id}/{filename:path}")
@@ -245,7 +247,9 @@ async def download_file(
             return FileResponse(
                 file_path,
                 media_type=media_type,
-                headers={"Content-Disposition": f'inline; filename="{file_path.name}"'},
+                headers={
+                    "Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(file_path.name)}"'
+                },
             )
 
         return FileResponse(
@@ -258,8 +262,8 @@ async def download_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"下载失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"下载失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e
 
 
 @router.delete("/delete/{user_id}/{session_id}/{filename:path}")
@@ -315,8 +319,38 @@ async def delete_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"删除失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"删除失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e
+
+
+def _build_workspace_zip_sync(
+    user_id: str,
+    session_id: str,
+) -> tuple[io.BytesIO, list[tuple[str, Path]], str]:
+    """同步构建工作区 ZIP（在独立线程中运行，避免阻塞事件循环）。"""
+    work_dir = _get_logical_workspace_root(user_id, session_id)
+
+    if not Path(as_system_path(work_dir)).exists():
+        raise HTTPException(status_code=404, detail="工作区不存在")
+
+    files: list[tuple[str, Path]] = []
+    for relative_path, file_path in _iter_visible_workspace_files(
+        user_id,
+        session_id,
+    ):
+        files.append((relative_path, file_path))
+
+    if not files:
+        raise HTTPException(status_code=404, detail="工作区没有文件")
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for relative_path, file_path in files:
+            zip_file.write(as_system_path(file_path), relative_path)
+
+    zip_buffer.seek(0)
+    download_filename = f"workspace_{session_id}.zip"
+    return zip_buffer, files, download_filename
 
 
 @router.get("/export/{user_id}/{session_id}")
@@ -334,31 +368,9 @@ async def export_workspace(
     _check_user_access(current_user, user_id)
 
     try:
-        work_dir = _get_logical_workspace_root(user_id, session_id)
-
-        if not work_dir.exists():
-            raise HTTPException(status_code=404, detail="工作区不存在")
-
-        files = []
-        for relative_path, file_path in _iter_visible_workspace_files(
-            user_id,
-            session_id,
-        ):
-            files.append((relative_path, file_path))
-
-        if not files:
-            raise HTTPException(status_code=404, detail="工作区没有文件")
-
-        # 创建内存中的 ZIP 文件
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            for relative_path, file_path in files:
-                zip_file.write(file_path, relative_path)
-
-        zip_buffer.seek(0)
-
-        # 生成下载文件名
-        download_filename = f"workspace_{session_id}.zip"
+        zip_buffer, files, download_filename = await asyncio.to_thread(
+            _build_workspace_zip_sync, user_id, session_id
+        )
 
         logger.info(
             f"工作区导出: {user_id}/{session_id} ({len(files)} 文件) by {current_user.user_id}"
@@ -375,14 +387,16 @@ async def export_workspace(
         return StreamingResponse(
             _zip_chunks(zip_buffer),
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{download_filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(download_filename)}"'
+            },
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"导出失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"导出失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e
 
 
 @router.get("/export-document/{user_id}/{session_id}/{filename:path}")
@@ -438,7 +452,9 @@ async def export_markdown_document(
         return StreamingResponse(
             io.BytesIO(artifact.content),
             media_type=artifact.media_type,
-            headers={"Content-Disposition": f'attachment; filename="{artifact.filename}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(artifact.filename)}"'
+            },
         )
 
     except HTTPException:
@@ -450,8 +466,8 @@ async def export_markdown_document(
         logger.error("Markdown 导出失败: %s", e)
         raise HTTPException(status_code=500, detail="Operation failed")
     except Exception as e:
-        logger.error(f"Markdown 导出失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"Markdown 导出失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e
 
 
 @router.get("/content/{user_id}/{session_id}/{filename:path}", response_model=FileContentResponse)
@@ -501,8 +517,8 @@ async def get_file_content(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"读取文件内容失败: {e}")
-        raise HTTPException(status_code=500, detail="Failed to read file")
+        logger.error(f"读取文件内容失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to read file") from e
 
 
 @router.get(
@@ -537,7 +553,7 @@ async def get_csv_preview(
         raise
     except Exception as e:
         logger.error("读取 CSV 预览失败: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to read CSV preview")
+        raise HTTPException(status_code=500, detail="Failed to read CSV preview") from e
 
 
 @router.put(
@@ -589,7 +605,7 @@ async def update_csv_preview(
         raise
     except Exception as e:
         logger.error("更新 CSV 当前页失败: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to save CSV page")
+        raise HTTPException(status_code=500, detail="Failed to save CSV page") from e
 
 
 @router.put("/content/{user_id}/{session_id}/{filename:path}")
@@ -665,8 +681,8 @@ async def update_file_content(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新文件内容失败: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save file")
+        logger.error(f"更新文件内容失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to save file") from e
 
 
 # 管理员端点
@@ -731,7 +747,7 @@ async def move_file(
         raise
     except Exception as e:
         logger.error("移动文件失败: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to move file")
+        raise HTTPException(status_code=500, detail="Failed to move file") from e
 
 
 @router.post("/copy/{user_id}/{session_id}", response_model=FileCopyResponse)
@@ -805,7 +821,43 @@ async def copy_file(
         raise
     except Exception as e:
         logger.error("复制文件失败: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to copy file")
+        raise HTTPException(status_code=500, detail="Failed to copy file") from e
+
+
+def _list_all_files_sync(admin_user_id: str) -> dict[str, object]:
+    """同步遍历所有用户文件（在独立线程中运行，避免阻塞事件循环）。"""
+    all_files: list[dict[str, object]] = []
+
+    from app.core.config import WORKSPACE_DIR
+
+    from .files_utils import _iter_session_files
+
+    workspace_dir = Path(as_system_path(WORKSPACE_DIR))
+    if workspace_dir.exists():
+        for user_dir in workspace_dir.iterdir():
+            if user_dir.name.startswith(".") or not user_dir.is_dir():
+                continue
+            for session_dir in user_dir.iterdir():
+                if session_dir.name.startswith(".") or not session_dir.is_dir():
+                    continue
+                for relative_path, file_path in _iter_session_files(session_dir):
+                    stat = Path(as_system_path(file_path)).stat()
+                    all_files.append(
+                        {
+                            "user_id": user_dir.name,
+                            "session_id": session_dir.name,
+                            "name": relative_path,
+                            "size": stat.st_size,
+                            "modified": stat.st_mtime,
+                            "absolute_path": str(Path(as_system_path(file_path)).absolute()),
+                        }
+                    )
+
+    return {
+        "files": all_files,
+        "total": len(all_files),
+        "admin": admin_user_id,
+    }
 
 
 @router.get("/admin/list-all", tags=["admin"])
@@ -816,38 +868,7 @@ async def list_all_files(
     列出所有用户的所有文件（仅管理员）
     """
     try:
-        all_files = []
-
-        from app.core.config import WORKSPACE_DIR
-
-        from .files_utils import _iter_session_files
-
-        if WORKSPACE_DIR.exists():
-            for user_dir in WORKSPACE_DIR.iterdir():
-                if user_dir.name.startswith(".") or not user_dir.is_dir():
-                    continue
-                for session_dir in user_dir.iterdir():
-                    if session_dir.name.startswith(".") or not session_dir.is_dir():
-                        continue
-                    for relative_path, file_path in _iter_session_files(session_dir):
-                        stat = file_path.stat()
-                        all_files.append(
-                            {
-                                "user_id": user_dir.name,
-                                "session_id": session_dir.name,
-                                "name": relative_path,
-                                "size": stat.st_size,
-                                "modified": stat.st_mtime,
-                                "absolute_path": str(file_path.absolute()),
-                            }
-                        )
-
-        return {
-            "files": all_files,
-            "total": len(all_files),
-            "admin": current_user.user_id,
-        }
-
+        return await asyncio.to_thread(_list_all_files_sync, current_user.user_id)
     except Exception as e:
-        logger.error(f"列所有文件失败: {e}")
-        raise HTTPException(status_code=500, detail="Operation failed")
+        logger.error(f"列所有文件失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Operation failed") from e

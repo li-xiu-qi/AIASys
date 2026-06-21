@@ -26,7 +26,10 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { useFileUploadToast } from "@/components/file/FileUploadToast";
+import {
+  FileUploadToast,
+  useFileUploadToast,
+} from "@/components/file/FileUploadToast";
 import {
   TemplateFileTreeSelector,
   isFileExcluded,
@@ -89,7 +92,7 @@ export function SaveWorkspaceAsTemplateDialog({
   onClose,
   onSuccess,
 }: SaveWorkspaceAsTemplateDialogProps) {
-  const { showSuccess, showError: showToastError } = useFileUploadToast();
+  const { toasts, showSuccess, showError: showToastError } = useFileUploadToast();
   const [name, setName] = useState(workspaceTitle || "");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("自定义");
@@ -139,7 +142,9 @@ export function SaveWorkspaceAsTemplateDialog({
 
   // 使用 ref 存储 workspaceTitle，避免作为 useEffect 依赖
   const workspaceTitleRef = useRef(workspaceTitle);
-  workspaceTitleRef.current = workspaceTitle;
+  useEffect(() => {
+    workspaceTitleRef.current = workspaceTitle;
+  }, [workspaceTitle]);
 
   useEffect(() => {
     if (workspaceFiles.length === 0) return;
@@ -476,6 +481,13 @@ export function SaveWorkspaceAsTemplateDialog({
             )}
           </Button>
         </DialogFooter>
+        {toasts.map((toast) => (
+          <FileUploadToast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+          />
+        ))}
       </DialogContent>
     </Dialog>
   );

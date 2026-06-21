@@ -22,7 +22,7 @@ import contextlib
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
@@ -33,6 +33,7 @@ from app.core.auth import (
     AuthorizationError,
     ensure_local_default_user_exists,
     get_auth_provider,
+    require_auth,
 )
 from app.core.config import (
     APP_NAME,
@@ -41,7 +42,7 @@ from app.core.config import (
     DEBUG,
     _check_data_format_version,
 )
-from app.core.database import init_db
+from app.core.database import engine, init_db
 from app.core.logging import setup_logging
 from app.core.vendor_binaries import ensure_vendor_binaries
 from app.services.runtime_storage_settings import is_runtime_storage_migration_in_progress
@@ -76,12 +77,10 @@ async def lifespan(app: FastAPI):
         logger.error(f" {e}")
         raise
 
-    # 初始化数据库
-    try:
-        init_db()
-        logger.info(" 数据库初始化成功")
-    except Exception as e:
-        logger.error(f" 数据库初始化失败: {e}")
+    # 初始化数据库。失败属于致命错误，必须阻止 lifespan 进入 yield，
+    # 否则桌面端会误判后端已就绪，实际所有 DB 依赖 API 都会失败。
+    init_db()
+    logger.info(" 数据库初始化成功")
 
     if AUTH_CONFIG.mode == "local":
         try:
@@ -89,6 +88,7 @@ async def lifespan(app: FastAPI):
             logger.info(" 默认本地用户已就绪: %s", local_user.id)
         except Exception as e:
             logger.error(f" 默认本地用户初始化失败: {e}")
+            raise
 
     # 同步 config.toml → 用户 LLM 配置（仅在用户配置为空时执行）
     try:
@@ -166,6 +166,15 @@ async def lifespan(app: FastAPI):
     if kernel_cleanup_task is not None:
         kernel_cleanup_task.cancel()
 
+    # 停止自动任务引擎
+    try:
+        from app.services.auto_tasks.engine import stop_auto_tasks
+
+        stop_auto_tasks()
+        logger.info(" 自动任务引擎已停止")
+    except Exception as e:
+        logger.warning(f" 自动任务引擎停止失败（忽略）: {e}")
+
     try:
         from app.services.claw_runtime import shutdown_claw_runtime_manager
 
@@ -182,6 +191,17 @@ async def lifespan(app: FastAPI):
         logger.info(" 终端 PTY 会话已清理")
     except Exception as e:
         logger.warning(f" 终端 PTY 清理失败（忽略）: {e}")
+
+    # 清理所有 Monitor 进程（后台 shell 监听器）
+    try:
+        from app.services.agent.runtime_backends.aiasys.tools.monitor_tool import (
+            get_monitor_service,
+        )
+
+        await get_monitor_service().cleanup_all()
+        logger.info(" Monitor 进程已清理")
+    except Exception as e:
+        logger.warning(f" Monitor 进程清理失败（忽略）: {e}")
 
     logger.info(f" {APP_NAME} 关闭")
 
@@ -371,7 +391,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/health")
 async def health_check():
-    """健康检查端点"""
+    """健康检查端点，验证数据库可连接"""
+    try:
+        from sqlalchemy import text
+
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as exc:
+        logger.warning("/health 数据库检查失败: %s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "app": APP_NAME,
+                "version": APP_VERSION,
+                "auth_mode": AUTH_CONFIG.mode,
+                "error": "database_unavailable",
+            },
+        )
+
     return {
         "status": "ok",
         "app": APP_NAME,
@@ -381,7 +419,7 @@ async def health_check():
 
 
 @app.get("/health/auth")
-async def auth_health_check():
+async def auth_health_check(current_user=Depends(require_auth())):
     """
     认证健康检查
 

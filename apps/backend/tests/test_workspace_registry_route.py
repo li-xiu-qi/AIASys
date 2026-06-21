@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -796,3 +797,71 @@ async def test_workspace_route_list_total_is_unbounded_by_limit(
     response = await workspace_route.list_workspaces(limit=1, current_user=_build_user())
     assert response.total == 2
     assert len(response.workspaces) == 1
+
+
+@pytest.mark.asyncio
+async def test_workspace_route_create_returns_before_runtime_init_completes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """create_workspace 应在运行时资源初始化完成前就返回，避免阻塞 HTTP 响应。"""
+    service = _build_service(tmp_path)
+    monkeypatch.setattr(workspace_route, "get_workspace_registry_service", lambda: service)
+
+    t0 = time.time()
+    created = await workspace_route.create_workspace(
+        workspace_route.CreateWorkspaceRequest(
+            workspace_id="task-async-init",
+            title="任务 Async Init",
+            runtime_binding=WorkspaceRuntimeBinding(
+                resources=ExecutionResourceGroup(python_env_id="workspace-default"),
+            ),
+            initial_conversation_id="async-init-001",
+            initial_conversation_title="异步初始化会话",
+        ),
+        current_user=_build_user(),
+    )
+    elapsed = time.time() - t0
+
+    assert created.workspace_id == "task-async-init"
+    # 创建请求本身应很快完成（后台初始化不阻塞）
+    assert elapsed < 2.0
+
+    # 刚返回时初始化状态可能是 pending 或 running
+    init_status = service._read_initialization_status("local_default", "task-async-init")
+    assert init_status["status"] in ("pending", "running")
+
+    # 等待后台初始化完成
+    completed = await _wait_for_workspace_initialization(service, "task-async-init")
+    assert completed["status"] == "completed"
+    assert completed["progress"] == 100
+
+
+@pytest.mark.asyncio
+async def test_workspace_route_initialization_endpoint_returns_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /{workspace_id}/initialization 应返回当前初始化状态。"""
+    service = _build_service(tmp_path)
+    monkeypatch.setattr(workspace_route, "get_workspace_registry_service", lambda: service)
+
+    await workspace_route.create_workspace(
+        workspace_route.CreateWorkspaceRequest(
+            workspace_id="task-init-endpoint",
+            title="任务 Init Endpoint",
+            runtime_binding=WorkspaceRuntimeBinding(
+                resources=ExecutionResourceGroup(python_env_id="workspace-default"),
+            ),
+            initial_conversation_id="init-endpoint-001",
+        ),
+        current_user=_build_user(),
+    )
+
+    status = await workspace_route.get_workspace_initialization(
+        "task-init-endpoint",
+        current_user=_build_user(),
+    )
+
+    assert status.status in ("pending", "running", "completed")
+    assert 0 <= status.progress <= 100

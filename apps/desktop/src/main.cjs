@@ -426,7 +426,10 @@ async function waitForBackendSession(backendBaseUrl, timeoutMs = 15_000) {
 
 function createMainWindow(rendererBaseUrl) {
   const preloadPath = path.join(__dirname, "preload.cjs");
-  const initialUrl = new URL(startPath, rendererBaseUrl).toString();
+  // 桌面版加载 dist 根路径，让前端路由自己处理 startPath；
+  // 直接加载 /analysis 会导致绝对路径的 /assets/... 被浏览器相对于当前路径解析（或
+  // preview server 把不存在的 /analysis/assets/... 回退成 index.html），页面白屏。
+  const initialUrl = new URL("/", rendererBaseUrl).toString();
   // 把后端地址通过命令行参数注入 renderer，供 preload 暴露给前端。
   // 这样 WebSocket 等需要直连后端的场景不必依赖页面同源或 preview server 代理。
   const backendBaseUrl = serviceManager ? serviceManager.backendBaseUrl : "";

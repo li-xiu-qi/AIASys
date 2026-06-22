@@ -22,9 +22,11 @@ const openDevTools =
   desktopMode === "dev" && process.env.AIASYS_DESKTOP_OPEN_DEVTOOLS !== "0";
 const startPath = process.env.AIASYS_DESKTOP_START_PATH || "/analysis";
 const remoteDebuggingPort = process.env.AIASYS_DESKTOP_REMOTE_DEBUGGING_PORT;
-const disableGpu =
+const isSafeMode =
+  app.commandLine.hasSwitch("disable-gpu") ||
   process.env.AIASYS_DESKTOP_DISABLE_GPU === "1" ||
   (!process.env.DISPLAY && process.platform === "linux");
+const disableGpu = isSafeMode;
 const runtimeStateRoot = process.env.AIASYS_DESKTOP_HOME
   || path.join(app.getPath("userData"), "backend-runtime");
 
@@ -468,6 +470,22 @@ function createMainWindow(rendererBaseUrl) {
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
     console.error("[aiasys-desktop] render process gone:", details);
     closeSplashWindow();
+
+    // 首次渲染进程崩溃时，自动以禁用 GPU/沙箱的安全模式重启一次
+    if (
+      (details.reason === "crashed" || details.reason === "killed") &&
+      !isSafeMode
+    ) {
+      console.error("[aiasys-desktop] 检测到渲染进程崩溃，将以安全模式重启");
+      dialog.showErrorBox(
+        "AIASys Desktop",
+        "检测到图形渲染兼容性问题，应用将以兼容模式重新启动。",
+      );
+      app.relaunch({ args: [...process.argv.slice(1), "--disable-gpu"] });
+      app.exit(1);
+      return;
+    }
+
     dialog.showErrorBox(
       "AIASys Desktop",
       "渲染进程异常退出，应用将尝试重新加载页面。",

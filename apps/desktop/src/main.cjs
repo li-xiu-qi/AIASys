@@ -44,7 +44,20 @@ if (remoteDebuggingPort) {
 
 if (disableGpu) {
   app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("disable-gpu-rasterization");
+  app.commandLine.appendSwitch("disable-gpu-sandbox");
+  app.commandLine.appendSwitch("use-gl", "swiftshader-webgl");
+  app.commandLine.appendSwitch("use-angle", "swiftshader");
+  app.commandLine.appendSwitch("disable-d3d11");
+  app.commandLine.appendSwitch("disable-direct-composition");
+  app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion,HardwareMediaKeyHandling");
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-setuid-sandbox");
+  app.commandLine.appendSwitch("disable-namespace-sandbox");
+  app.commandLine.appendSwitch("disable-dev-shm-usage");
   app.disableHardwareAcceleration();
+  console.log("[aiasys-desktop] GPU disabled, using software rendering and relaxed sandbox");
 }
 
 function isWSL() {

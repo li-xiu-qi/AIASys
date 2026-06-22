@@ -1,22 +1,27 @@
 ; AIASys Desktop NSIS 自定义脚本
 ; 由 electron-builder 自动包含
 
+; 安装程序需要管理员权限，以便自动开启 Windows 长路径支持。
+; 注意：这里只控制安装包本身，不会修改 apps/desktop/package.json 里的 asInvoker，
+; 因此安装后的 AIASys_Desktop.exe 仍然保持标准用户权限，不影响拖拽文件兼容性。
+RequestExecutionLevel admin
+
 ; ==================== 安装时 ====================
 
 !macro customInstall
   ; 尝试开启 Windows 长路径支持（需要重启生效）
-  ; 由于 package.json 使用 asInvoker，标准用户没有管理员权限，HKLM 写入会失败。
-  ; 仅当实际拥有管理员权限时才写入，否则弹出提示引导用户手动启用。
   UserInfo::GetAccountType
   Pop $R1
   StrCmp $R1 "Admin" hasAdmin
 
-  DetailPrint "当前未以管理员身份运行，跳过自动启用 Windows 长路径"
-  MessageBox MB_OK|MB_ICONINFORMATION "AIASys Desktop 建议启用 Windows 长路径支持以获得最佳兼容性。$\n当前安装未以管理员身份运行，无法自动开启。$\n安装完成后可手动设置注册表：$\nHKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem$\nLongPathsEnabled = 1（DWORD）$\n修改后需要重启系统生效。"
+  MessageBox MB_OK|MB_ICONINFORMATION "需要管理员权限才能自动启用 Windows 长路径支持。$\n请右键以管理员身份运行安装程序，或安装完成后手动设置注册表：$\nHKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem$\nLongPathsEnabled = 1（DWORD）$\n修改后需要重启系统生效。"
+  Goto longPathDone
 
 hasAdmin:
   WriteRegDWORD HKLM "SYSTEM\CurrentControlSet\Control\FileSystem" "LongPathsEnabled" 1
   DetailPrint "已启用 Windows 长路径支持（需要重启生效）"
+
+longPathDone:
 !macroend
 
 ; ==================== 安装前 ====================

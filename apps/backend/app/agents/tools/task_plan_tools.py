@@ -289,7 +289,9 @@ class EnterPlanModeTool(AiasysTool):
         store, user_id, session_id = _resolve_store(ctx)
         # 保存进入 Plan Mode 前的权限模式，以便批准后恢复
         pre_mode = str(ctx.get("authorization_mode") or "smart") if ctx else "smart"
-        plan_state = await asyncio.to_thread(store.enter_plan_mode, pre_plan_permission_mode=pre_mode)
+        plan_state = await asyncio.to_thread(
+            store.enter_plan_mode, pre_plan_permission_mode=pre_mode
+        )
         return ToolResult(
             content=json.dumps(
                 {

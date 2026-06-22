@@ -120,8 +120,7 @@ def _build_heatmap_sync(
 
     try:
         candidates = [
-            p for p in Path(sys_user_dir).iterdir()
-            if p.is_dir() and p.name != "global_workspace"
+            p for p in Path(sys_user_dir).iterdir() if p.is_dir() and p.name != "global_workspace"
         ]
     except OSError:
         candidates = []

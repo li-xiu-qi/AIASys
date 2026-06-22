@@ -54,7 +54,9 @@ class ClawFeishuQrLoginMixin:
             try:
                 return json.loads(raw)
             except json.JSONDecodeError:
-                raise RuntimeError(f"Feishu registration HTTP {exc.response.status_code if exc.response else '?' }: {raw[:200]}") from exc
+                raise RuntimeError(
+                    f"Feishu registration HTTP {exc.response.status_code if exc.response else '?'}: {raw[:200]}"
+                ) from exc
         except Exception as exc:
             raise RuntimeError(f"Feishu registration request failed: {exc}") from exc
 
@@ -290,5 +292,7 @@ class ClawFeishuQrLoginMixin:
             qrcode=str(flow_record.get("qrcode") or ""),
             qrcode_url=str(flow_record.get("qrcode_url") or "").strip() or None,
             expires_at=str(flow_record.get("expires_at") or "").strip() or None,
-            message=message if message is not None else str(flow_record.get("message") or "").strip() or None,
+            message=message
+            if message is not None
+            else str(flow_record.get("message") or "").strip() or None,
         )

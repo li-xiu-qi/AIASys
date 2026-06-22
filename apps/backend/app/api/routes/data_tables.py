@@ -375,9 +375,7 @@ async def put_data_table_record(
 ):
     """更新数据表中的一条记录。"""
     workspace_root = _get_workspace_root(current_user.user_id, workspace_id)
-    return await asyncio.to_thread(
-        _update_record, workspace_root, table_path, record_id, request
-    )
+    return await asyncio.to_thread(_update_record, workspace_root, table_path, record_id, request)
 
 
 @router.put("/{workspace_id}/global-workspace/data-tables/{table_path:path}/records/{record_id}")
@@ -534,9 +532,7 @@ async def update_column_endpoint(
 ):
     """修改数据表的一列定义。"""
     workspace_root = _get_workspace_root(current_user.user_id, workspace_id)
-    return await asyncio.to_thread(
-        _update_column, workspace_root, table_path, column_name, request
-    )
+    return await asyncio.to_thread(_update_column, workspace_root, table_path, column_name, request)
 
 
 @router.put(

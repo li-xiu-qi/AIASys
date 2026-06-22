@@ -37,9 +37,7 @@ class ExportedArtifact:
     content: bytes
 
 
-def export_markdown_file_to_path(
-    source_path: Path, output_format: str
-) -> tuple[str, str, str]:
+def export_markdown_file_to_path(source_path: Path, output_format: str) -> tuple[str, str, str]:
     """导出 Markdown 到磁盘临时文件。
 
     返回 (output_file_path, filename, media_type)。
@@ -163,9 +161,7 @@ def _select_pdf_engine() -> str:
 
 def export_markdown_file(source_path: Path, output_format: str) -> ExportedArtifact:
     """导出 Markdown 文件并返回内存中的内容（小文件场景，向后兼容）。"""
-    output_path, filename, media_type = export_markdown_file_to_path(
-        source_path, output_format
-    )
+    output_path, filename, media_type = export_markdown_file_to_path(source_path, output_format)
     try:
         content = Path(output_path).read_bytes()
         return ExportedArtifact(filename=filename, media_type=media_type, content=content)

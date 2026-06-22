@@ -544,9 +544,7 @@ async def build_runtime_config_projection(
     if pending_memory_version:
         rebuild_required_reasons.append("memory_snapshot_updated")
 
-    capability_summary = await asyncio.to_thread(
-        build_workspace_capability_summary, session_dir
-    )
+    capability_summary = await asyncio.to_thread(build_workspace_capability_summary, session_dir)
     config_sync_state = "pending" if rebuild_required_reasons else "aligned"
 
     return {

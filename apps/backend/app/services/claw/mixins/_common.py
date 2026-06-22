@@ -21,8 +21,12 @@ _OUTBOUND_AIASYS_FILE_RE = re.compile(
     rf":::aiasys-file\{{[^}}]*src=(?P<quote>[\"'])(?P<path>{_FILE_SCHEME_PREFIX}/workspace/[^\"']+)(?P=quote)[^}}]*\}}",
     re.IGNORECASE,
 )
-_OUTBOUND_MARKDOWN_IMAGE_RE = re.compile(rf"!\[(?P<label>[^\]]*)\]\((?P<path>{_FILE_SCHEME_PREFIX}/workspace/[^)\s]+)\)")
-_OUTBOUND_MARKDOWN_LINK_RE = re.compile(rf"\[(?P<label>[^\]]+)\]\((?P<path>{_FILE_SCHEME_PREFIX}/workspace/[^)\s]+)\)")
+_OUTBOUND_MARKDOWN_IMAGE_RE = re.compile(
+    rf"!\[(?P<label>[^\]]*)\]\((?P<path>{_FILE_SCHEME_PREFIX}/workspace/[^)\s]+)\)"
+)
+_OUTBOUND_MARKDOWN_LINK_RE = re.compile(
+    rf"\[(?P<label>[^\]]+)\]\((?P<path>{_FILE_SCHEME_PREFIX}/workspace/[^)\s]+)\)"
+)
 _PLATFORM_LABELS: dict[str, str] = {
     "weixin": "微信",
     "feishu": "飞书",

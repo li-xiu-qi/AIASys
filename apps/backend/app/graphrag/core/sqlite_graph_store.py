@@ -527,7 +527,9 @@ class SQLiteGraphStore:
                             entity.name,
                             entity.entity_type,
                             entity.description,
-                            json.dumps(entity.metadata, ensure_ascii=False) if entity.metadata else "{}",
+                            json.dumps(entity.metadata, ensure_ascii=False)
+                            if entity.metadata
+                            else "{}",
                             doc_id,
                         ]
                         for entity in entities

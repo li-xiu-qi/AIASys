@@ -81,7 +81,9 @@ class DocumentExtractionService:
         if suffix not in self.SUPPORTED_EXTENSIONS:
             raise ValueError(f"不支持的文件类型: {suffix or '[no-extension]'}")
 
-        content = file_bytes if file_bytes is not None else Path(as_system_path(str(path))).read_bytes()
+        content = (
+            file_bytes if file_bytes is not None else Path(as_system_path(str(path))).read_bytes()
+        )
         requested_mode = (
             DocumentExtractionMode.parse(mode) if mode is not None else self.settings.default_mode
         )

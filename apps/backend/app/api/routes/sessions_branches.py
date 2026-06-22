@@ -210,7 +210,9 @@ async def create_session(request: CreateSessionRequest, user: UserInfo = Depends
                 raise HTTPException(status_code=404, detail="Workspace not found") from exc
             except Exception as exc:
                 logger.warning(f"读取工作区 runtime_binding 失败: {exc}")
-                raise HTTPException(status_code=500, detail="Failed to resolve workspace runtime binding") from exc
+                raise HTTPException(
+                    status_code=500, detail="Failed to resolve workspace runtime binding"
+                ) from exc
 
         validated_code_timeout = (
             validate_code_timeout(request.code_timeout, sandbox_mode or "local")

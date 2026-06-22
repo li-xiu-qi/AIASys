@@ -63,7 +63,9 @@ async def export_session_artifact(
             return StreamingResponse(
                 io.BytesIO(payload),
                 media_type="application/json",
-                headers={"Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(download_filename)}"'},
+                headers={
+                    "Content-Disposition": f'attachment; filename="{sanitize_content_disposition_filename(download_filename)}"'
+                },
             )
 
         if scope == "workspace":

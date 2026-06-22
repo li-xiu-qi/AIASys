@@ -606,7 +606,9 @@ class UpdateDataTableColumn(AiasysTool):
         try:
             _, table_file, scope, relative_path = _resolve_table_path(params.table_path)
             column = _column_from_params(params.column)
-            await asyncio.to_thread(update_data_table_column, table_file, params.column_name, column)
+            await asyncio.to_thread(
+                update_data_table_column, table_file, params.column_name, column
+            )
             return ToolResult(
                 content="\n".join(
                     [

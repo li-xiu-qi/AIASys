@@ -307,7 +307,9 @@ class WorkspaceExportService:
         try:
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 zf.writestr("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False))
-                zf.writestr("workspace.json", json.dumps(sanitized_meta, indent=2, ensure_ascii=False))
+                zf.writestr(
+                    "workspace.json", json.dumps(sanitized_meta, indent=2, ensure_ascii=False)
+                )
                 zf.writestr(
                     "conversations.json",
                     json.dumps(

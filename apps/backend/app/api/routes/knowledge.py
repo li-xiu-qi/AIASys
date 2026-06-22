@@ -82,9 +82,7 @@ async def update_knowledge_base(
 ):
     """更新知识库"""
     try:
-        kb = await asyncio.to_thread(
-            service.update_knowledge_base, user.user_id, kb_id, data
-        )
+        kb = await asyncio.to_thread(service.update_knowledge_base, user.user_id, kb_id, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not kb:

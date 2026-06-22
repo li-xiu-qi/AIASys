@@ -882,7 +882,9 @@ async def download_workspace_file(
         return FileResponse(
             _sys_path(file_path),
             media_type=media_type,
-            headers={"Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(file_path.name)}"'},
+            headers={
+                "Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(file_path.name)}"'
+            },
         )
 
     return FileResponse(
@@ -1686,7 +1688,9 @@ async def download_global_workspace_file(
         return FileResponse(
             _sys_path(global_path),
             media_type=media_type,
-            headers={"Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(global_path.name)}"'},
+            headers={
+                "Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(global_path.name)}"'
+            },
         )
 
     return FileResponse(

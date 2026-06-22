@@ -17,8 +17,6 @@
 hasAdmin:
   WriteRegDWORD HKLM "SYSTEM\CurrentControlSet\Control\FileSystem" "LongPathsEnabled" 1
   DetailPrint "已启用 Windows 长路径支持（需要重启生效）"
-
-longPathDone:
 !macroend
 
 ; ==================== 安装前 ====================

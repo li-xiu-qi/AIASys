@@ -1,4 +1,4 @@
-# AIASys Desktop Windows 离线安装包构建检测清单
+# AIASys Windows 离线安装包构建检测清单
 
 > 本文档汇总 Windows 桌面端打包的关键要求与自检项，确保每次自动化构建都能复现、产物可运行。  
 > 版本：v0.4.13  
@@ -21,7 +21,8 @@
 | 9 | 子进程输出编码乱码 | ✅ 已修复 | `encoding_utils.py` 的 `smart_decode()` 多级 fallback |
 | 10 | `fcntl` 在 Windows 缺失 | ✅ 已修复 | 使用 `filelock` 替代 |
 | 11 | Electron 主进程缺少 `fs` 导入 | ✅ 已修复 | `main.cjs` 顶部已导入 `fs` |
-| 12 | EXE 无自定义图标 / 图标不一致 | ✅ **本次修复** | `package.json` 移除 `signAndEditExecutable: false`，Windows 使用 `build/icon.ico` |
+| 12 | EXE 无自定义图标 / 图标不一致 | ✅ 已修复 | `package.json` 移除 `signAndEditExecutable: false`，Windows 使用 `build/icon.ico` |
+| 13 | Windows 11 24H2/25H2 渲染进程崩溃（exit code -2147483645） | ✅ **本次修复** | NSIS 安装脚本自动修复安装目录 ACL，授予 `S-1-15-2-2` LPAC 权限 |
 
 ---
 
@@ -80,8 +81,8 @@ npx electron-builder --win nsis zip --publish=never
 
 | # | 验证项 | 合格标准 |
 |---|---|---|
-| 1 | NSIS 安装包体积 | `dist/AIASys_Desktop Setup X.X.X.exe` ≥ 200 MB |
-| 2 | ZIP 便携包体积 | `dist/AIASys_Desktop-X.X.X-win.zip` ≥ 300 MB |
+| 1 | NSIS 安装包体积 | `dist/AIASys Setup X.X.X.exe` ≥ 200 MB |
+| 2 | ZIP 便携包体积 | `dist/AIASys-X.X.X-win.zip` ≥ 300 MB |
 | 3 | 安装程序可执行 | 双击 `.exe` 正常弹出安装向导 |
 | 4 | License 中文正常 | 安装向导许可协议页面显示正常中文 |
 | 5 | 安装路径可配置 | 安装向导出现目录选择步骤 |
@@ -102,6 +103,7 @@ npx electron-builder --win nsis zip --publish=never
 | 后端启动超时 90s | WMI 服务卡死或僵尸进程 | 确认 `app/main.py` 有 WMI 补丁；清理僵尸进程 |
 | License 乱码 | `license.txt` 无 BOM | `prepare-runtime` 会自动处理；手动可用 Python 加 BOM |
 | 图标显示默认 Electron 图标 | `signAndEditExecutable: false` | 已在 `package.json` 中移除该字段 |
+| 启动后弹窗"渲染进程异常退出" | Windows 11 目录 ACL 权限问题 | 重新以管理员身份运行安装程序；或执行 `scripts/fix-windows-acl.ps1`；或手动 `icacls /grant *S-1-15-2-2:(OI)(CI)(RX)` |
 
 ---
 

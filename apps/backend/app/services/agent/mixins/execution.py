@@ -13,8 +13,6 @@ import time
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-
-from app.utils.path_utils import as_system_path
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
 from app.models.worker_lifecycle import (
@@ -46,6 +44,7 @@ from app.services.task_resource_context import (
     format_task_resource_context_for_prompt,
 )
 from app.services.workspace_registry import get_workspace_registry_service
+from app.utils.path_utils import as_system_path
 
 if TYPE_CHECKING:
     from app.services.agent import AgentService
@@ -1069,6 +1068,7 @@ class ExecutionMixin:
                     )
                     lifecycle_event: dict[str, Any] | None = None
                     if _is_run_cancelled_error(exc):
+                        execution_failed = False
                         host_terminal_event_emitted = True
                         lifecycle_event = build_worker_lifecycle_event(
                             scope="host",
@@ -1836,7 +1836,7 @@ class ExecutionMixin:
                         if _sync_elapsed > 0 and session is not None and session.budget is not None:
                             session.budget.time_used_seconds += _sync_elapsed
                             try:
-                                session._save_budget()
+                                await session._save_budget()
                             except Exception:
                                 logger.warning("保存同步模式时间统计失败", exc_info=True)
         finally:

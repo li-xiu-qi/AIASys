@@ -371,15 +371,12 @@ class ContextMixin:
             from app.services.agent.subagent_registry import get_subagent_registry
 
             registry = get_subagent_registry()
-            for agent_id in list(registry._host_session_ids.keys()):
-                if registry._host_session_ids.get(agent_id) == session_key:
-                    registry.cancel(agent_id)
-                    registry.unregister(agent_id)
+            await registry.acancel_all_for_host(session_key)
+            await registry.aunregister_all_for_host(session_key)
         except Exception:
             logger.warning("清理子 Agent registry 失败", exc_info=True)
 
         async with self._locks_lock:
-            # 保留会话锁，不要从注册表中删除。绑定到该会话的自动任务可能仍在
-            # 等待或执行中，删除锁会导致新的 SSE stream 为同一会话创建新锁，
-            # 从而与正在执行的自动任务并发读写同一会话状态。
-            pass
+            # 仅当没有活跃的自动任务绑定到该会话时才删除锁，
+            # 防止自动任务执行期间新建 SSE stream 创建新锁导致并发读写。
+            self._session_locks.pop(session_key, None)

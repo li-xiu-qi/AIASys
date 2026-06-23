@@ -33,6 +33,7 @@ import {
   type ViewButton,
 } from "./context/activityBarUtils";
 import { useWorkspaceOverview } from "./hooks/useWorkspaceOverview";
+import { useFileUploadToast } from "@/components/file/FileUploadToast";
 
 const LazyDatabaseQueryWorkbench = lazy(() =>
   import("@/components/database/DatabaseQueryWorkbench").then((module) => ({
@@ -230,6 +231,9 @@ export function WorkspaceContextPanel({
       return;
     }
 
+    document.body.style.setProperty("-webkit-user-select", "none");
+    document.body.style.setProperty("-moz-user-select", "none");
+    document.body.style.setProperty("-ms-user-select", "none");
     document.body.style.userSelect = "none";
     document.body.style.cursor = "col-resize";
 
@@ -250,6 +254,9 @@ export function WorkspaceContextPanel({
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
     return () => {
+      document.body.style.removeProperty("-webkit-user-select");
+      document.body.style.removeProperty("-moz-user-select");
+      document.body.style.removeProperty("-ms-user-select");
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       document.removeEventListener("mousemove", handleMouseMove);
@@ -409,6 +416,7 @@ export function WorkspaceContextPanel({
   const [activityItems, setActivityItems] = useState<Array<ActivityBarItem<ActivityPanelView>>>(
     getDefaultActivityItems,
   );
+  const { showError } = useFileUploadToast();
 
   useEffect(() => {
     if (!userId) return;
@@ -442,19 +450,22 @@ export function WorkspaceContextPanel({
         .map((id) => itemMap.get(id))
         .filter((i): i is ActivityBarItem<ActivityPanelView> => Boolean(i));
       if (reordered.length === defaults.length) {
-        setActivityItems(reordered);
-        if (userId) {
-          import("@/lib/api/uiSettings")
-            .then(({ saveUserUISettings }) =>
-              saveUserUISettings(userId, { activityBarOrder: newOrder }),
-            )
-            .catch(() => {
-              // 保存失败静默处理
-            });
-        }
+        setActivityItems((prev) => {
+          if (userId) {
+            import("@/lib/api/uiSettings")
+              .then(({ saveUserUISettings }) =>
+                saveUserUISettings(userId, { activityBarOrder: newOrder }),
+              )
+              .catch(() => {
+                showError("活动栏顺序保存失败，已恢复之前的排序");
+                setActivityItems(prev);
+              });
+          }
+          return reordered;
+        });
       }
     },
-    [userId],
+    [userId, showError],
   );
   const activityView = normalizeActivityPanelView(activeView);
   const isCenterEditorOnlyActivityView = false;

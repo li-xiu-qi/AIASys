@@ -150,7 +150,7 @@ class FolderImportPreviewResponse(BaseModel):
 
 
 class FolderImportPreviewRequest(BaseModel):
-    source_path: str = Field(..., min_length=1, description="源文件夹绝对路径")
+    source_path: str = Field(description="源文件夹绝对路径")
 
 
 class FolderImportProgressEvent(BaseModel):
@@ -244,6 +244,17 @@ class WorkspaceDetailResponse(WorkspaceListItemResponse):
     warnings: list[str] = Field(
         default_factory=list, description="工作区创建或初始化时的非致命警告信息"
     )
+
+
+class WorkspaceInitializationStatus(BaseModel):
+    """工作区创建后的运行时资源初始化状态"""
+
+    status: Literal["pending", "running", "completed", "failed"] = "pending"
+    progress: int = Field(default=0, ge=0, le=100)
+    message: str = ""
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error: Optional[str] = None
 
 
 class WorkspaceListResponse(BaseModel):

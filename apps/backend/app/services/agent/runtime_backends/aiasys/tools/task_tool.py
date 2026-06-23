@@ -6,6 +6,7 @@ AIASys 原生子 Agent 调度工具 (TaskTool)。
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import tomllib
 import uuid
@@ -180,7 +181,7 @@ def _find_subagent_manifest(
         path = Path(raw_path).expanduser()
         if not path.is_absolute():
             path = path.resolve()
-        with path.open("rb") as file:
+        with Path(as_system_path(str(path))).open("rb") as file:
             payload = tomllib.load(file) or {}
     except Exception:
         logger.warning(
@@ -308,8 +309,10 @@ class TaskTool(AiasysTool):
             yield ToolResult(content="无法确定当前会话上下文", is_error=True)
             return
 
-        # 1. 查找子 Agent manifest
-        subagent_manifest = _find_subagent_manifest(host_agent_config, subagent_name)
+        # 1. 查找子 Agent manifest（同步文件 IO 放入线程池，避免阻塞事件循环）
+        subagent_manifest = await asyncio.to_thread(
+            _find_subagent_manifest, host_agent_config, subagent_name
+        )
         if subagent_manifest is None:
             # fallback 到协作专家运行时查找（workspace > global）
             from app.services.agent.subagent_catalog import (
@@ -388,7 +391,7 @@ class TaskTool(AiasysTool):
 
         # 2a. 预检查并发限制（快速失败，避免创建不必要的 storage/session）
         if max_threads is not None:
-            active_count = registry.count_active_for_host(host_session_id)
+            active_count = await registry.acount_active_for_host(host_session_id)
             if active_count >= max_threads:
                 yield ToolResult(
                     content=(
@@ -464,9 +467,12 @@ class TaskTool(AiasysTool):
             merged_excludes = existing_excludes | set(universal_excludes)
             subagent_manifest["exclude_tools"] = list(merged_excludes)
 
-        # 4c. 物化子 Agent TOML 到 storage 目录
-        subagent_toml_path = _materialize_subagent_toml(
-            subagent_manifest, subagent_name, str(storage.subagent_dir)
+        # 4c. 物化子 Agent TOML 到 storage 目录（同步文件 IO 放入线程池）
+        subagent_toml_path = await asyncio.to_thread(
+            _materialize_subagent_toml,
+            subagent_manifest,
+            subagent_name,
+            str(storage.subagent_dir),
         )
 
         mcp_policy = subagent_manifest.get("mcp_policy") or "none"
@@ -590,7 +596,7 @@ class TaskTool(AiasysTool):
             "agent_path": str(child_path),
         }
         storage.update_launch_spec(full_launch_spec)
-        registry.set_launch_spec(agent_id, full_launch_spec)
+        await registry.aset_launch_spec(agent_id, full_launch_spec)
 
         # 9. 持久化初始用户指令
         await storage.append_context_message(
@@ -611,7 +617,7 @@ class TaskTool(AiasysTool):
                 prompt=prompt,
                 storage=storage,
                 keep_alive=True,
-                timeout_seconds=(registry.get_launch_spec(agent_id) or {}).get(
+                timeout_seconds=(await registry.aget_launch_spec(agent_id) or {}).get(
                     "timeout_seconds", 300
                 ),
                 workspace=workspace,

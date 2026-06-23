@@ -122,7 +122,9 @@ def _get_workspace_path(user_id: str, workspace_id: str) -> Path:
     "/external-market/sources",
     response_model=list[ExternalSkillMarketSource],
 )
-async def list_external_skill_market_sources() -> list[ExternalSkillMarketSource]:
+async def list_external_skill_market_sources(
+    current_user: UserInfo = Depends(require_auth()),
+) -> list[ExternalSkillMarketSource]:
     service = get_external_skill_market_service()
     return service.list_sources()
 
@@ -138,6 +140,7 @@ async def list_external_skill_market_items(
     sort_by: str = "recommended",
     page_number: int = 1,
     page_size: int = 24,
+    current_user: UserInfo = Depends(require_auth()),
 ) -> ExternalSkillMarketListResponse:
     service = get_external_skill_market_service()
     try:
@@ -160,6 +163,7 @@ async def list_external_skill_market_items(
 async def get_external_skill_market_item_detail(
     source_id: str,
     item_id: str,
+    current_user: UserInfo = Depends(require_auth()),
 ) -> ExternalSkillMarketDetailResponse:
     service = get_external_skill_market_service()
     try:
@@ -251,7 +255,7 @@ async def import_skill_to_store(
 
         get_capability_manager()._source_registry.clear_cache()
     except Exception:
-        pass
+        logger.warning("安装 Skill 后刷新能力源缓存失败", exc_info=True)
     return SkillOperationResponse(
         success=result.success,
         skill_name=result.skill_name,
@@ -274,7 +278,7 @@ async def delete_store_skill(
 
         get_capability_manager()._source_registry.clear_cache()
     except Exception:
-        pass
+        logger.warning("删除 Skill 后刷新能力源缓存失败", exc_info=True)
     return SkillOperationResponse(
         success=result.success,
         skill_name=result.skill_name,

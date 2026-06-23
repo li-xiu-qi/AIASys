@@ -24,7 +24,10 @@ import {
   deleteWorkspaceTemplate,
   type WorkspaceTemplateItem,
 } from "@/lib/api/workspaces";
-import { useFileUploadToast } from "@/components/file/FileUploadToast";
+import {
+  FileUploadToast,
+  useFileUploadToast,
+} from "@/components/file/FileUploadToast";
 import { useAuthState } from "@/contexts/AuthContext";
 import { saveUserUISettings } from "@/lib/api/uiSettings";
 import { TemplateSortableGrid } from "@/components/TemplateSortableGrid";
@@ -35,7 +38,7 @@ export interface TemplateManagementPanelProps {
 }
 
 export function TemplateManagementPanel({ onNavigate }: TemplateManagementPanelProps) {
-  const { showSuccess, showError: showToastError } = useFileUploadToast();
+  const { toasts, showSuccess, showError: showToastError } = useFileUploadToast();
   const { user } = useAuthState();
   const [templates, setTemplates] = useState<WorkspaceTemplateItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -141,10 +144,14 @@ export function TemplateManagementPanel({ onNavigate }: TemplateManagementPanelP
             onSelect={(templateId) => setSelectedTemplateId(templateId)}
             onPreview={() => {}}
             onReorder={(newItems) => {
+              const previousItems = templates;
               setTemplates(newItems);
               if (user?.id) {
                 const order = newItems.map((t) => t.template_id);
-                saveUserUISettings(user.id, { templateOrder: order }).catch(() => {});
+                saveUserUISettings(user.id, { templateOrder: order }).catch((err) => {
+                  setTemplates(previousItems);
+                  showToastError(err instanceof Error ? err.message : "保存排序失败，请重试");
+                });
               }
             }}
           />
@@ -189,6 +196,13 @@ export function TemplateManagementPanel({ onNavigate }: TemplateManagementPanelP
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {toasts.map((toast) => (
+        <FileUploadToast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+        />
+      ))}
     </div>
   );
 }

@@ -21,8 +21,9 @@ AIASys/
 ├── .team-skills/                ← 团队共享 Skill（本指南所在，git 跟踪）
 │   ├── team-skill-guide/        ← 本指南：Skill 路由总览
 │   ├── team-skill-governance/   ← 管理机制与准入标准
+│   ├── wsl-windows-bridge/      ← WSL ↔ Windows 跨环境操作规范
+│   ├── aiasys-cross-platform/   ← 跨平台兼容性规范（已合并至 wsl-windows-bridge）
 │   ├── aiasys-frontend-architecture/
-│   ├── aiasys-cross-platform/
 │   ├── aiasys-git-workflow/
 │   ├── aiasys-llm-config/
 │   ├── aiasys-mac-desktop-deploy/
@@ -33,6 +34,7 @@ AIASys/
 │   ├── api-dev/
 │   ├── commit-history-audit/
 │   ├── frontend-pattern/
+│   ├── open-source-contribution/
 │   ├── pr-check/
 │   ├── sop-workflow/
 │   ├── state-flow/
@@ -51,6 +53,7 @@ AIASys/
 | 任务执行、判断诊断、交接闭环 | `task-protocol` | 任务执行协议 |
 | Git 提交、分支、PR、合并、冲突、fork CI | `aiasys-git-workflow` | Git 工作流 |
 | Commit 历史审计、重复提交、stale 分支清理 | `commit-history-audit` | 历史审计与清理 |
+| 开源贡献、Issue 认领、PR 提交 | `open-source-contribution` | 开源贡献规范 |
 | PR 检查、提交前审查、合并前验证、fork CI 预检查 | `pr-check` | PR 质量检查 |
 | React 19、Tailwind 4、前端组件、UI 设计 | `aiasys-frontend-architecture` | 前端架构规范 |
 | 系统架构设计、服务拆分、模块边界 | `aiasys-system-design` | 系统架构规范 |
@@ -64,7 +67,8 @@ AIASys/
 | LLM 配置、模型 key 管理、provider 切换 | `aiasys-llm-config` | LLM 配置规范 |
 | Mac 桌面端远程编译打包验证 | `aiasys-mac-desktop-deploy` | Mac 桌面部署 |
 | 项目目录结构、脚本落位、临时文件管理 | `aiasys-project-structure` | 项目结构规范 |
-| 跨平台兼容、路径处理、编码、进程管理 | `aiasys-cross-platform` | 跨平台兼容规范 |
+| 跨平台兼容、路径处理、编码、进程管理 | `aiasys-cross-platform` | 跨平台兼容规范（已合并至 wsl-windows-bridge） |
+| WSL ↔ Windows 跨环境操作、文件同步、路径映射、联调工作流 | `wsl-windows-bridge` | WSL/Windows 桥接操作规范 |
 | 不知道用哪个 Skill、Skill 冲突 | `team-skill-guide`（本指南） | 路由决策 |
 
 ## 强制读取顺序
@@ -77,6 +81,7 @@ AIASys/
 **任务执行时**：
 - 涉及 Git、fork CI 验证 → 读 `aiasys-git-workflow`
 - 涉及 Commit 历史审计、清理 → 读 `commit-history-audit`
+- 涉及开源贡献、Issue 认领、PR 提交 → 读 `open-source-contribution`
 - 涉及代码变更后同步更新 Skill → 读 `aiasys-skill-maintenance`
 - 涉及前端开发 → 读 `aiasys-frontend-architecture`
 - 涉及系统架构 → 读 `aiasys-system-design`
@@ -87,6 +92,7 @@ AIASys/
 - 涉及 Mac 桌面端打包 → 读 `aiasys-mac-desktop-deploy`
 - 涉及项目目录/脚本落位 → 读 `aiasys-project-structure`
 - 涉及跨平台兼容/路径处理/编码 → 读 `aiasys-cross-platform`
+- 涉及 WSL ↔ Windows 跨环境操作/文件同步/路径映射/联调 → 读 `wsl-windows-bridge`
 - 涉及文件/目录操作 → 读 `workspace-ops`（`.kimi-code/skills/`）
 - 涉及写作/文档 → 读 `writing-guide`（`.kimi-code/skills/`）
 - 涉及任务执行 → 读 `task-protocol`（`.kimi-code/skills/`）

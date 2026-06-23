@@ -9,10 +9,11 @@ import io
 import json
 import os
 import shutil
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, BinaryIO, Dict, Tuple
 
 from app.core.config import WORKSPACE_DIR
 from app.services.workspace_registry import WorkspaceRegistryService
@@ -92,12 +93,32 @@ class WorkspaceImportService:
         user_id: str,
         zip_bytes: bytes,
     ) -> Tuple[str, Dict[str, Any]]:
-        """从 ZIP 字节导入工作区。
+        """从 ZIP 字节导入工作区（兼容接口，内部写入临时文件避免内存中展开完整 ZIP）。
+
+        返回 (新 workspace_id, workspace_meta)。
+        """
+        fd, tmp_path = tempfile.mkstemp(suffix=".zip")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(zip_bytes)
+            return self.import_from_zip_file(user_id=user_id, zip_path=tmp_path)
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    def import_from_zip_file(
+        self,
+        user_id: str,
+        zip_path: str | Path,
+    ) -> Tuple[str, Dict[str, Any]]:
+        """从 ZIP 文件路径导入工作区，避免把整个压缩包读入内存。
 
         返回 (新 workspace_id, workspace_meta)。
         """
         try:
-            with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+            with zipfile.ZipFile(as_system_path(str(zip_path)), "r") as zf:
                 return self._import_from_zipfile(user_id, zf)
         except zipfile.BadZipFile as exc:
             raise WorkspaceImportError("无效的 ZIP 文件") from exc
@@ -163,13 +184,18 @@ class WorkspaceImportService:
         try:
             # 恢复 workspace_files/
             prefix = "workspace_files/"
+            workspace_dir_resolved = Path(as_system_path(workspace_dir)).resolve()
             for name in zf.namelist():
                 if name.startswith(prefix) and not name.endswith("/"):
                     relative = name[len(prefix) :]
-                    target = workspace_dir / relative
+                    if relative.startswith("/") or ".." in Path(relative).parts:
+                        raise WorkspaceImportError(f"ZIP 条目包含非法路径: {name}")
+                    target = (workspace_dir / relative).resolve()
+                    if not target.is_relative_to(workspace_dir_resolved):
+                        raise WorkspaceImportError(f"ZIP 条目试图逃逸出工作区: {name}")
                     os.makedirs(as_system_path(target.parent), exist_ok=True)
-                    with zf.open(name) as src, open(target, "wb") as dst:
-                        shutil.copyfileobj(as_system_path(str(src)), as_system_path(str(dst)))
+                    with zf.open(name) as src, open(as_system_path(target), "wb") as dst:
+                        shutil.copyfileobj(src, dst)
 
             # 写 workspace.json
             meta_dir = workspace_dir / ".aiasys" / "workspace"

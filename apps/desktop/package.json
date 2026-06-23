@@ -1,7 +1,7 @@
 {
-  "name": "aiasys-desktop",
+  "name": "aiasys",
   "private": true,
-  "version": "0.4.18",
+  "version": "0.4.25",
   "description": "Electron desktop shell for AIASys",
   "homepage": "https://aiasys.ai",
   "author": "AIASys <contact@aiasys.ai>",
@@ -9,14 +9,21 @@
   "scripts": {
     "dev": "node ./scripts/launch.cjs dev",
     "start": "node ./scripts/launch.cjs preview",
+    "dev:patch": "node ./scripts/dev-patch.cjs",
+    "dev:patch:dry": "node ./scripts/dev-patch.cjs --dry-run",
+    "dev:sync": "node ./scripts/wsl-sync.cjs",
     "build:web": "npm --prefix ../web run build",
     "prepare:runtime": "node ./scripts/prepare-runtime.cjs",
+    "prepare:runtime:light": "node ./scripts/prepare-runtime.cjs --no-embed",
     "dist:linux:dir": "npm run build:web && npm run prepare:runtime && electron-builder --linux dir",
     "dist:win": "npm run build:web && npm run prepare:runtime && electron-builder --win",
+    "dist:win:light": "npm run build:web && npm run prepare:runtime:light && electron-builder --win nsis --publish=never",
+    "dist:win:portable": "npm run build:web && npm run prepare:runtime:light && electron-builder --win zip --publish=never",
     "dist:mac": "npm run build:web && npm run prepare:runtime && electron-builder --mac",
-    "dist:ci:linux": "npm run prepare:runtime && electron-builder --linux AppImage deb --publish=never",
-    "dist:ci:win": "npm run prepare:runtime && electron-builder --win nsis --publish=never",
-    "dist:ci:mac": "npm run prepare:runtime && electron-builder --mac dmg zip --publish=never",
+    "dist:ci:linux": "npm run build:web && npm run prepare:runtime && electron-builder --linux AppImage deb --publish=never",
+    "dist:ci:win": "npm run build:web && npm run prepare:runtime && electron-builder --win nsis --publish=never",
+    "dist:ci:mac": "npm run build:web && npm run prepare:runtime && electron-builder --mac dmg zip --publish=never",
+    "dist:ci:mac-x64": "npm run build:web && npm run prepare:runtime && electron-builder --mac dmg zip --x64 --publish=never",
     "dist:mac:unsigned": "npm run build:web && npm run prepare:runtime && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --arm64 -c.mac.notarize=false -c.mac.identity=null",
     "test:unit": "node --test src/__tests__/*.test.cjs",
     "test:integration": "node --test scripts/integration-test.cjs",
@@ -24,13 +31,13 @@
     "test": "npm run test:unit && npm run test:integration"
   },
   "devDependencies": {
-    "electron": "41.2.0",
+    "electron": "42.4.1",
     "electron-builder": "26.0.12",
     "png-to-ico": "^3.0.1"
   },
   "build": {
     "appId": "com.aiasys.desktop",
-    "productName": "AIASys_Desktop",
+    "productName": "AIASys",
     "icon": "build/icon",
     "asar": true,
     "compression": "maximum",
@@ -70,7 +77,9 @@
         "deb"
       ],
       "category": "Development",
-      "executableArgs": ["--no-sandbox"],
+      "executableArgs": [
+        "--no-sandbox"
+      ],
       "maintainer": "AIASys <contact@aiasys.ai>"
     },
     "win": {
@@ -90,7 +99,7 @@
       "unicode": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "AIASys Desktop"
+      "shortcutName": "AIASys"
     },
     "mac": {
       "target": [
@@ -99,5 +108,9 @@
       ],
       "category": "public.app-category.developer-tools"
     }
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.2",
+    "tar": "^7.5.16"
   }
 }

@@ -4,10 +4,12 @@
 提供知识库管理、文档上传、检索等功能
 """
 
+import asyncio
+import re
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.auth import UserInfo, get_current_user
 from app.knowledge import SQLiteKBService, get_sqlite_kb_service
@@ -40,7 +42,7 @@ async def create_knowledge_base(
 ):
     """创建知识库"""
     try:
-        return service.create_knowledge_base(user.user_id, data)
+        return await asyncio.to_thread(service.create_knowledge_base, user.user_id, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -53,7 +55,9 @@ async def list_knowledge_bases(
     service: SQLiteKBService = Depends(get_sqlite_kb_service),
 ):
     """列出当前用户的知识库"""
-    return service.list_knowledge_bases(user.user_id, skip=skip, limit=limit)
+    return await asyncio.to_thread(
+        service.list_knowledge_bases, user.user_id, skip=skip, limit=limit
+    )
 
 
 @router.get("/bases/{kb_id}", response_model=KnowledgeBaseResponse)
@@ -63,7 +67,7 @@ async def get_knowledge_base(
     service: SQLiteKBService = Depends(get_sqlite_kb_service),
 ):
     """获取知识库详情"""
-    kb = service.get_knowledge_base(user.user_id, kb_id)
+    kb = await asyncio.to_thread(service.get_knowledge_base, user.user_id, kb_id)
     if not kb:
         raise HTTPException(status_code=404, detail="知识库不存在")
     return kb
@@ -78,7 +82,7 @@ async def update_knowledge_base(
 ):
     """更新知识库"""
     try:
-        kb = service.update_knowledge_base(user.user_id, kb_id, data)
+        kb = await asyncio.to_thread(service.update_knowledge_base, user.user_id, kb_id, data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not kb:
@@ -173,7 +177,9 @@ async def list_documents(
     service: SQLiteKBService = Depends(get_sqlite_kb_service),
 ):
     """列出知识库中的文档"""
-    return service.list_documents(user.user_id, kb_id, skip=skip, limit=limit)
+    return await asyncio.to_thread(
+        service.list_documents, user.user_id, kb_id, skip=skip, limit=limit
+    )
 
 
 @router.delete("/bases/{kb_id}/docs/{doc_id}")
@@ -184,7 +190,7 @@ async def delete_document(
     service: SQLiteKBService = Depends(get_sqlite_kb_service),
 ):
     """删除文档"""
-    success = service.delete_document(user.user_id, kb_id, doc_id)
+    success = await asyncio.to_thread(service.delete_document, user.user_id, kb_id, doc_id)
     if not success:
         raise HTTPException(status_code=404, detail="文档不存在")
     return {"success": True, "message": "文档已删除"}
@@ -211,7 +217,10 @@ async def query_knowledge_base(
 
 
 class RawQueryRequest(BaseModel):
-    sql: str
+    sql: str = Field(
+        max_length=4096,
+        description="仅允许 SELECT 查询，最大 4096 字符",
+    )
 
 
 class RawQueryResponse(BaseModel):
@@ -232,11 +241,11 @@ async def list_kb_tables(
     service: SQLiteKBService = Depends(get_sqlite_kb_service),
 ):
     """获取知识库底层 SQLite 数据库的表列表和列信息"""
-    kb = service.get_knowledge_base(user.user_id, kb_id)
+    kb = await asyncio.to_thread(service.get_knowledge_base, user.user_id, kb_id)
     if not kb:
         raise HTTPException(status_code=404, detail="知识库不存在")
     try:
-        tables = service.list_tables(user.user_id, kb_id)
+        tables = await asyncio.to_thread(service.list_tables, user.user_id, kb_id)
         return [TableInfoResponse(**t) for t in tables]
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Failed to list tables") from exc
@@ -253,11 +262,14 @@ async def execute_kb_raw_query(
     kb = service.get_knowledge_base(user.user_id, kb_id)
     if not kb:
         raise HTTPException(status_code=404, detail="知识库不存在")
+    stripped = request.sql.strip()
+    if not re.match(r"^SELECT\b", stripped, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="仅允许 SELECT 查询")
     try:
         result = service.execute_raw_sql(user.user_id, kb_id, request.sql)
         return RawQueryResponse(**result)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid SQL query")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid SQL query") from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Query execution failed") from exc
 

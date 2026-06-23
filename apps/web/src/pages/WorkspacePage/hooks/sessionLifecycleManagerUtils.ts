@@ -23,8 +23,12 @@ export function downloadBlob(blob: Blob, filename: string) {
   link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
-  window.URL.revokeObjectURL(url);
-  link.remove();
+
+  // 延迟清理，避免浏览器尚未开始下载时 blob URL 就被释放
+  setTimeout(() => {
+    window.URL.revokeObjectURL(url);
+    link.remove();
+  }, 100);
 }
 
 export function getDownloadFilename(

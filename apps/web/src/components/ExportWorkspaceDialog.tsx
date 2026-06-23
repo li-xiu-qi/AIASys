@@ -14,7 +14,10 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
-import { useFileUploadToast } from "@/components/file/FileUploadToast";
+import {
+  FileUploadToast,
+  useFileUploadToast,
+} from "@/components/file/FileUploadToast";
 import {
   TemplateFileTreeSelector,
   isFileExcluded,
@@ -60,6 +63,7 @@ async function fetchExportIgnore(workspaceId: string): Promise<string[]> {
       API_ENDPOINTS.WORKSPACE_FILE_CONTENT(workspaceId, ".aiasys/.exportignore"),
     );
     return res.content
+      .replace(/\r\n/g, "\n")
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0 && !line.startsWith("#"));
@@ -81,7 +85,7 @@ export function ExportWorkspaceDialog({
   isOpen,
   onClose,
 }: ExportWorkspaceDialogProps) {
-  const { showSuccess, showError: showToastError } = useFileUploadToast();
+  const { toasts, showSuccess, showError: showToastError } = useFileUploadToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +103,9 @@ export function ExportWorkspaceDialog({
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const workspaceTitleRef = useRef(workspaceTitle);
-  workspaceTitleRef.current = workspaceTitle;
+  useEffect(() => {
+    workspaceTitleRef.current = workspaceTitle;
+  }, [workspaceTitle]);
 
   // 打开弹窗时加载文件列表和 .exportignore
   useEffect(() => {
@@ -404,6 +410,13 @@ export function ExportWorkspaceDialog({
             {isSubmitting ? "导出中..." : "导出工作区"}
           </Button>
         </DialogFooter>
+        {toasts.map((toast) => (
+          <FileUploadToast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+          />
+        ))}
       </DialogContent>
     </Dialog>
   );

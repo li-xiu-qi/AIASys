@@ -50,7 +50,7 @@ export const NEW_TASK_STAGE_LABELS: Record<NewTaskStage, string> = {
   creating_workspace: "正在创建工作区",
   binding_environment: "正在绑定运行环境",
   attaching_databases: "正在挂载数据库连接",
-  waiting_runtime: "正在等待运行时就绪",
+  waiting_runtime: "正在初始化运行环境",
   activating_session: "正在切换到新对话",
   error: "创建任务失败",
 };
@@ -63,6 +63,7 @@ export interface NewTaskLifecycleState {
   isError: boolean;
   errorMessage: string | null;
   progress?: number;
+  message?: string;
 }
 
 export interface WorkspaceRuntimeSummary {

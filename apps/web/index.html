@@ -18,10 +18,81 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
       />
     </noscript>
-    <title>艾斯</title>
+    <title>AIASys</title>
+    <style>
+      #root-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #0f0f0f;
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+        z-index: 99999;
+        transition: opacity 0.3s ease;
+      }
+      #root-splash .splash-spinner {
+        width: 28px;
+        height: 28px;
+        border: 2.5px solid #333333;
+        border-top-color: #7cb8ff;
+        border-radius: 50%;
+        animation: splash-spin 1s linear infinite;
+        margin-bottom: 22px;
+      }
+      #root-splash .splash-logo {
+        font-size: 24px;
+        font-weight: 600;
+        letter-spacing: -0.5px;
+        margin-bottom: 10px;
+      }
+      #root-splash .splash-status {
+        font-size: 13px;
+        color: #888888;
+        margin-bottom: 16px;
+        min-height: 20px;
+      }
+      #root-splash .splash-progress {
+        width: 200px;
+        height: 4px;
+        background: #2a2a2a;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      #root-splash .splash-progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4a90d9, #7cb8ff);
+        border-radius: 2px;
+        transition: width 0.4s ease;
+      }
+      @keyframes splash-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+    <script>
+      // 暴露给 React 应用更新加载进度
+      window.__setLoadingProgress = function(percent, message) {
+        var bar = document.getElementById('splash-progress-bar');
+        var status = document.getElementById('splash-status');
+        if (bar) bar.style.width = Math.max(2, Math.min(100, percent || 0)) + '%';
+        if (status && message) status.textContent = message;
+      };
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="root-splash">
+        <div class="splash-spinner"></div>
+        <div class="splash-logo">AIASys</div>
+        <div class="splash-status" id="splash-status">正在加载...</div>
+        <div class="splash-progress">
+          <div class="splash-progress-bar" id="splash-progress-bar"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

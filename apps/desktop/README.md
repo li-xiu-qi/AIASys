@@ -1,4 +1,4 @@
-# AIASys Desktop
+# AIASys
 
 第一阶段 Electron desktop 薄壳。
 
@@ -91,14 +91,15 @@ npm run dist:win
 ```
 
 产物：
-- `apps/desktop/dist/AIASys Desktop Setup x.x.x.exe` — NSIS 安装程序
-- `apps/desktop/dist/AIASys Desktop-x.x.x-win.zip` — 便携版
+- `apps/desktop/dist/AIASys Setup x.x.x.exe` — NSIS 安装程序
+- `apps/desktop/dist/AIASys-x.x.x-win.zip` — 便携版
 
 Windows 安装包特性：
 - 允许用户选择安装目录（`oneClick: false`）
 - 安装前自动检测并关闭运行中的应用
+- 安装时会自动修复安装目录 ACL（授予 `S-1-15-2-2` LPAC 权限），避免 Windows 11 24H2/25H2 上 Electron GPU sandbox 因权限问题崩溃
 - 卸载时询问是否删除用户数据（`%APPDATA%/aiasys-desktop`）
-- 不需要管理员权限（`asInvoker`，避免拖放文件失效）
+- 安装后的应用仍以标准用户权限运行（`asInvoker`，避免拖放文件失效）
 
 ### macOS
 
@@ -107,7 +108,7 @@ cd apps/desktop
 npm run dist:mac
 ```
 
-产物：`apps/desktop/dist/AIASys Desktop-x.x.x.dmg`
+产物：`apps/desktop/dist/AIASys-x.x.x.dmg`
 
 ## 实现说明
 
@@ -134,3 +135,26 @@ npm run dist:mac
 - packaged backend 在"没有显式默认模型、只有默认 provider"时，会优先选择默认 provider 下的第一个启用模型；当前已验证会自动选到 `kimi-kimi-for-coding`
 - 通过 Electron renderer 进入工作区后，已可真实发送消息并在页面中看到返回内容，不再长期停留在"正在执行任务"
 - Windows 构建产物已生成（在 Linux 上通过 electron-builder 交叉构建），但含 Linux venv，需在 Windows 环境或 Windows CI runner 上重新构建才能实际运行
+
+## Windows 故障排查
+
+### 启动时提示"渲染进程异常退出，应用将尝试重新加载页面"
+
+常见于 Windows 11 24H2/25H2。根本原因是 Chromium/Electron 的 GPU sandbox 在启动时校验安装目录 ACL，若缺少 `S-1-15-2-2`（ALL RESTRICTED APPLICATION PACKAGES）读取权限，或目录中存在无法解析的僵尸 SID，GPU 进程会以 `exit_code=-2147483645` 退出。
+
+**解决方式（任选其一）：**
+
+1. **重新运行安装程序**（推荐）：NSIS 安装脚本现在会自动修复安装目录权限。
+2. **运行修复脚本**：以管理员身份打开 PowerShell，执行：
+   ```powershell
+   .\apps\desktop\scripts\fix-windows-acl.ps1
+   ```
+   若安装路径非默认，可指定 `-InstallDir` 参数。
+3. **手动修复**：以管理员身份打开 PowerShell，执行：
+   ```powershell
+   $dir = "$env:LOCALAPPDATA\Programs\AIASys"
+   icacls $dir /inheritance:e /t /c /q
+   icacls $dir /grant '*S-1-15-2-2:(OI)(CI)(RX)' /t /c /q
+   ```
+
+相关 Chromium issue：https://github.com/electron/electron/issues/51761

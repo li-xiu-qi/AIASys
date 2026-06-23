@@ -16,15 +16,16 @@ fi
 print_usage() {
   cat <<EOF
 Usage:
-  ./dev.sh              启动前后端开发服务
-  ./dev.sh start        启动前后端开发服务
-  ./dev.sh status       查看前后端端口与健康状态
-  ./dev.sh design-lint  校验根目录 DESIGN.md
+  ./dev.sh setup          一键安装依赖并准备开发环境（AI Agent 可用）
+  ./dev.sh                启动前后端开发服务
+  ./dev.sh start          启动前后端开发服务
+  ./dev.sh status         查看前后端端口与健康状态
+  ./dev.sh design-lint    校验根目录 DESIGN.md
   ./dev.sh design-export-css [output]
-                        从 DESIGN.md 生成 Tailwind 4 CSS 变量草案
+                          从 DESIGN.md 生成 Tailwind 4 CSS 变量草案
   ./dev.sh design-export-runtime
-                        生成当前运行时变量候选主题和映射说明
-  ./dev.sh setup-hooks  启用仓库内置 Git hooks
+                          生成当前运行时变量候选主题和映射说明
+  ./dev.sh setup-hooks    启用仓库内置 Git hooks
 EOF
 }
 
@@ -133,7 +134,174 @@ cleanup_children() {
   exit "${exit_code}"
 }
 
+# ============================================
+# setup 命令：一键安装依赖、准备开发环境
+# 设计为 AI Agent 友好：幂等、可重入、逐步骤报告
+# ============================================
+
+# 检查命令是否存在
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+# 获取 Python 主版本号
+python_major_version() {
+  "$1" -c "import sys; print(sys.version_info.major)" 2>/dev/null || echo "0"
+}
+
+# 获取 Node.js 主版本号
+node_major_version() {
+  node -e "console.log(process.versions.node.split('.')[0])" 2>/dev/null || echo "0"
+}
+
+# 安装 uv（跨平台）
+install_uv() {
+  echo "  ↳ 正在安装 uv..."
+  if [[ "$(uname -s)" == "Linux" || "$(uname -s)" == "Darwin" ]]; then
+    curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1
+  elif [[ "$(uname -s)" == MINGW* || "$(uname -s)" == MSYS* ]]; then
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex" >/dev/null 2>&1
+  else
+    echo "  ✗ 无法自动安装 uv，请手动安装: https://astral.sh/uv/"
+    return 1
+  fi
+  # 刷新 PATH（uv 安装脚本可能已更新 shell profile，但当前进程需要手动加）
+  export PATH="$HOME/.cargo/bin:$HOME/.local/bin:$PATH"
+  if have_cmd uv; then
+    echo "  ✓ uv 安装成功: $(uv --version 2>/dev/null || echo 'ok')"
+  else
+    echo "  ✗ uv 安装后仍不可用，请重新打开终端或手动添加 ~/.cargo/bin 到 PATH"
+    return 1
+  fi
+}
+
+setup_command() {
+  local all_ok=true
+  local need_start=false
+
+  echo ""
+  echo "══════════════════════════════════════════════"
+  echo "  AIASys 开发环境一键安装"
+  echo "══════════════════════════════════════════════"
+  echo ""
+
+  # Step 1: Python
+  echo "◆ Step 1/5: 检查 Python 3.12+"
+  local python_bin=""
+  if have_cmd python3.12; then
+    python_bin="python3.12"
+  elif have_cmd python3; then
+    local ver
+    ver=$(python_major_version python3)
+    if [[ "$ver" -ge 12 ]]; then
+      python_bin="python3"
+    fi
+  fi
+  if [[ -z "$python_bin" ]]; then
+    echo "  ✗ 未找到 Python 3.12+"
+    echo "    请安装 Python 3.12+: https://www.python.org/downloads/"
+    echo "    或使用 uv: uv python install 3.12"
+    all_ok=false
+  else
+    echo "  ✓ $python_bin ($($python_bin --version 2>&1))"
+  fi
+  echo ""
+
+  # Step 2: uv
+  echo "◆ Step 2/5: 检查 uv"
+  if ! have_cmd uv; then
+    echo "  ✗ 未找到 uv"
+    if ! install_uv; then
+      all_ok=false
+    fi
+  else
+    echo "  ✓ uv $(uv --version 2>/dev/null || echo 'ok')"
+  fi
+  echo ""
+
+  # Step 3: Node.js
+  echo "◆ Step 3/5: 检查 Node.js 22+"
+  if ! have_cmd node; then
+    echo "  ✗ 未找到 Node.js"
+    echo "    请安装 Node.js 22+: https://nodejs.org/"
+    all_ok=false
+  else
+    local node_ver
+    node_ver=$(node_major_version)
+    if [[ "$node_ver" -ge 22 ]]; then
+      echo "  ✓ Node.js v$(node --version)"
+    else
+      echo "  ✗ Node.js version $(node --version) (< 22), 请升级"
+      all_ok=false
+    fi
+  fi
+  echo ""
+
+  # Step 4: 后端依赖
+  echo "◆ Step 4/5: 安装后端依赖 (uv sync)"
+  if [[ -f "${PROJECT_ROOT}/apps/backend/pyproject.toml" ]]; then
+    # 幂等：uv sync 检测已有环境时仅验证，不重复安装
+    if (cd "${PROJECT_ROOT}/apps/backend" && uv sync); then
+      echo "  ✓ 后端依赖就绪"
+    else
+      echo "  ✗ 后端依赖安装失败"
+      all_ok=false
+    fi
+  else
+    echo "  ✗ 未找到 apps/backend/pyproject.toml，请确认仓库完整"
+    all_ok=false
+  fi
+  echo ""
+
+  # Step 5: 前端依赖
+  echo "◆ Step 5/5: 安装前端依赖 (npm ci)"
+  if [[ -f "${PROJECT_ROOT}/apps/web/package-lock.json" ]]; then
+    if (cd "${PROJECT_ROOT}/apps/web" && npm ci); then
+      echo "  ✓ 前端依赖就绪"
+    else
+      echo "  ✗ 前端依赖安装失败"
+      all_ok=false
+    fi
+  else
+    echo "  ✗ 未找到 apps/web/package-lock.json，请确认仓库完整"
+    all_ok=false
+  fi
+  echo ""
+
+  # 创建 config.toml（如果不存在）
+  if [[ -f "${PROJECT_ROOT}/apps/backend/config.toml" ]]; then
+    echo "  ✓ config.toml 已存在，跳过创建"
+  elif [[ -f "${PROJECT_ROOT}/apps/backend/config.example.toml" ]]; then
+    cp "${PROJECT_ROOT}/apps/backend/config.example.toml" "${PROJECT_ROOT}/apps/backend/config.toml"
+    echo "  ✓ 已从 config.example.toml 创建 config.toml"
+    echo "  ⚠ 请编辑 apps/backend/config.toml 填入你的 API Key"
+  fi
+  echo ""
+
+  # 输出结果
+  echo "══════════════════════════════════════════════"
+  if $all_ok; then
+    echo "  ✓ 开发环境安装完成！"
+    echo ""
+    echo "  下一步:"
+    echo "    1. 编辑 apps/backend/config.toml 填入模型 API Key"
+    echo "    2. 运行 ./dev.sh 启动开发服务"
+    echo "    3. 打开 http://localhost:13000/workspace"
+    echo ""
+    echo "  或在界面中配置模型:"
+    echo "    左侧边栏 → 工作区工具 → 模型配置"
+  else
+    echo "  ✗ 部分依赖安装失败，请根据上面的提示修复后重试"
+    echo "  ./dev.sh setup 可重复执行，已安装的依赖不会重复安装"
+  fi
+  echo "══════════════════════════════════════════════"
+  echo ""
+
+  $all_ok || exit 1
+}
+
 case "${command_name}" in
+  setup)
+    setup_command
+    ;;
   start)
     trap cleanup_children EXIT INT TERM
 

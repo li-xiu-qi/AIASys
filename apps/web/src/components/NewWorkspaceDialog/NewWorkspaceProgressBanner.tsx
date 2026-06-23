@@ -8,6 +8,7 @@ interface NewTaskProgressBannerProps {
   stageLabel: string;
   errorMessage?: string | null;
   progress?: number;
+  message?: string;
 }
 
 export function NewWorkspaceProgressBanner({
@@ -16,10 +17,13 @@ export function NewWorkspaceProgressBanner({
   stageLabel,
   errorMessage,
   progress,
+  message,
 }: NewTaskProgressBannerProps) {
   if (!showProgress && !isError) {
     return null;
   }
+
+  const hasProgress = typeof progress === "number" && progress >= 0;
 
   return (
     <div
@@ -43,21 +47,26 @@ export function NewWorkspaceProgressBanner({
               isError ? "text-destructive" : "text-foreground",
             )}
           >
-            {isError ? "新任务初始化失败" : stageLabel}
-            {!isError && typeof progress === "number" && progress > 0 && (
+            {isError ? "新任务初始化失败" : (message || stageLabel)}
+            {!isError && hasProgress && (
               <span className="ml-2 text-xs text-muted-foreground">
                 {progress}%
               </span>
             )}
           </div>
-          {!isError && typeof progress === "number" && progress > 0 && (
-            <Progress value={progress} className="h-1.5" />
+          {!isError && hasProgress && (
+            <Progress value={Math.max(progress, 2)} className="h-1.5" />
           )}
-          <p className="text-xs text-muted-foreground">
-            {isError
-              ? errorMessage || "请检查当前工作区创建状态后重试。"
-              : "当前会话会保持可见，待目标会话准备完成后再切换。"}
-          </p>
+          {!isError && !hasProgress && (
+            <p className="text-xs text-muted-foreground">
+              {stageLabel || "正在初始化..."}
+            </p>
+          )}
+          {isError && (
+            <p className="text-xs text-muted-foreground">
+              {errorMessage || "请检查当前工作区创建状态后重试。"}
+            </p>
+          )}
         </div>
       </div>
     </div>

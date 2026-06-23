@@ -1,6 +1,6 @@
 # AIASys 快速启动指南
 
-> 当前版本: v0.3.9
+> 当前版本: v0.4.25
 
 本指南用于帮助新协作者把当前仓库跑起来。当前后端运行配置使用 `apps/backend/config.toml`，前端默认从 `13000` 访问后端 `13001`。
 
@@ -9,18 +9,34 @@
 请先确认本机已经有这些工具：
 
 - Python 3.12+
-- [uv](https://astral.sh/uv/)
+- [uv](https://astral.sh/uv/)（如未安装，`./dev.sh setup` 会自动安装）
 - Node.js 22+
 - npm
 - Docker，可选，用于显式登记或创建工作区 Docker 沙盒资源
 - Redis，可选，未安装时系统会回退到内存模式
 
-## 2. 准备依赖
+## 2. 一键安装（推荐）
+
+克隆仓库后，运行一条命令即可完成所有依赖安装：
 
 ```bash
 git clone https://github.com/AIAsys/AIASys.git
 cd AIASys
+./dev.sh setup
 ```
+
+`./dev.sh setup` 会依次：
+1. 检查 Python 3.12+、Node.js 22+ 是否可用
+2. 自动安装 uv（如果缺失）
+3. 安装后端依赖（`uv sync`）
+4. 安装前端依赖（`npm ci`）
+5. 从 `config.example.toml` 创建 `config.toml`（如果不存在）
+
+该命令可重复执行，已安装的依赖不会重复安装。适合 AI Agent 自动执行。
+
+## 3. 手动安装（备选）
+
+如果你希望手动控制每一步：
 
 后端依赖：
 
@@ -39,13 +55,7 @@ npm ci
 cd ../..
 ```
 
-说明：
-
-- 后端依赖事实源是 `apps/backend/pyproject.toml` 和 `apps/backend/uv.lock`。
-
-- `config.toml` 需要按本机模型、认证和运行时配置补齐。新增项目请优先使用 TOML。
-
-## 3. 启动开发环境
+## 4. 启动开发环境
 
 项目根目录提供统一开发启动入口：
 
@@ -66,7 +76,7 @@ cd ../..
 
 停止前台运行的开发服务时，在启动命令所在终端按 `Ctrl+C`。
 
-## 4. 常用配置
+## 5. 常用配置
 
 ### 首次模型配置
 
@@ -193,7 +203,7 @@ AIASYS_FRONTEND_PORT=13010 ./dev.sh
 $env:AIASYS_FRONTEND_PORT=13010; .\dev.sh
 ```
 
-## 5. 桌面版快速启动（可选）
+## 6. 桌面版快速启动（可选）
 
 如果想用桌面版而不是浏览器：
 
@@ -205,7 +215,7 @@ npm run dev
 
 桌面版自动管理前后端服务，不需要单独启动 `./dev.sh`。详见 [桌面应用文档](desktop-app.md)。
 
-## 6. 验证运行状态
+## 7. 验证运行状态
 
 服务启动后，可以通过以下方式验证（以下 URL 为默认值）：
 
@@ -223,10 +233,11 @@ npm run dev
   curl http://localhost:13001/health/docker
   ```
 
-## 7. 常用开发命令
+## 8. 常用开发命令
 
 | 任务 | 命令 | 路径 |
 |:---|:---|:---|
+| 一键安装依赖 | `./dev.sh setup` | 项目根目录 |
 | 安装后端依赖 | `uv sync` | `apps/backend/` |
 | 安装前端依赖 | `npm ci` | `apps/web/` |
 | 启动开发环境 | `./dev.sh` | 项目根目录 |
@@ -247,11 +258,11 @@ npm run dev
 
 ---
 
-## 8. 界面预览
+## 9. 界面预览
 
 启动成功后，你可以访问：
 
 - 首页：`http://localhost:13000`
 - 分析工作区：`http://localhost:13000/workspace`
 
-分析工作区是当前主界面，左侧 Activity Bar 提供文件管理、数据查询、自动化任务等功能，右侧聊天侧栏用于与 Agent 对话和查看执行上下文。
+分析工作区是当前主界面，左侧 Activity Bar 默认提供当前工作区、全局工作区、数据查询、文件搜索、专家协作节点、文件变更六个入口；自动化任务、监控任务、终端、环境变量、能力管理等通过工作区工具菜单或设置面板进入。右侧聊天侧栏用于与 Agent 对话和查看执行上下文。

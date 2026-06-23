@@ -44,24 +44,6 @@ export async function rewriteSessionFromMessage(
   });
 }
 
-export async function exportConversation(
-  userId: string,
-  sessionId: string,
-): Promise<Blob> {
-  const response = await fetch(
-    API_ENDPOINTS.SESSION_EXPORT(userId, sessionId) + "?scope=conversation",
-    {
-      method: "GET",
-      credentials: "include",
-    },
-  );
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "导出失败");
-    throw new Error(detail);
-  }
-  return response.blob();
-}
-
 export async function importConversation(
   userId: string,
   workspaceId: string,

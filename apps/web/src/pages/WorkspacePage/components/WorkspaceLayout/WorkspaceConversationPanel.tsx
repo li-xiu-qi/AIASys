@@ -32,8 +32,14 @@ import {
 import { cn } from "@/lib/utils";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { exportConversation, importConversation } from "@/lib/api/sessions";
+import { importConversation } from "@/lib/api/sessions";
+import { apiFetch } from "@/lib/api/httpClient";
 import { useAuthContext } from "@/contexts/AuthContext";
+import { useFileUploadToast } from "@/components/file/FileUploadToast";
+import {
+  downloadBlob,
+  getDownloadFilename,
+} from "@/pages/WorkspacePage/hooks/sessionLifecycleManagerUtils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TaskWorkspaceSummary, WorkspaceConversationSummary } from "../../types";
 
@@ -303,6 +309,7 @@ export function WorkspaceConversationPanel({
   } | null>(null);
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const { user } = useAuthContext();
+  const { showError } = useFileUploadToast();
   const currentUserId = user?.id;
   const isCollapsed = embedded ? false : collapsed;
   const edgeBorderClass =
@@ -370,25 +377,38 @@ export function WorkspaceConversationPanel({
   const handleExportConversation = useCallback(
     async (event: React.MouseEvent, sessionId: string, title: string) => {
       event.stopPropagation();
-      if (!currentUserId) return;
+      if (!currentUserId) {
+        showError("未登录，无法导出对话");
+        return;
+      }
+
       try {
-        const blob = await exportConversation(currentUserId, sessionId);
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        const safeTitle = (title || "conversation")
+        const endpoint = `/api/sessions/${encodeURIComponent(currentUserId)}/${encodeURIComponent(sessionId)}/export?scope=conversation`;
+        const response = await apiFetch(endpoint);
+
+        if (!response.ok) {
+          let detail = `导出失败: ${response.status}`;
+          try {
+            const payload = (await response.json()) as { detail?: string };
+            if (payload.detail) {
+              detail = payload.detail;
+            }
+          } catch {
+            // keep fallback
+          }
+          throw new Error(detail);
+        }
+
+        const blob = await response.blob();
+        const fallbackTitle = (title || "conversation")
           .replace(/[^\w\-\u4e00-\u9fa5]/g, "_")
           .slice(0, 50);
-        link.download = `${safeTitle}_${sessionId}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-      } catch {
-        // 静默失败，不打扰用户
+        downloadBlob(blob, `${fallbackTitle}_${sessionId}.json`);
+      } catch (error) {
+        showError(error instanceof Error ? error.message : "导出对话失败");
       }
     },
-    [currentUserId],
+    [currentUserId, showError],
   );
 
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -493,12 +513,14 @@ export function WorkspaceConversationPanel({
       try {
         setIsDeletingConversation(true);
         await onDeleteConversation(sessionId);
+        setPendingDeletion(null);
+      } catch (err) {
+        showError(err instanceof Error ? err.message : "删除会话失败");
       } finally {
         setIsDeletingConversation(false);
-        setPendingDeletion(null);
       }
     })();
-  }, [onDeleteConversation, pendingDeletion]);
+  }, [onDeleteConversation, pendingDeletion, showError]);
 
   const handleDeleteDialogOpenChange = useCallback(
     (open: boolean) => {

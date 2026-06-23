@@ -59,6 +59,7 @@ export const MessageItem = React.memo(function MessageItem({
   // MessageItem 只在 ChatAreaList 中对 type="message" 的项调用
   const msgItem = item as import("@/pages/WorkspacePage/types").MessageChatItem;
   const isUser = msgItem.sender === "user" || msgItem.role === "user";
+  const isSystem = msgItem.sender === "system" || msgItem.role === "system";
   const isCompactionSummary = msgItem.segments?.some(
     (seg) => seg.type === "compaction_summary",
   );
@@ -78,6 +79,13 @@ export const MessageItem = React.memo(function MessageItem({
               <CompactionSummaryContent content={msgItem.content || ""} />
             ) : isUser ? (
               <UserMessageContent />
+            ) : isSystem ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                <div className="mb-1 text-xs font-semibold">系统提示</div>
+                <div className="whitespace-pre-wrap text-xs">
+                  {msgItem.content?.replace(/<\/?system>/g, "")}
+                </div>
+              </div>
             ) : (
               <AiMessageContent />
             )}

@@ -41,6 +41,10 @@ import {
   type CapabilityItem,
   type CapabilitySourceTreeEntry,
 } from "@/lib/api/capabilities";
+import {
+  FileUploadToast,
+  useFileUploadToast,
+} from "@/components/file/FileUploadToast";
 import { CapabilitySourceTree } from "./CapabilitySourceTree";
 
 const KIND_LABEL: Record<string, string> = {
@@ -100,6 +104,7 @@ export function CapabilityDetailPanel({
   capabilityId,
   scope = "workspace",
 }: CapabilityDetailPanelProps) {
+  const { toasts, showError } = useFileUploadToast();
   const [workspaceCaps, setWorkspaceCaps] = useState<WorkspaceCapabilityItem[]>([]);
   const [availableCaps, setAvailableCaps] = useState<CapabilityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,9 +114,11 @@ export function CapabilityDetailPanel({
   // Source tree preview
   const [sourceTreeLoading, setSourceTreeLoading] = useState(false);
   const [sourceTreeEntries, setSourceTreeEntries] = useState<CapabilitySourceTreeEntry[]>([]);
+  const [sourceTreeError, setSourceTreeError] = useState<string | null>(null);
   const [selectedSourceFile, setSelectedSourceFile] = useState<string>("");
   const [sourceFileContent, setSourceFileContent] = useState<string | null>(null);
   const [sourceFileLoading, setSourceFileLoading] = useState(false);
+  const [sourceFileError, setSourceFileError] = useState<string | null>(null);
 
   // MCP config
   const [mcpConfigOpen, setMcpConfigOpen] = useState(false);
@@ -153,14 +160,18 @@ export function CapabilityDetailPanel({
   useEffect(() => {
     if (!cap || (cap.kind !== "skill_pack" && cap.kind !== "subagent")) {
       setSourceTreeEntries([]);
+      setSourceTreeError(null);
       setSelectedSourceFile("");
       setSourceFileContent(null);
+      setSourceFileError(null);
       return;
     }
     setSourceTreeLoading(true);
     setSourceTreeEntries([]);
+    setSourceTreeError(null);
     setSelectedSourceFile("");
     setSourceFileContent(null);
+    setSourceFileError(null);
 
     listCapabilitySourceTree(cap.capability_id)
       .then((resp) => {
@@ -173,15 +184,22 @@ export function CapabilityDetailPanel({
         if (entry) {
           setSelectedSourceFile(entry.path);
           setSourceFileLoading(true);
+          setSourceFileError(null);
           getCapabilitySourceFile(cap.capability_id, entry.path)
             .then((fileResp) => {
               setSourceFileContent(fileResp?.content ?? "暂无内容");
             })
-            .catch(() => setSourceFileContent(null))
+            .catch((err) => {
+              setSourceFileError(err instanceof Error ? err.message : "加载源码失败");
+              setSourceFileContent(null);
+            })
             .finally(() => setSourceFileLoading(false));
         }
       })
-      .catch(() => setSourceTreeEntries([]))
+      .catch((err) => {
+        setSourceTreeError(err instanceof Error ? err.message : "加载源码树失败");
+        setSourceTreeEntries([]);
+      })
       .finally(() => setSourceTreeLoading(false));
   }, [cap, capabilityId]);
 
@@ -190,11 +208,15 @@ export function CapabilityDetailPanel({
       if (!cap || path === selectedSourceFile) return;
       setSelectedSourceFile(path);
       setSourceFileLoading(true);
+      setSourceFileError(null);
       getCapabilitySourceFile(cap.capability_id, path)
         .then((resp) => {
           setSourceFileContent(resp?.content ?? "暂无内容");
         })
-        .catch(() => setSourceFileContent(null))
+        .catch((err) => {
+          setSourceFileError(err instanceof Error ? err.message : "加载源码失败");
+          setSourceFileContent(null);
+        })
         .finally(() => setSourceFileLoading(false));
     },
     [cap, selectedSourceFile],
@@ -214,6 +236,10 @@ export function CapabilityDetailPanel({
         await installCapability(workspaceId, capabilityId, config);
       }
       await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "安装失败";
+      showError(message);
+      throw err;
     } finally {
       setProcessingId(null);
     }
@@ -228,6 +254,9 @@ export function CapabilityDetailPanel({
         await uninstallCapability(workspaceId, capabilityId);
       }
       await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "卸载失败";
+      showError(message);
     } finally {
       setProcessingId(null);
     }
@@ -250,6 +279,9 @@ export function CapabilityDetailPanel({
         }
       }
       await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "状态切换失败";
+      showError(message);
     } finally {
       setProcessingId(null);
     }
@@ -264,6 +296,9 @@ export function CapabilityDetailPanel({
         await verifyCapability(workspaceId, capabilityId);
       }
       await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "验证失败";
+      showError(message);
     } finally {
       setProcessingId(null);
     }
@@ -296,7 +331,13 @@ export function CapabilityDetailPanel({
       return;
     }
     setMcpConfigOpen(false);
-    await handleInstall(config);
+    try {
+      await handleInstall(config);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "安装失败";
+      showError(message);
+      setMcpConfigOpen(true);
+    }
   };
 
   if (loading) {
@@ -471,6 +512,10 @@ export function CapabilityDetailPanel({
                 <Loader2 className="h-3 w-3 animate-spin" />
                 正在扫描文件...
               </div>
+            ) : sourceTreeError ? (
+              <div className="rounded-md border border-error/30 bg-error-container p-3 text-xs text-on-error-container">
+                {sourceTreeError}
+              </div>
             ) : sourceTreeEntries.length === 0 ? (
               <div className="rounded-md border border-dashed border-border bg-muted/40 p-3 text-xs text-muted-foreground">
                 该能力源下暂无文件。
@@ -491,6 +536,10 @@ export function CapabilityDetailPanel({
                     <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       正在加载...
+                    </div>
+                  ) : sourceFileError ? (
+                    <div className="flex items-center justify-center py-10 text-xs text-on-error-container">
+                      {sourceFileError}
                     </div>
                   ) : sourceFileContent !== null ? (
                     selectedSourceFile === "README.md" ? (
@@ -577,6 +626,13 @@ export function CapabilityDetailPanel({
           </div>
         </DialogContent>
       </Dialog>
+      {toasts.map((toast) => (
+        <FileUploadToast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+        />
+      ))}
     </div>
   );
 }

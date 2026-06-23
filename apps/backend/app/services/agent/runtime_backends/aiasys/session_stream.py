@@ -19,6 +19,7 @@ from app.services.agent.authorization import (
     CapabilityAuthorizationRequest,
     CapabilityAuthorizationService,
 )
+from app.services.agent.errors import RunCancelled
 from app.services.agent.message_content import (
     downgrade_message_content_for_history,
     hydrate_message_images,
@@ -64,6 +65,7 @@ def _serialize_tool_content_for_event(content: str | list[dict[str, Any]]) -> st
         elif item_type == "image_url":
             image_url = item.get("image_url", {})
             url = image_url.get("url") if isinstance(image_url, dict) else str(image_url)
+            url = url.removeprefix("file://")
             parts.append(f"![image]({url})")
     return "".join(parts)
 
@@ -105,7 +107,7 @@ class SessionStreamMixin:
         del merge_wire_messages
         if self._closed:
             raise RuntimeError("Runtime session is already closed")
-        if self._is_session_budget_blocked():
+        if await self._is_session_budget_blocked():
             yield AgentRuntimeEvent(
                 kind="budget_limited",
                 text=self._session_budget_limited_text(),
@@ -334,11 +336,11 @@ class SessionStreamMixin:
                 if isinstance(prompt_tokens, int) and prompt_tokens > 0:
                     self._estimated_token_count = prompt_tokens
                     self._reset_pending_token_estimate()
-                    self._save_context_tokens_to_metadata()
+                    await self._save_context_tokens_to_metadata()
 
             # Session 级预算检查（在 _estimated_token_count 修正之后）
             if self.budget is not None and self.budget.status == "active":
-                self._check_session_budget(input_tokens, output_tokens)
+                await self._check_session_budget(input_tokens, output_tokens)
 
             assistant_content = "".join(assistant_parts) or None
             assistant_reasoning_content = assistant_reasoning or ""
@@ -603,22 +605,22 @@ class SessionStreamMixin:
                     # 构建带 tool_call_id 的 ctx，供 TaskTool 使用
                     item_ctx = {**tool_ctx, "_tool_call_id": item["id"]}
 
-                    async def _collect_tool_events() -> list[Any]:
-                        events: list[Any] = []
-                        async for stream_event in self._tool_registry.invoke_stream(
+                    # 直接流式迭代工具事件：事件产生即 yield，避免缓冲导致死锁或实时性丢失。
+                    final_tool_result: ToolResult | None = None
+                    try:
+                        stream_gen = self._tool_registry.invoke_stream(
                             item["function"]["name"],
                             item["arguments"],
                             ctx=item_ctx,
-                        ):
-                            events.append(stream_event)
-                            if stream_event.kind == "result":
+                        )
+                        while True:
+                            try:
+                                stream_event = await asyncio.wait_for(
+                                    stream_gen.__anext__(), timeout=300
+                                )
+                            except StopAsyncIteration:
                                 break
-                        return events
 
-                    try:
-                        tool_events = await asyncio.wait_for(_collect_tool_events(), timeout=300)
-                        final_tool_result: ToolResult | None = None
-                        for stream_event in tool_events:
                             if (
                                 stream_event.kind == "event"
                                 and stream_event.runtime_event is not None
@@ -632,6 +634,7 @@ class SessionStreamMixin:
                                 yield wrapped
                             elif stream_event.kind == "result":
                                 final_tool_result = stream_event.tool_result
+                                break
 
                         tool_result = final_tool_result or ToolResult(
                             content="无结果", is_error=True
@@ -809,6 +812,9 @@ class SessionStreamMixin:
 
         # ReAct 循环结束，清除当前 turn 标记
         self._current_turn_n = None
+
+        if self._cancel_event.is_set():
+            raise RunCancelled("会话运行已取消")
 
         if total_input_tokens or total_output_tokens:
             yield AgentRuntimeEvent(

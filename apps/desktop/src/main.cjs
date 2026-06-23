@@ -1,26 +1,36 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { app, BrowserWindow, dialog, ipcMain, shell, Tray, Menu, nativeImage } = require("electron");
 const { DesktopServiceManager } = require("./service-manager.cjs");
 
+// 本次进程会话 ID，用于把启动、崩溃、退出等日志串联起来
+const sessionId = crypto.randomUUID();
+
 process.on("unhandledRejection", (reason) => {
-  const { logError } = require("./src/utils.cjs");
   logError("unhandled rejection", reason);
+  // 未处理 Promise 拒绝说明主进程已处于不可预期状态，安全退出
+  exitAfterShutdown(1);
 });
 process.on("uncaughtException", (error) => {
-  const { logError } = require("./src/utils.cjs");
   logError("uncaught exception", error);
+  // 未捕获异常后进程状态不可信，记录日志后安全退出
+  exitAfterShutdown(1);
 });
 
 const desktopMode =
   process.env.AIASYS_DESKTOP_MODE || (app.isPackaged ? "preview" : "dev");
+// 确保 renderer/preload 继承的 mode 与主进程计算结果一致
+process.env.AIASYS_DESKTOP_MODE = desktopMode;
 const openDevTools =
   desktopMode === "dev" && process.env.AIASYS_DESKTOP_OPEN_DEVTOOLS !== "0";
 const startPath = process.env.AIASYS_DESKTOP_START_PATH || "/analysis";
 const remoteDebuggingPort = process.env.AIASYS_DESKTOP_REMOTE_DEBUGGING_PORT;
-const disableGpu =
+const isSafeMode =
+  app.commandLine.hasSwitch("disable-gpu") ||
   process.env.AIASYS_DESKTOP_DISABLE_GPU === "1" ||
   (!process.env.DISPLAY && process.platform === "linux");
+const disableGpu = isSafeMode;
 const runtimeStateRoot = process.env.AIASYS_DESKTOP_HOME
   || path.join(app.getPath("userData"), "backend-runtime");
 
@@ -30,14 +40,38 @@ let serviceManager = null;
 let shutdownStarted = false;
 let signalShutdownPromise = null;
 let isQuitting = false;
+let mainWindowLoadRetryCount = 0;
+const MAX_MAIN_WINDOW_LOAD_RETRIES = 3;
+let pendingDeepLink = null;
+let rendererCrashCount = 0;
+const MAX_RENDERER_CRASHES = 3;
 
 if (remoteDebuggingPort) {
   app.commandLine.appendSwitch("remote-debugging-port", remoteDebuggingPort);
 }
 
+// GPU sandbox 在部分 Windows 环境（僵尸 SID、特定 GPU 驱动）下会导致渲染进程崩溃
+// （exitCode=-2147483645，Electron #51761）。
+// --disable-gpu-sandbox 保留 GPU 加速，仅禁用 GPU 进程的沙箱隔离。
+// 这与 --disable-gpu（完全禁用硬件加速）不同，不影响渲染性能。
+app.commandLine.appendSwitch("disable-gpu-sandbox");
+
 if (disableGpu) {
   app.commandLine.appendSwitch("disable-gpu");
+  app.commandLine.appendSwitch("disable-gpu-compositing");
+  app.commandLine.appendSwitch("disable-gpu-rasterization");
+  app.commandLine.appendSwitch("disable-gpu-sandbox");
+  app.commandLine.appendSwitch("use-gl", "swiftshader-webgl");
+  app.commandLine.appendSwitch("use-angle", "swiftshader");
+  app.commandLine.appendSwitch("disable-d3d11");
+  app.commandLine.appendSwitch("disable-direct-composition");
+  app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion,HardwareMediaKeyHandling");
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-setuid-sandbox");
+  app.commandLine.appendSwitch("disable-namespace-sandbox");
+  app.commandLine.appendSwitch("disable-dev-shm-usage");
   app.disableHardwareAcceleration();
+  console.log("[aiasys] GPU disabled, using software rendering and relaxed sandbox");
 }
 
 function isWSL() {
@@ -46,7 +80,7 @@ function isWSL() {
     const release = fs.readFileSync("/proc/sys/kernel/osrelease", "utf8");
     return release.toLowerCase().includes("wsl");
   } catch (e) {
-    console.error("[aiasys-desktop] WSL detection failed:", e);
+    console.error("[aiasys] WSL detection failed:", e);
     return false;
   }
 }
@@ -78,6 +112,30 @@ if (!gotTheLock) {
 } else {
   // 收到第二个实例启动请求时，恢复并聚焦主窗口。
   app.on("second-instance", (_event, argv) => {
+    // 处理通过 aiasys:// 协议传入的启动参数
+    const rawDeepLink = argv.find((arg) => arg.startsWith("aiasys://"));
+    if (rawDeepLink) {
+      const validation = validateDeepLink(rawDeepLink);
+      if (!validation.valid) {
+        console.warn(`[aiasys] 忽略非法 deeplink (${validation.reason}): ${rawDeepLink.slice(0, 100)}`);
+        return;
+      }
+      const deepLink = rawDeepLink;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        if (!mainWindow.isVisible()) {
+          mainWindow.show();
+        }
+        mainWindow.focus();
+        mainWindow.webContents.send("deep-link", deepLink);
+      } else {
+        pendingDeepLink = deepLink;
+      }
+      return;
+    }
+
     if (!mainWindow || mainWindow.isDestroyed()) {
       // 主窗口尚未创建或已销毁（例如被最小化到托盘后关闭），无需处理
       return;
@@ -89,25 +147,186 @@ if (!gotTheLock) {
       mainWindow.show();
     }
     mainWindow.focus();
-    // 处理通过 aiasys:// 协议传入的启动参数
-    const deepLink = argv.find((arg) => arg.startsWith("aiasys://"));
-    if (deepLink && mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("deep-link", deepLink);
-    }
   });
 }
 
-function logError(message, error) {
-  console.error(`[aiasys-desktop] ${message}:`, error);
+function getLogsDir() {
+  return path.join(runtimeStateRoot, "logs");
+}
+
+const MAX_DEEP_LINK_LENGTH = 8 * 1024; // 8KB
+
+function validateDeepLink(url) {
+  if (!url || typeof url !== "string") {
+    return { valid: false, reason: "empty" };
+  }
+  if (url.length > MAX_DEEP_LINK_LENGTH) {
+    return { valid: false, reason: "too_long" };
+  }
+  if (!url.startsWith("aiasys://")) {
+    return { valid: false, reason: "invalid_scheme" };
+  }
   try {
-    const logsDir = path.join(app.getPath("userData"), "backend-runtime", "logs");
+    const parsed = new URL(url);
+    // 只允许小写字母、数字、连字符、点、下划线作为 hostname
+    if (!/^[a-z0-9][-a-z0-9._]*$/i.test(parsed.hostname)) {
+      return { valid: false, reason: "invalid_hostname" };
+    }
+  } catch {
+    return { valid: false, reason: "malformed_url" };
+  }
+  return { valid: true };
+}
+
+function isSameOrigin(url, baseUrl) {
+  try {
+    return new URL(url).origin === new URL(baseUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+function logError(message, error) {
+  console.error(`[aiasys] ${message}:`, error);
+  try {
+    const logsDir = getLogsDir();
     fs.mkdirSync(logsDir, { recursive: true });
     const logPath = path.join(logsDir, "electron-main.log");
+    // 简单轮转：超过 10MB 时保留一份备份
+    try {
+      const stat = fs.statSync(logPath);
+      if (stat.size >= 10 * 1024 * 1024) {
+        const backupPath = `${logPath}.1`;
+        if (fs.existsSync(backupPath)) {
+          fs.rmSync(backupPath, { force: true });
+        }
+        fs.renameSync(logPath, backupPath);
+      }
+    } catch {
+      // ignore rotation errors
+    }
     const timestamp = new Date().toISOString();
     const errorMessage = error instanceof Error ? error.stack || error.message : String(error);
     fs.appendFileSync(logPath, `[${timestamp}] ERROR: ${message}\n${errorMessage}\n\n`);
   } catch (e) {
-    console.error("[aiasys-desktop] error log append failed:", e);
+    console.error("[aiasys] error log append failed:", e);
+  }
+}
+
+function logCrash(details) {
+  const currentUrl = mainWindow && !mainWindow.isDestroyed()
+    ? mainWindow.webContents.getURL()
+    : null;
+
+  const crashInfo = {
+    sessionId,
+    timestamp: new Date().toISOString(),
+    crash: {
+      count: rendererCrashCount,
+      max: MAX_RENDERER_CRASHES,
+      reason: details.reason || "unknown",
+      exitCode: details.exitCode,
+    },
+    runtime: {
+      isSafeMode,
+      disableGpu,
+      desktopMode,
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      arch: process.arch,
+      osRelease: process.getSystemVersion ? process.getSystemVersion() : "unknown",
+    },
+    app: {
+      version: app.getVersion(),
+      name: app.getName(),
+      exe: app.getPath("exe"),
+      userData: app.getPath("userData"),
+      logsDir: getLogsDir(),
+      currentUrl,
+    },
+    chromium: {
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node,
+      v8: process.versions.v8,
+    },
+    switches: {
+      disableGpu: app.commandLine.hasSwitch("disable-gpu"),
+      disableGpuSandbox: app.commandLine.hasSwitch("disable-gpu-sandbox"),
+      noSandbox: app.commandLine.hasSwitch("no-sandbox"),
+      disableNamespaceSandbox: app.commandLine.hasSwitch("disable-namespace-sandbox"),
+      disableSetuidSandbox: app.commandLine.hasSwitch("disable-setuid-sandbox"),
+    },
+    env: {
+      AIASYS_DESKTOP_DISABLE_GPU: process.env.AIASYS_DESKTOP_DISABLE_GPU || null,
+      AIASYS_DESKTOP_MODE: process.env.AIASYS_DESKTOP_MODE || null,
+    },
+  };
+
+  console.error("[aiasys] renderer crash details:", JSON.stringify(crashInfo, null, 2));
+
+  try {
+    const logsDir = getLogsDir();
+    fs.mkdirSync(logsDir, { recursive: true });
+    const crashLogPath = path.join(logsDir, "crash.log");
+    const separator = "\n" + "=".repeat(80) + "\n";
+    fs.appendFileSync(
+      crashLogPath,
+      `${separator}[CRASH] ${crashInfo.timestamp} session=${sessionId}\n${JSON.stringify(crashInfo, null, 2)}\n`,
+    );
+  } catch (e) {
+    console.error("[aiasys] crash log write failed:", e);
+  }
+}
+
+function logStartup() {
+  const startupInfo = {
+    sessionId,
+    timestamp: new Date().toISOString(),
+    event: "startup",
+    runtime: {
+      isSafeMode,
+      disableGpu,
+      desktopMode,
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+      arch: process.arch,
+      osRelease: process.getSystemVersion ? process.getSystemVersion() : "unknown",
+    },
+    app: {
+      version: app.getVersion(),
+      name: app.getName(),
+      exe: app.getPath("exe"),
+      userData: app.getPath("userData"),
+      logsDir: getLogsDir(),
+    },
+    chromium: {
+      electron: process.versions.electron,
+      chrome: process.versions.chrome,
+      node: process.versions.node,
+      v8: process.versions.v8,
+    },
+    switches: {
+      disableGpu: app.commandLine.hasSwitch("disable-gpu"),
+      disableGpuSandbox: app.commandLine.hasSwitch("disable-gpu-sandbox"),
+      noSandbox: app.commandLine.hasSwitch("no-sandbox"),
+      disableNamespaceSandbox: app.commandLine.hasSwitch("disable-namespace-sandbox"),
+      disableSetuidSandbox: app.commandLine.hasSwitch("disable-setuid-sandbox"),
+    },
+  };
+
+  console.log("[aiasys] startup:", JSON.stringify(startupInfo, null, 2));
+
+  try {
+    const logsDir = getLogsDir();
+    fs.mkdirSync(logsDir, { recursive: true });
+    const crashLogPath = path.join(logsDir, "crash.log");
+    fs.appendFileSync(
+      crashLogPath,
+      `[STARTUP] ${startupInfo.timestamp} session=${sessionId}\n${JSON.stringify(startupInfo, null, 2)}\n\n`,
+    );
+  } catch (e) {
+    console.error("[aiasys] startup log write failed:", e);
   }
 }
 
@@ -164,16 +383,188 @@ function getWindowIcon() {
     if (!image.isEmpty()) {
       return image;
     }
-    console.warn(`[aiasys-desktop] 图标加载失败，路径: ${iconPath}`);
+    console.warn(`[aiasys] 图标加载失败，路径: ${iconPath}`);
   } catch (error) {
-    console.warn(`[aiasys-desktop] 加载图标异常: ${error.message}`);
+    console.warn(`[aiasys] 加载图标异常: ${error.message}`);
   }
-  return undefined;
+  return null;
+}
+
+let splashWindow = null;
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 480,
+    height: 320,
+    frame: false,
+    alwaysOnTop: true,
+    resizable: false,
+    movable: true,
+    show: false,
+    transparent: true,
+    backgroundColor: "#0f0f0f",
+    skipTaskbar: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+    icon: getWindowIcon(),
+  });
+
+  const splashHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0f0f0f; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; user-select: none; -webkit-app-region: drag; }
+    .container { text-align: center; width: 340px; }
+    .logo { font-size: 32px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 28px; background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .status { font-size: 14px; color: #cccccc; min-height: 22px; margin-bottom: 6px; }
+    .step-text { font-size: 12px; color: #888888; margin-bottom: 14px; min-height: 18px; }
+    .progress { width: 100%; height: 4px; background: #2a2a2a; border-radius: 2px; overflow: hidden; margin-bottom: 10px; }
+    .progress-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #4a90d9, #7cb8ff); border-radius: 2px; transition: width 0.4s ease; }
+    .percent-text { font-size: 12px; color: #666666; min-height: 18px; }
+    .spinner { width: 28px; height: 28px; border: 2.5px solid #333333; border-top-color: #7cb8ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 22px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="spinner"></div>
+    <div class="logo">AIASys</div>
+    <div class="status" id="status">正在启动...</div>
+    <div class="step-text" id="step-text"></div>
+    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="percent-text" id="percent-text"></div>
+  </div>
+  <script>
+    window.setSplashStatus = (payload) => {
+      const message = typeof payload === "string" ? payload : (payload?.message || "");
+      const step = typeof payload === "object" ? payload?.step : null;
+      const total = typeof payload === "object" ? payload?.total : null;
+      const percent = typeof payload === "object" && payload?.percent !== undefined ? payload.percent : null;
+      const statusEl = document.getElementById('status');
+      const stepEl = document.getElementById('step-text');
+      const barEl = document.getElementById('progress-bar');
+      const pctEl = document.getElementById('percent-text');
+      if (statusEl) statusEl.textContent = message;
+      if (stepEl) {
+        if (step && total) {
+          stepEl.textContent = '步骤 ' + step + ' / ' + total;
+        } else {
+          stepEl.textContent = '';
+        }
+      }
+      let displayPercent = 0;
+      if (percent !== null && percent >= 0) {
+        displayPercent = Math.max(2, Math.min(100, percent));
+      } else if (step && total) {
+        displayPercent = Math.max(5, Math.round((step / total) * 100));
+      }
+      if (barEl) {
+        barEl.style.width = displayPercent + '%';
+      }
+      if (pctEl) {
+        pctEl.textContent = displayPercent > 0 ? displayPercent + '%' : '';
+      }
+    };
+  </script>
+</body>
+</html>`;
+
+  void splashWindow.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(splashHtml)}`,
+  );
+  splashWindow.once("ready-to-show", () => {
+    splashWindow?.show();
+  });
+
+  splashWindow.on("closed", () => {
+    splashWindow = null;
+  });
+}
+
+function setSplashStatus(payload) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  try {
+    void splashWindow.webContents.executeJavaScript(
+      `window.setSplashStatus && window.setSplashStatus(${JSON.stringify(payload)})`,
+    );
+  } catch (e) {
+    // 忽略 splash 状态更新失败
+  }
+}
+
+function closeSplashWindow() {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  splashWindow.close();
+  splashWindow = null;
+}
+
+/**
+ * 探测后端是否已能响应 API 请求。
+ * 只要返回任意 HTTP 状态码（包括 401/403）即认为后端可访问；
+ * 网络错误 / 连接拒绝才视为未就绪。
+ */
+function probeBackendSession(backendBaseUrl) {
+  return new Promise((resolve) => {
+    if (!backendBaseUrl) {
+      return resolve(false);
+    }
+    const url = new URL("/api/auth/session", backendBaseUrl);
+    const client = url.protocol === "https:" ? require("https") : require("http");
+    const request = client.get(
+      url,
+      { timeout: 3000 },
+      (response) => {
+        response.resume();
+        const statusCode = response.statusCode;
+        // 2xx 表示后端已可处理请求；401/403 表示认证/鉴权配置生效，也说明服务已就绪。
+        // 5xx 表示后端虽在监听但内部未初始化完成或出错，不应视为就绪。
+        resolve(statusCode !== undefined && (statusCode < 500));
+      },
+    );
+    request.on("error", () => resolve(false));
+    request.on("timeout", () => {
+      try {
+        request.destroy();
+      } catch {
+        // ignore
+      }
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * 等待后端 API 真正可响应。
+ * 给首次启动时后端健康检查通过后仍存在的短暂初始化窗口一个兜底。
+ */
+async function waitForBackendSession(backendBaseUrl, timeoutMs = 15_000) {
+  const start = Date.now();
+  const intervalMs = 500;
+  while (Date.now() - start < timeoutMs) {
+    if (await probeBackendSession(backendBaseUrl)) {
+      console.log(
+        `[aiasys] 后端 API 已可响应，耗时 ${Date.now() - start}ms`,
+      );
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  console.warn(
+    `[aiasys] 后端 API 在 ${timeoutMs}ms 内未响应，继续显示主窗口`,
+  );
+  return false;
 }
 
 function createMainWindow(rendererBaseUrl) {
   const preloadPath = path.join(__dirname, "preload.cjs");
-  const initialUrl = new URL(startPath, rendererBaseUrl).toString();
+  // 桌面版加载 dist 根路径，让前端路由自己处理 startPath；
+  // 直接加载 /analysis 会导致绝对路径的 /assets/... 被浏览器相对于当前路径解析（或
+  // preview server 把不存在的 /analysis/assets/... 回退成 index.html），页面白屏。
+  const initialUrl = new URL("/", rendererBaseUrl).toString();
   // 把后端地址通过命令行参数注入 renderer，供 preload 暴露给前端。
   // 这样 WebSocket 等需要直连后端的场景不必依赖页面同源或 preview server 代理。
   const backendBaseUrl = serviceManager ? serviceManager.backendBaseUrl : "";
@@ -188,7 +579,7 @@ function createMainWindow(rendererBaseUrl) {
     minHeight: 720,
     autoHideMenuBar: true,
     show: false,
-    title: "AIASys Desktop",
+    title: "AIASys",
     icon: getWindowIcon(),
     webPreferences: {
       preload: preloadPath,
@@ -199,7 +590,7 @@ function createMainWindow(rendererBaseUrl) {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(rendererBaseUrl)) {
+    if (isSameOrigin(url, rendererBaseUrl)) {
       return { action: "allow" };
     }
     void shell.openExternal(url);
@@ -207,7 +598,7 @@ function createMainWindow(rendererBaseUrl) {
   });
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (url.startsWith(rendererBaseUrl)) {
+    if (isSameOrigin(url, rendererBaseUrl)) {
       return;
     }
     event.preventDefault();
@@ -215,16 +606,83 @@ function createMainWindow(rendererBaseUrl) {
   });
 
   mainWindow.webContents.on("render-process-gone", (_event, details) => {
-    console.error("[aiasys-desktop] render process gone:", details);
+    console.error("[aiasys] render process gone:", details);
+    closeSplashWindow();
+
+    rendererCrashCount += 1;
+    logCrash(details);
+
+    // 不再自动重启，直接显示错误并退出
+    // 原因：自动重启（--disable-gpu）在 Windows + WSLg 环境下通常无效，
+    // 弹窗阻断用户流程却无实际帮助，不如直接退出让用户自行排查
+    if (rendererCrashCount >= 1) {
+      const crashLogPath = path.join(getLogsDir(), "crash.log");
+      const isWin = process.platform === "win32";
+      const windowsAclHint = isWin
+        ? `\n\n如果当前系统是 Windows 11 且退出码为 -2147483645，` +
+          `可能是安装目录权限导致 Chromium GPU sandbox 无法启动。` +
+          `请尝试以下任一方案：\n` +
+          `1. 重新以管理员身份运行 AIASys 安装程序\n` +
+          `2. 以管理员身份运行 PowerShell，执行：\n` +
+          `   icacls "$env:LOCALAPPDATA\\Programs\\AIASys" /inheritance:e /t /c /q\n` +
+          `   icacls "$env:LOCALAPPDATA\\Programs\\AIASys" /grant *S-1-15-2-2:(OI)(CI)(RX) /t /c /q\n` +
+          `3. 详细说明见文档：apps/desktop/README.md`
+        : "";
+
+      dialog.showErrorBox(
+        "AIASys",
+        `渲染进程已连续崩溃 ${rendererCrashCount} 次，无法继续运行。\n\n` +
+          `崩溃原因: ${details.reason || "unknown"}\n` +
+          `退出码: ${details.exitCode}\n\n` +
+          `诊断日志已写入:\n${crashLogPath}\n\n` +
+          `请尝试以下排查步骤:\n` +
+          `1. 更新显卡驱动\n` +
+          `2. 临时关闭杀毒软件后重试\n` +
+          `3. 检查 %APPDATA%\\aiasys\\backend-runtime\\logs\\crash.log 获取详细诊断信息` +
+          windowsAclHint,
+      );
+      app.quit();
+      return;
+    }
   });
 
   mainWindow.webContents.on(
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedUrl) => {
+      // errorCode -3 为 ERR_ABORTED，通常是页面主动重导航或重载，不必重试
+      if (errorCode === -3) {
+        return;
+      }
       console.error(
-        "[aiasys-desktop] load failed:",
+        "[aiasys] load failed:",
         JSON.stringify({ errorCode, errorDescription, validatedUrl }),
       );
+      if (mainWindowLoadRetryCount < MAX_MAIN_WINDOW_LOAD_RETRIES) {
+        mainWindowLoadRetryCount += 1;
+        const delay = mainWindowLoadRetryCount * 1000;
+        console.log(
+          `[aiasys] 页面加载失败，${delay}ms 后第 ${mainWindowLoadRetryCount}/${MAX_MAIN_WINDOW_LOAD_RETRIES} 次重试...`,
+        );
+        setSplashStatus(
+          `页面加载失败，正在重试 (${mainWindowLoadRetryCount}/${MAX_MAIN_WINDOW_LOAD_RETRIES})...`,
+        );
+        setTimeout(() => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            void mainWindow.loadURL(validatedUrl || initialUrl);
+          }
+        }, delay);
+      } else {
+        logError("page load failed after retries", {
+          errorCode,
+          errorDescription,
+          validatedUrl,
+        });
+        closeSplashWindow();
+        dialog.showErrorBox(
+          "AIASys 加载失败",
+          `无法加载页面：${validatedUrl || initialUrl}\n错误：${errorDescription} (${errorCode})\n\n请检查日志目录获取详细信息。`,
+        );
+      }
     },
   );
 
@@ -234,18 +692,88 @@ function createMainWindow(rendererBaseUrl) {
 
   mainWindow.on("close", (event) => {
     if (!isQuitting) {
+      // 如果托盘未创建（图标加载失败等），隐藏后无法恢复，直接退出
+      if (!tray) {
+        isQuitting = true;
+        return;
+      }
       event.preventDefault();
       mainWindow.hide();
     }
   });
 
+  // 等页面真正加载完成且后端 API 可响应后，再关闭 splash 并展示主窗口，
+  // 避免首次启动时安全软件扫描 / 后端初始化未完成导致的白屏。
+  let windowReadyToShow = false;
+  let pageLoadFinished = false;
+  let showFinalized = false;
+
+  function finalizeMainWindowShow() {
+    if (showFinalized || !windowReadyToShow || !pageLoadFinished) {
+      return;
+    }
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return;
+    }
+    showFinalized = true;
+
+    setSplashStatus({ message: "正在连接本地服务...", step: 5, total: 5 });
+    waitForBackendSession(backendBaseUrl, 15_000)
+      .then((ready) => {
+        if (!ready) {
+          console.warn(
+            "[aiasys] 后端 API 未就绪，继续显示主窗口，由前端展示错误状态",
+          );
+        }
+        closeSplashWindow();
+        mainWindow.show();
+        if (openDevTools) {
+          mainWindow.webContents.openDevTools({ mode: "detach" });
+        }
+      })
+      .catch((error) => {
+        console.error("[aiasys] 等待后端 API 时异常:", error);
+        closeSplashWindow();
+        mainWindow.show();
+      });
+  }
+
+  // 兜底：窗口创建 30 秒后如果还没展示，强制展示，避免某个事件永远不触发导致卡死
+  const showFallbackTimeout = setTimeout(() => {
+    if (!showFinalized && mainWindow && !mainWindow.isDestroyed()) {
+      console.warn(
+        "[aiasys] 窗口展示超时，强制显示主窗口",
+      );
+      showFinalized = true;
+      closeSplashWindow();
+      mainWindow.show();
+      if (openDevTools) {
+        mainWindow.webContents.openDevTools({ mode: "detach" });
+      }
+    }
+  }, 30_000);
+
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-    if (openDevTools) {
-      mainWindow?.webContents.openDevTools({ mode: "detach" });
+    windowReadyToShow = true;
+    finalizeMainWindowShow();
+  });
+
+  mainWindow.webContents.on("did-finish-load", () => {
+    pageLoadFinished = true;
+    finalizeMainWindowShow();
+
+    // 如果在窗口创建前收到 deeplink，此时补发给渲染进程
+    if (pendingDeepLink) {
+      mainWindow.webContents.send("deep-link", pendingDeepLink);
+      pendingDeepLink = null;
     }
   });
 
+  mainWindow.once("closed", () => {
+    clearTimeout(showFallbackTimeout);
+  });
+
+  mainWindowLoadRetryCount = 0;
   void mainWindow.loadURL(initialUrl);
 }
 
@@ -259,8 +787,12 @@ function sendTrayAction(action) {
 
 function createTray() {
   const icon = getWindowIcon();
+  if (!icon) {
+    console.warn("[aiasys] 无法创建托盘：图标加载失败");
+    return;
+  }
   tray = new Tray(icon);
-  tray.setToolTip("AIASys Desktop");
+  tray.setToolTip("AIASys");
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -357,8 +889,9 @@ function createTray() {
 }
 
 async function bootstrap() {
-  console.log("[aiasys-desktop] bootstrap start");
-  console.log("[aiasys-desktop] bootstrap started");
+  console.log("[aiasys] bootstrap start");
+  console.log("[aiasys] bootstrap started");
+
   serviceManager = new DesktopServiceManager({
     mode: desktopMode,
     isPackaged: app.isPackaged,
@@ -367,9 +900,9 @@ async function bootstrap() {
   });
 
   // 后端崩溃时通知渲染进程显示遮罩
-  serviceManager.onBackendCrash = () => {
+  serviceManager.onBackendCrash = (info) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("backend:crashed");
+      mainWindow.webContents.send("backend:crashed", info);
     }
   };
 
@@ -380,13 +913,20 @@ async function bootstrap() {
     }
   };
 
-  console.log("[aiasys-desktop] starting backend...");
+  // 启动进度透传到 splash
+  serviceManager.onStatusUpdate = (status) => {
+    setSplashStatus(status);
+  };
+
+  console.log("[aiasys] starting backend...");
   const rendererBaseUrl = await serviceManager.start();
-  console.log("[aiasys-desktop] backend started, creating window...");
+  console.log("[aiasys] backend started, creating window...");
+
+  setSplashStatus({ message: "正在加载界面...", step: 4, total: 5 });
   createMainWindow(rendererBaseUrl);
-  console.log("[aiasys-desktop] creating tray...");
+  console.log("[aiasys] creating tray...");
   createTray();
-  console.log("[aiasys-desktop] bootstrap complete");
+  console.log("[aiasys] bootstrap complete");
 }
 
 // 注册 IPC：选择本地文件夹
@@ -408,12 +948,26 @@ app.whenReady().then(() => {
   if (!gotTheLock) {
     return;
   }
+
+  // 记录启动信息，方便与后续崩溃日志关联
+  logStartup();
+
   // 注册 aiasys:// 自定义协议，用于从浏览器/外部应用唤起桌面端
   if (!app.isDefaultProtocolClient("aiasys")) {
     app.setAsDefaultProtocolClient("aiasys");
   }
+
+  // 尽早展示启动画面，让用户感知到应用正在启动
+  createSplashWindow();
+  setSplashStatus({ message: "正在初始化...", step: 1, total: 5 });
+
   void bootstrap().catch(async (error) => {
     logError("bootstrap failed", error);
+    closeSplashWindow();
+
+    // 先安全关闭后端/前端子进程，再弹出阻塞式错误对话框，
+    // 避免用户在对话框期间后端继续运行导致资源残留。
+    await shutdownApp();
 
     // 收集日志路径信息
     const logsDir = path.join(runtimeStateRoot, "logs");
@@ -421,16 +975,15 @@ app.whenReady().then(() => {
       error instanceof Error ? error.stack || error.message : String(error);
     const fullMessage = `${errorMessage}\n\n日志目录: ${logsDir}`;
 
-    dialog.showErrorBox("AIASys Desktop 启动失败", fullMessage);
+    dialog.showErrorBox("AIASys 启动失败", fullMessage);
 
     // 尝试打开日志目录
     try {
       void shell.openPath(logsDir);
     } catch (e) {
-      console.error("[aiasys-desktop] open directory failed:", e);
+      console.error("[aiasys] open directory failed:", e);
     }
 
-    await shutdownApp();
     app.exit(1);
   });
 });
@@ -455,13 +1008,32 @@ process.on("message", (message) => {
 });
 
 app.on("open-url", (_event, url) => {
-  if (url.startsWith("aiasys://") && mainWindow && !mainWindow.isDestroyed()) {
+  const validation = validateDeepLink(url);
+  if (!validation.valid) {
+    console.warn(`[aiasys] 忽略非法 deeplink (${validation.reason}): ${String(url).slice(0, 100)}`);
+    return;
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    mainWindow.focus();
     mainWindow.webContents.send("deep-link", url);
+  } else {
+    pendingDeepLink = url;
   }
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0 && serviceManager) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    mainWindow.focus();
+  } else if (BrowserWindow.getAllWindows().length === 0 && serviceManager) {
     createMainWindow(serviceManager.rendererBaseUrl);
   }
 });
@@ -472,7 +1044,18 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", (event) => {
-  if (!serviceManager || shutdownStarted) {
+  if (!serviceManager) {
+    return;
+  }
+
+  // shutdown 已在进行中，等待其完成后再退出，避免后端子进程残留
+  if (shutdownStarted) {
+    if (signalShutdownPromise) {
+      event.preventDefault();
+      void signalShutdownPromise.finally(() => {
+        app.quit();
+      });
+    }
     return;
   }
 

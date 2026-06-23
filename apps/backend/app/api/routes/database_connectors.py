@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Optional
 
@@ -53,7 +54,9 @@ def _ensure_session_access(session_id: str, user_id: str) -> None:
 
 
 @router.get("/capabilities", response_model=list[DatabaseConnectorCapability])
-async def list_database_capabilities():
+async def list_database_capabilities(
+    current_user: UserInfo = Depends(require_auth()),
+):
     """返回当前平台支持的数据库连接类型。"""
     return _CONNECTOR_SERVICE.list_capabilities()
 
@@ -90,7 +93,7 @@ async def test_database_connector_draft(
 ):
     """测试未保存的数据库连接器草稿。"""
     logger.info("数据库连接器草稿测试: user=%s type=%s", current_user.user_id, request.db_type)
-    return _CONNECTOR_SERVICE.test_connector_draft(request)
+    return await asyncio.to_thread(_CONNECTOR_SERVICE.test_connector_draft, request)
 
 
 @router.get("/sessions/{session_id}/attachments", response_model=list[SessionDatabaseAttachment])
@@ -209,7 +212,8 @@ async def query_attached_database_connector(
     resolved_user_id = _resolve_user_scope(user_id, current_user)
     _ensure_session_access(session_id, resolved_user_id)
     try:
-        result = _CONNECTOR_SERVICE.query_attached_connector_readonly(
+        result = await asyncio.to_thread(
+            _CONNECTOR_SERVICE.query_attached_connector_readonly,
             user_id=resolved_user_id,
             session_id=session_id,
             connector_id=request.connector_id,
@@ -337,7 +341,9 @@ async def test_saved_database_connector(
     )
     if connector is None:
         raise HTTPException(status_code=404, detail="数据库连接器不存在")
-    result = _CONNECTOR_SERVICE.test_connector(resolved_user_id, connector_id)
+    result = await asyncio.to_thread(
+        _CONNECTOR_SERVICE.test_connector, resolved_user_id, connector_id
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="数据库连接器不存在")
     return result

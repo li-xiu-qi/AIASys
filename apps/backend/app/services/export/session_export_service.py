@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import io
 import json
+import os
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Literal, Optional
 from app.models.session import SessionMetadata
 from app.services.history.session_execution_journal import SessionExecutionJournal
 from app.services.history.session_history_projection import unwrap_user_prompt
+from app.utils.path_utils import as_system_path
 
 if TYPE_CHECKING:
     from app.services.session import SessionManager
@@ -169,32 +171,39 @@ class SessionExportService:
         workspace_manifest: Dict[str, Any],
         workspace_files: List[tuple[str, Path]],
         conversation_messages: Optional[List[Dict[str, Any]]],
-    ) -> tuple[io.BytesIO, str]:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            zip_file.writestr(
-                "manifest.json",
-                json.dumps(manifest, indent=2, ensure_ascii=False),
-            )
-            zip_file.writestr(
-                "workspace_manifest.json",
-                json.dumps(workspace_manifest, indent=2, ensure_ascii=False),
-            )
-
-            if conversation_messages is not None:
+    ) -> tuple[str, str]:
+        fd, zip_path = tempfile.mkstemp(suffix=".zip")
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 zip_file.writestr(
-                    "conversation.json",
-                    json.dumps(conversation_messages, indent=2, ensure_ascii=False),
+                    "manifest.json",
+                    json.dumps(manifest, indent=2, ensure_ascii=False),
+                )
+                zip_file.writestr(
+                    "workspace_manifest.json",
+                    json.dumps(workspace_manifest, indent=2, ensure_ascii=False),
                 )
 
-            if workspace_files:
-                for relative_path, file_path in workspace_files:
-                    zip_file.write(file_path, f"workspace/{relative_path}")
-            else:
-                zip_file.writestr("workspace/", "")
+                if conversation_messages is not None:
+                    zip_file.writestr(
+                        "conversation.json",
+                        json.dumps(conversation_messages, indent=2, ensure_ascii=False),
+                    )
 
-        zip_buffer.seek(0)
-        return zip_buffer, f"session_export_{session_id}_{scope}.zip"
+                if workspace_files:
+                    for relative_path, file_path in workspace_files:
+                        zip_file.write(file_path, f"workspace/{relative_path}")
+                else:
+                    zip_file.writestr("workspace/", "")
+        except Exception:
+            try:
+                os.unlink(zip_path)
+            except OSError:
+                pass
+            raise
+
+        return zip_path, f"session_export_{session_id}_{scope}.zip"
 
     def _build_manifest(
         self,
@@ -269,10 +278,11 @@ class SessionExportService:
             / ACTIVE_SESSION_STATE_DIR_NAME
             / HISTORY_SNAPSHOT_FILE_NAME
         )
+        sys_history_path = as_system_path(str(history_path))
         messages: List[Dict[str, Any]] = []
-        if history_path.exists():
+        if Path(sys_history_path).exists():
             try:
-                data = json.loads(history_path.read_text(encoding="utf-8"))
+                data = json.loads(Path(sys_history_path).read_text(encoding="utf-8"))
                 if isinstance(data, dict):
                     raw_messages = data.get("messages") or []
                     if isinstance(raw_messages, list):
@@ -312,9 +322,10 @@ class SessionExportService:
 
         # 读取全部 records（不限制 50 条）
         records_path = journal.records_path
-        if records_path.exists():
+        sys_records_path = as_system_path(str(records_path))
+        if Path(sys_records_path).exists():
             try:
-                with open(records_path, "r", encoding="utf-8") as f:
+                with open(sys_records_path, "r", encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if not line:
@@ -334,16 +345,18 @@ class SessionExportService:
                         stderr_text = ""
                         if stdout_ref:
                             stdout_path = session_dir / stdout_ref
-                            if stdout_path.exists():
+                            sys_stdout_path = as_system_path(str(stdout_path))
+                            if Path(sys_stdout_path).exists():
                                 try:
-                                    stdout_text = stdout_path.read_text(encoding="utf-8")
+                                    stdout_text = Path(sys_stdout_path).read_text(encoding="utf-8")
                                 except Exception:
                                     pass
                         if stderr_ref:
                             stderr_path = session_dir / stderr_ref
-                            if stderr_path.exists():
+                            sys_stderr_path = as_system_path(str(stderr_path))
+                            if Path(sys_stderr_path).exists():
                                 try:
-                                    stderr_text = stderr_path.read_text(encoding="utf-8")
+                                    stderr_text = Path(sys_stderr_path).read_text(encoding="utf-8")
                                 except Exception:
                                     pass
                         if stdout_text:

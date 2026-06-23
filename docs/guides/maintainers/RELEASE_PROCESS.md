@@ -66,10 +66,12 @@ git push upstream vX.Y.Z-beta.N
   gh release view vX.Y.Z-beta.N --json assets
   ```
 3. 确认产物包含：
-  - `AIASys_Desktop-X.Y.Z-beta.N.AppImage`
-  - `AIASys_Desktop-X.Y.Z-beta.N-arm64.dmg`
-  - `AIASys_Desktop-X.Y.Z-beta.N-arm64-mac.zip`
-  - `AIASys_Desktop.Setup.X.Y.Z-beta.N.exe`
+  - `AIASys-X.Y.Z-beta.N-linux.zip`
+  - `AIASys-X.Y.Z-beta.N.AppImage`
+  - `AIASys-X.Y.Z-beta.N-arm64.dmg`
+  - `AIASys-X.Y.Z-beta.N-arm64-mac.zip`
+  - `AIASys-X.Y.Z-beta.N-win.zip`
+  - `AIASys Setup X.Y.Z-beta.N.exe`
 
 ## 发布纪律
 

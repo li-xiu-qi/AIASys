@@ -302,7 +302,7 @@ function createSplashWindow() {
 <body>
   <div class="container">
     <div class="spinner"></div>
-    <div class="logo">AIASys Desktop</div>
+    <div class="logo">AIASys</div>
     <div class="status" id="status">正在启动...</div>
     <div class="step-text" id="step-text"></div>
     <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
@@ -444,7 +444,7 @@ function createMainWindow(rendererBaseUrl) {
     minHeight: 720,
     autoHideMenuBar: true,
     show: false,
-    title: "AIASys Desktop",
+    title: "AIASys",
     icon: getWindowIcon(),
     webPreferences: {
       preload: preloadPath,
@@ -481,7 +481,7 @@ function createMainWindow(rendererBaseUrl) {
     ) {
       console.error("[aiasys-desktop] 检测到渲染进程崩溃，将以安全模式重启");
       dialog.showErrorBox(
-        "AIASys Desktop",
+        "AIASys",
         "检测到图形渲染兼容性问题，应用将以兼容模式重新启动。",
       );
       app.relaunch({ args: [...process.argv.slice(1), "--disable-gpu"] });
@@ -490,7 +490,7 @@ function createMainWindow(rendererBaseUrl) {
     }
 
     dialog.showErrorBox(
-      "AIASys Desktop",
+      "AIASys",
       "渲染进程异常退出，应用将尝试重新加载页面。",
     );
     if (mainWindow && !mainWindow.isDestroyed() && serviceManager) {
@@ -533,7 +533,7 @@ function createMainWindow(rendererBaseUrl) {
         });
         closeSplashWindow();
         dialog.showErrorBox(
-          "AIASys Desktop 加载失败",
+          "AIASys 加载失败",
           `无法加载页面：${validatedUrl || initialUrl}\n错误：${errorDescription} (${errorCode})\n\n请检查日志目录获取详细信息。`,
         );
       }
@@ -646,7 +646,7 @@ function createTray() {
     return;
   }
   tray = new Tray(icon);
-  tray.setToolTip("AIASys Desktop");
+  tray.setToolTip("AIASys");
 
   const contextMenu = Menu.buildFromTemplate([
     {
@@ -825,7 +825,7 @@ app.whenReady().then(() => {
       error instanceof Error ? error.stack || error.message : String(error);
     const fullMessage = `${errorMessage}\n\n日志目录: ${logsDir}`;
 
-    dialog.showErrorBox("AIASys Desktop 启动失败", fullMessage);
+    dialog.showErrorBox("AIASys 启动失败", fullMessage);
 
     // 尝试打开日志目录
     try {

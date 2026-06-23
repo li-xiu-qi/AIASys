@@ -89,23 +89,56 @@ npm run dist:mac
 | 平台 | 产物 | 说明 |
 |------|------|------|
 | Linux | `dist/linux-unpacked/aiasys-desktop` | 目录版，直接运行 |
-| Linux | `dist/AIASys Desktop-x.x.x.AppImage` | 单文件可执行（CI 构建）|
-| Windows | `dist/AIASys Desktop Setup x.x.x.exe` | NSIS 安装程序，可选安装目录 |
-| Windows | `dist/AIASys Desktop-x.x.x-win.zip` | 便携版，解压即用 |
-| macOS | `dist/AIASys Desktop-x.x.x.dmg` | 磁盘映像安装包 |
+| Linux | `dist/AIASys-x.x.x-linux.zip` | 绿色版 zip（推荐 AI/自动化安装） |
+| Linux | `dist/AIASys-x.x.x.AppImage` | 单文件可执行（CI 构建） |
+| Windows | `dist/AIASys-x.x.x-win.zip` | 绿色版 zip（推荐 AI/自动化安装） |
+| Windows | `dist/AIASys Setup x.x.x.exe` | NSIS 安装程序，可选安装目录 |
+| macOS | `dist/AIASys-x.x.x-mac.zip` | 绿色版 zip（推荐 AI/自动化安装） |
+| macOS | `dist/AIASys-x.x.x.dmg` | 磁盘映像安装包 |
+
+### 使用安装脚本（推荐）
+
+三端统一使用 `apps/desktop/scripts/install.cjs` 安装绿色版 zip：
+
+```bash
+# Windows
+node apps/desktop/scripts/install.cjs dist/AIASys-x.x.x-win.zip
+
+# macOS
+node apps/desktop/scripts/install.cjs dist/AIASys-x.x.x-mac.zip
+
+# Linux
+node apps/desktop/scripts/install.cjs dist/AIASys-x.x.x-linux.zip
+```
+
+脚本会自动完成：终止运行中的 AIASys、备份旧版本、解压、创建快捷方式 / `.desktop` 入口、验证关键文件。
+
+默认安装路径：
+
+| 平台 | 默认路径 |
+|------|---------|
+| Windows | `%LOCALAPPDATA%\Programs\AIASys` |
+| macOS | `/Applications/AIASys.app` |
+| Linux | `~/.local/share/AIASys` |
+
+指定自定义路径：
+
+```bash
+node apps/desktop/scripts/install.cjs dist/AIASys-x.x.x-win.zip "C:\tools\AIASys"
+```
 
 ### Windows 安装包特性
 
 - 允许用户选择安装目录（非一键安装）
 - 不需要管理员权限（避免拖放文件到应用失效）
-- 安装前自动检测并关闭运行中的 AIASys Desktop
-- 卸载时询问是否删除用户数据（`%APPDATA%/AIASys Desktop`）
+- 安装前自动检测并关闭运行中的 AIASys
+- 卸载时询问是否删除用户数据（`%APPDATA%/aiasys-desktop`）
 
 ### 各平台运行时目录
 
 - Linux：`~/.config/aiasys-desktop/backend-runtime/`
 - macOS：`~/Library/Application Support/aiasys-desktop/backend-runtime/`
-- Windows：`%APPDATA%/AIASys Desktop/backend-runtime/`
+- Windows：`%APPDATA%/aiasys-desktop/backend-runtime/`
 
 （Electron 通过 `app.getPath("userData")` 自动获取，各平台映射到正确路径。）
 

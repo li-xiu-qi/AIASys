@@ -1,4 +1,4 @@
-# AIASys Desktop Windows 离线安装包构建检测清单
+# AIASys Windows 离线安装包构建检测清单
 
 > 本文档汇总 Windows 桌面端打包的关键要求与自检项，确保每次自动化构建都能复现、产物可运行。  
 > 版本：v0.4.13  
@@ -80,8 +80,8 @@ npx electron-builder --win nsis zip --publish=never
 
 | # | 验证项 | 合格标准 |
 |---|---|---|
-| 1 | NSIS 安装包体积 | `dist/AIASys_Desktop Setup X.X.X.exe` ≥ 200 MB |
-| 2 | ZIP 便携包体积 | `dist/AIASys_Desktop-X.X.X-win.zip` ≥ 300 MB |
+| 1 | NSIS 安装包体积 | `dist/AIASys Setup X.X.X.exe` ≥ 200 MB |
+| 2 | ZIP 便携包体积 | `dist/AIASys-X.X.X-win.zip` ≥ 300 MB |
 | 3 | 安装程序可执行 | 双击 `.exe` 正常弹出安装向导 |
 | 4 | License 中文正常 | 安装向导许可协议页面显示正常中文 |
 | 5 | 安装路径可配置 | 安装向导出现目录选择步骤 |

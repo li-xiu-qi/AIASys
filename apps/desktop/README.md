@@ -1,4 +1,4 @@
-# AIASys Desktop
+# AIASys
 
 第一阶段 Electron desktop 薄壳。
 
@@ -91,8 +91,8 @@ npm run dist:win
 ```
 
 产物：
-- `apps/desktop/dist/AIASys Desktop Setup x.x.x.exe` — NSIS 安装程序
-- `apps/desktop/dist/AIASys Desktop-x.x.x-win.zip` — 便携版
+- `apps/desktop/dist/AIASys Setup x.x.x.exe` — NSIS 安装程序
+- `apps/desktop/dist/AIASys-x.x.x-win.zip` — 绿色版 zip（推荐 AI/自动化安装）
 
 Windows 安装包特性：
 - 允许用户选择安装目录（`oneClick: false`）
@@ -107,7 +107,7 @@ cd apps/desktop
 npm run dist:mac
 ```
 
-产物：`apps/desktop/dist/AIASys Desktop-x.x.x.dmg`
+产物：`apps/desktop/dist/AIASys-x.x.x.dmg`
 
 ## 实现说明
 

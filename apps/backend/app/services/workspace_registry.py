@@ -1206,7 +1206,11 @@ class WorkspaceRegistryService:
                         ),
                         daemon=True,
                     )
-                    logger.info("工作区 %s 启动初始化线程，resources=%s", resolved_workspace_id, resolved_resources)
+                    logger.info(
+                        "工作区 %s 启动初始化线程，resources=%s",
+                        resolved_workspace_id,
+                        resolved_resources,
+                    )
                     thread.start()
 
             self.create_conversation(
@@ -1504,7 +1508,9 @@ class WorkspaceRegistryService:
         try:
             from app.services.container_resource import ContainerResourceService
 
-            service = ContainerResourceService(self.get_workspace_root(user_id, workspace_id), workspace_registry=self)
+            service = ContainerResourceService(
+                self.get_workspace_root(user_id, workspace_id), workspace_registry=self
+            )
             registry = service.list_workspace_containers(user_id, workspace_id)
             for container in registry.containers:
                 try:

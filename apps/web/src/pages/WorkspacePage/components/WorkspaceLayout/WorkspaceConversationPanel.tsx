@@ -38,7 +38,6 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useFileUploadToast } from "@/components/file/FileUploadToast";
 import {
   downloadBlob,
-  getDownloadFilename,
 } from "@/pages/WorkspacePage/hooks/sessionLifecycleManagerUtils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TaskWorkspaceSummary, WorkspaceConversationSummary } from "../../types";

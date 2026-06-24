@@ -150,6 +150,21 @@ def _sys_path(path: Path) -> str:
     """将 Path 转为带 Windows 长路径前缀的系统 IO 路径字符串。"""
     return as_system_path(path)
 
+def _resolve_unique_file_path(file_path: Path) -> Path:
+    """如果文件已存在，返回带 -1、-2 ... 后缀的唯一路径。"""
+    if not file_path.exists():
+        return file_path
+    parent = file_path.parent
+    stem = file_path.stem
+    suffix = file_path.suffix
+    counter = 1
+    while True:
+        candidate = parent / f"{stem}-{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
 
 def _is_pruned_workspace_path(relative_path: str) -> bool:
     parts = Path(relative_path).parts
@@ -921,10 +936,11 @@ async def upload_workspace_file(
     os.makedirs(_sys_path(workspace_root), exist_ok=True)
 
     file_path = _ensure_path_within_root(workspace_root, normalized_path)
+    file_path = _resolve_unique_file_path(file_path)
     os.makedirs(_sys_path(file_path.parent), exist_ok=True)
     _record_file_history(
         workspace_root,
-        normalized_path,
+        file_path.relative_to(workspace_root),
         operation="before_overwrite",
         current_user=current_user,
     )
@@ -934,13 +950,13 @@ async def upload_workspace_file(
         _copyfileobj_with_limit(file.file, f)
 
     logger.info(
-        f"工作区文件上传: {current_user.user_id}/{workspace_id}/{normalized_path.as_posix()}"
+        f"工作区文件上传: {current_user.user_id}/{workspace_id}/{file_path.relative_to(workspace_root).as_posix()}"
     )
 
     return {
         "success": True,
-        "filename": normalized_path.as_posix(),
-        "path": f"/workspace/{normalized_path.as_posix()}",
+        "filename": file_path.relative_to(workspace_root).as_posix(),
+        "path": f"/workspace/{file_path.relative_to(workspace_root).as_posix()}",
         "size": file_path.stat().st_size,
         "uploaded_by": current_user.user_id,
     }
@@ -2117,14 +2133,16 @@ async def upload_global_workspace_file(
     ):
         raise HTTPException(status_code=400, detail="Invalid filename")
 
+    global_root = _resolve_user_global_workspace_root(current_user.user_id)
     global_path = _resolve_user_global_workspace_file_path(
         current_user.user_id,
         safe_filename,
     )
+    global_path = _resolve_unique_file_path(global_path)
     os.makedirs(_sys_path(global_path.parent), exist_ok=True)
     _record_file_history(
-        _resolve_user_global_workspace_root(current_user.user_id),
-        safe_filename,
+        global_root,
+        global_path.relative_to(global_root),
         operation="before_overwrite",
         current_user=current_user,
     )
@@ -2133,12 +2151,12 @@ async def upload_global_workspace_file(
 
         _copyfileobj_with_limit(file.file, f)
 
-    logger.info("全局工作区文件上传: %s/%s", current_user.user_id, safe_filename)
+    logger.info("全局工作区文件上传: %s/%s", current_user.user_id, global_path.name)
 
     return {
         "success": True,
-        "filename": safe_filename,
-        "path": f"/global/{safe_filename}",
+        "filename": global_path.name,
+        "path": f"/global/{global_path.relative_to(global_root).as_posix()}",
         "size": global_path.stat().st_size,
         "uploaded_by": current_user.user_id,
     }

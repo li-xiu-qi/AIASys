@@ -797,3 +797,83 @@ async def test_running_session_rejects_manual_notebook_edit(
         )
 
     assert exc_info.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_upload_workspace_file_creates_unique_copy_on_name_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _build_workspace_service(tmp_path)
+    _patch_file_route_workspace(monkeypatch, tmp_path, service)
+
+    workspace = service.create_workspace(
+        user_id="local_default",
+        workspace_id="task-upload-conflict",
+        title="Upload Conflict",
+        initial_conversation_id="conversation-upload-conflict-001",
+        initial_conversation_title="Upload Conflict 对话",
+    )
+
+    first = UploadFile(file=io.BytesIO(b"first"), filename="notes.txt")
+    second = UploadFile(file=io.BytesIO(b"second"), filename="notes.txt")
+
+    result_first = await workspace_files_route.upload_workspace_file(
+        workspace.workspace_id,
+        file=first,
+        current_user=_build_user(),
+    )
+    result_second = await workspace_files_route.upload_workspace_file(
+        workspace.workspace_id,
+        file=second,
+        current_user=_build_user(),
+    )
+
+    assert result_first["success"] is True
+    assert result_first["filename"] == "notes.txt"
+    assert result_second["success"] is True
+    assert result_second["filename"] == "notes-1.txt"
+
+    root = service.get_workspace_root("local_default", workspace.workspace_id)
+    assert (root / "notes.txt").read_bytes() == b"first"
+    assert (root / "notes-1.txt").read_bytes() == b"second"
+
+
+@pytest.mark.asyncio
+async def test_upload_global_workspace_file_creates_unique_copy_on_name_conflict(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _build_workspace_service(tmp_path)
+    _patch_file_route_workspace(monkeypatch, tmp_path, service)
+
+    workspace = service.create_workspace(
+        user_id="local_default",
+        workspace_id="task-global-upload-conflict",
+        title="Global Upload Conflict",
+        initial_conversation_id="conversation-global-upload-conflict-001",
+        initial_conversation_title="Global Upload Conflict 对话",
+    )
+
+    first = UploadFile(file=io.BytesIO(b"first"), filename="notes.txt")
+    second = UploadFile(file=io.BytesIO(b"second"), filename="notes.txt")
+
+    result_first = await workspace_files_route.upload_global_workspace_file(
+        workspace.workspace_id,
+        file=first,
+        current_user=_build_user(),
+    )
+    result_second = await workspace_files_route.upload_global_workspace_file(
+        workspace.workspace_id,
+        file=second,
+        current_user=_build_user(),
+    )
+
+    assert result_first["success"] is True
+    assert result_first["filename"] == "notes.txt"
+    assert result_second["success"] is True
+    assert result_second["filename"] == "notes-1.txt"
+
+    global_root = service.get_workspace_root("local_default", workspace.workspace_id)
+    assert (global_root / "notes.txt").read_bytes() == b"first"
+    assert (global_root / "notes-1.txt").read_bytes() == b"second"

@@ -246,6 +246,46 @@ function getWindowIcon() {
   return null;
 }
 
+function getTrayIconPath() {
+  // macOS 菜单栏（状态栏）图标需要专用小尺寸模板图，避免 300x300 应用图标被放大显示
+  const iconName = process.platform === "darwin" ? "trayTemplate.png" : "icon.png";
+
+  if (app.isPackaged) {
+    const asarIconPath = path.join(process.resourcesPath, "app.asar", "build", iconName);
+    const tempDir = path.join(app.getPath("temp"), "aiasys-icons");
+    fs.mkdirSync(tempDir, { recursive: true });
+    const tempIconPath = path.join(tempDir, iconName);
+    if (!fs.existsSync(tempIconPath)) {
+      fs.writeFileSync(tempIconPath, fs.readFileSync(asarIconPath));
+    }
+    return tempIconPath;
+  }
+
+  const appRoot = path.join(__dirname, "..");
+  return path.join(appRoot, "build", iconName);
+}
+
+function getTrayIcon() {
+  if (process.platform !== "darwin") {
+    // Windows/Linux 沿用窗口图标，后续可按平台补充专用托盘图
+    return getWindowIcon();
+  }
+
+  const iconPath = getTrayIconPath();
+  try {
+    const image = nativeImage.createFromPath(iconPath);
+    if (!image.isEmpty()) {
+      // 显式声明为模板图，macOS 会根据菜单栏亮/暗模式自动着色
+      image.setTemplateImage(true);
+      return image;
+    }
+    console.warn(`[aiasys-desktop] 托盘图标加载失败，路径: ${iconPath}`);
+  } catch (error) {
+    console.warn(`[aiasys-desktop] 加载托盘图标异常: ${error.message}`);
+  }
+  return null;
+}
+
 let splashWindow = null;
 
 function createSplashWindow() {
@@ -606,7 +646,7 @@ function sendTrayAction(action) {
 }
 
 function createTray() {
-  const icon = getWindowIcon();
+  const icon = getTrayIcon();
   if (!icon) {
     console.warn("[aiasys-desktop] 无法创建托盘：图标加载失败");
     return;

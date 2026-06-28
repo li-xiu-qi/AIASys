@@ -8,7 +8,7 @@
  */
 import { spawnSync } from "node:child_process";
 
-const excludePattern = "\\.git|node_modules|\\.venv|dist|\\.pytest_cache|\\.ruff_cache";
+const excludePattern = "\\.git|node_modules|\\.venv|dist|\\.pytest_cache|\\.ruff_cache|\\.(png|jpe?g|gif|svg|ico|icns|webp|avif|mp4|mp3|wav|zip|gz|tar|dmg|exe|dll|so|dylib|pyd)$";
 const files = process.argv.slice(2).filter(Boolean);
 
 if (files.length === 0) {

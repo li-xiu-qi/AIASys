@@ -7,6 +7,13 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useLLMConfig } from "./hooks/useLLMConfig";
 import { ProviderDialog } from "./components/ProviderDialog";
@@ -18,6 +25,8 @@ import { DeleteConfirmDialog } from "./components/DeleteConfirmDialog";
 interface LLMConfigPanelProps {
   onModelsChange?: () => void;
 }
+
+const NO_DEFAULT_MODEL = "__none__";
 
 export default function LLMConfigPanel({ onModelsChange }: LLMConfigPanelProps = {}) {
   const {
@@ -126,49 +135,55 @@ export default function LLMConfigPanel({ onModelsChange }: LLMConfigPanelProps =
                   <label className="text-sm font-medium text-foreground" htmlFor="default-chat-model">
                     默认 Chat 模型
                   </label>
-                  <select
-                    id="default-chat-model"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    value={modelDefaultsDraft.default_chat_model ?? ""}
+                  <Select
+                    value={modelDefaultsDraft.default_chat_model ?? NO_DEFAULT_MODEL}
                     disabled={savingDefaults || loading.models}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setModelDefaultsDraft({
                         ...modelDefaultsDraft,
-                        default_chat_model: event.target.value || null,
+                        default_chat_model: value === NO_DEFAULT_MODEL ? null : value,
                       })
                     }
                   >
-                    <option value="">未设置</option>
-                    {chatModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="default-chat-model" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_DEFAULT_MODEL}>未设置</SelectItem>
+                      {chatModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground" htmlFor="default-embedding-model">
                     默认 Embedding 模型
                   </label>
-                  <select
-                    id="default-embedding-model"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    value={modelDefaultsDraft.default_embedding_model ?? ""}
+                  <Select
+                    value={modelDefaultsDraft.default_embedding_model ?? NO_DEFAULT_MODEL}
                     disabled={savingDefaults || loading.models}
-                    onChange={(event) =>
+                    onValueChange={(value) =>
                       setModelDefaultsDraft({
                         ...modelDefaultsDraft,
-                        default_embedding_model: event.target.value || null,
+                        default_embedding_model: value === NO_DEFAULT_MODEL ? null : value,
                       })
                     }
                   >
-                    <option value="">未设置</option>
-                    {embeddingModels.map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger id="default-embedding-model" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_DEFAULT_MODEL}>未设置</SelectItem>
+                      {embeddingModels.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

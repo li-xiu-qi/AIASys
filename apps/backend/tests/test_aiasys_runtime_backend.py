@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from pathlib import Path
 
 import pytest
@@ -139,6 +141,113 @@ class _EchoTool(AiasysTool):
     async def invoke(self, ctx=None, **kwargs):
         del ctx
         return ToolResult(content=f"echo: {kwargs['text']}")
+
+
+class _SlowReadTool(AiasysTool):
+    """只读工具，用于验证并发执行。"""
+
+    name = "SlowReadTool"
+    description = "Slow read-only tool"
+    side_effect = False
+    parameters = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+        },
+        "required": ["name"],
+    }
+
+    async def invoke(self, ctx=None, **kwargs):
+        del ctx
+        await asyncio.sleep(0.2)
+        return ToolResult(content=f"read {kwargs['name']}")
+
+
+class _SlowWriteTool(AiasysTool):
+    """有副作用工具，用于验证写工具仍串行执行。"""
+
+    name = "SlowWriteTool"
+    description = "Slow write tool"
+    side_effect = True
+    parameters = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+        },
+        "required": ["name"],
+    }
+
+    async def invoke(self, ctx=None, **kwargs):
+        del ctx
+        await asyncio.sleep(0.1)
+        return ToolResult(content=f"write {kwargs['name']}")
+
+
+class _ConcurrentToolsClient:
+    """第一轮同时请求 2 个只读工具和 1 个写工具，第二轮 stop。"""
+
+    def __init__(self) -> None:
+        self.calls: list[list[dict]] = []
+        self.usages: list[dict[str, int]] = []
+
+    async def chat_stream(
+        self, messages, tools, temperature, max_tokens, request_options=None
+    ):
+        del tools, temperature, max_tokens, request_options
+        self.calls.append([dict(message) for message in messages])
+        if len(self.calls) == 1:
+            yield LlmChunk(
+                delta=LlmDelta(content="并发读取"),
+                finish_reason=None,
+                usage=None,
+            )
+            usage = {"prompt_tokens": 3, "completion_tokens": 8}
+            self.usages.append(usage)
+            yield LlmChunk(
+                delta=LlmDelta(
+                    reasoning_content="",
+                    tool_calls=[
+                        {
+                            "index": 0,
+                            "id": "call-ro-1",
+                            "function": {
+                                "name": "SlowReadTool",
+                                "arguments": '{"name":"a"}',
+                            },
+                        },
+                        {
+                            "index": 1,
+                            "id": "call-ro-2",
+                            "function": {
+                                "name": "SlowReadTool",
+                                "arguments": '{"name":"b"}',
+                            },
+                        },
+                        {
+                            "index": 2,
+                            "id": "call-w-1",
+                            "function": {
+                                "name": "SlowWriteTool",
+                                "arguments": '{"name":"c"}',
+                            },
+                        },
+                    ],
+                ),
+                finish_reason="tool_calls",
+                usage=usage,
+            )
+            return
+
+        usage = {"prompt_tokens": 2, "completion_tokens": 1}
+        self.usages.append(usage)
+        yield LlmChunk(
+            delta=LlmDelta(content="完成"),
+            finish_reason="stop",
+            usage=usage,
+        )
+
+    async def aclose(self) -> None:
+        return None
 
 
 class _ImageTool(AiasysTool):
@@ -538,6 +647,69 @@ async def test_aiasys_runtime_session_runs_react_loop(tmp_path):
     assert assistant_tool_call_message["reasoning_content"] == "先整理问题，再调用工具。"
     assert client.calls[1][-1]["role"] == "tool"
     assert client.calls[1][-1]["content"] == "echo: hello"
+
+
+async def test_concurrent_readonly_tools_and_serial_write_tools(tmp_path):
+    """只读工具并发执行，有副作用工具串行执行。"""
+    agent_file = _write_agent_files(tmp_path)
+    registry = ToolRegistry()
+    registry.register(_SlowReadTool())
+    registry.register(_SlowWriteTool())
+    client = _ConcurrentToolsClient()
+
+    session = AiasysRuntimeSession(
+        RuntimeSessionCreateSpec(
+            work_dir=WorkspacePath(str(tmp_path)),
+            session_id="session-concurrent-tools",
+            config=AiasysLlmConfig(
+                default_model="test-model",
+                providers={
+                    "provider-1": LlmProviderConfig(
+                        api_key="secret",
+                        base_url="https://example.com/v1",
+                    )
+                },
+                models={
+                    "test-model": LlmModelConfig(
+                        provider="provider-1",
+                        model="test-model-remote",
+                    )
+                },
+            ),
+            agent_file=agent_file,
+            skills_dir=None,
+            mcp_configs=None,
+            yolo=True,
+        ),
+        client,
+        registry,
+    )
+
+    start = time.perf_counter()
+    events = [event async for event in session.prompt("并发读取")]
+    elapsed = time.perf_counter() - start
+
+    public_events = [
+        event for event in events if getattr(event, "kind", None) != "turn_begin"
+    ]
+    assert [event.kind for event in public_events] == [
+        "content",
+        "tool_call",
+        "tool_call",
+        "tool_call",
+        "tool_result",
+        "tool_result",
+        "tool_result",
+        "content",
+        "token_usage",
+    ]
+    assert public_events[4].content == "read a"
+    assert public_events[5].content == "read b"
+    assert public_events[6].content == "write c"
+    # 2 个只读工具各 0.2s，若串行需 0.4s+；写工具 0.1s 串行；并发应小于 0.45s
+    assert elapsed < 0.45, f"tools did not run concurrently enough: {elapsed:.3f}s"
+
+    await session.close()
 
 
 def test_loop_detection_normalizes_mapping_arguments_before_similarity_check(

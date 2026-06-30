@@ -1,0 +1,31 @@
+name: Branch Relationship
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ensure-main-not-ahead-of-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check main is ancestor of dev
+        run: |
+          git fetch origin main dev
+
+          # main 必须是 dev 的祖先：main 的所有提交都必须存在于 dev 中
+          # 这样保证 main 不会包含 dev 没有的提交
+          if git merge-base --is-ancestor origin/main origin/dev; then
+            echo "✅ main is not ahead of dev"
+          else
+            echo "❌ ERROR: main has commits that are not in dev"
+            echo ""
+            echo "Main must always be merged from dev. Please ensure all commits"
+            echo "on main also exist on dev before pushing."
+            exit 1
+          fi

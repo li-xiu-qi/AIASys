@@ -35,6 +35,8 @@ interface UseExecutionSubmitProps {
     modelId?: string,
     attachments?: string[],
     workspaceId?: string | null,
+    thinkingEnabled?: boolean,
+    thinkingEffort?: string,
   ) => Promise<void>;
   currentWorkspaceId?: string | null;
   currentWorkspaceIdRef?: { readonly current: string | null | undefined };
@@ -132,6 +134,8 @@ export function useExecutionSubmit(props: UseExecutionSubmitProps) {
     apiBaseUrl,
     activeSessionIdRef,
     onTokenUsageShouldRefresh,
+    thinkingEnabled,
+    thinkingEffort,
   } = props;
 
   const isSubmittingRef = useRef(false);
@@ -413,6 +417,8 @@ export function useExecutionSubmit(props: UseExecutionSubmitProps) {
       effectiveModelId,
       attachmentPaths,
       executionWorkspaceId,
+      thinkingEnabled,
+      thinkingEffort,
     );
     } finally {
       isSubmittingRef.current = false;
@@ -444,6 +450,8 @@ export function useExecutionSubmit(props: UseExecutionSubmitProps) {
     syncExecutionHistory,
     activeSessionIdRef,
     onTokenUsageShouldRefresh,
+    thinkingEnabled,
+    thinkingEffort,
     resetSessionTaskState,
   ]);
 

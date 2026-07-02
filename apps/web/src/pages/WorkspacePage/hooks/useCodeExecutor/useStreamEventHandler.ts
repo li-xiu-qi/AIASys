@@ -144,7 +144,7 @@ export function useStreamEventHandler({
     slot.flushTimer = setTimeout(() => {
       slot.flushTimer = null;
       syncSegmentsToUI(sessionId);
-    }, 50);
+    }, 120);
   }, [getSessionSlot, syncSegmentsToUI]);
 
   // 当新的非 think segment 到达时，将前面未完成的 think segment 标记为已完成

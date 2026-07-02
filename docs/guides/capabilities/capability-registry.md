@@ -6,6 +6,31 @@
 
 注册表把 Skill 技能、MCP 连接器和协作专家三类能力放在同一个管理框架下，提供一致的操作体验。不管是安装一个 PDF 翻译 Skill，还是接入一个浏览器操控 MCP Server，操作路径和状态语义都一样。
 
+## 能力源目录
+
+能力按类型分两个目录体系存放：
+
+### Skill 技能
+
+当前系统内置 Skill 的源目录有两个并行位置，注册表已统一从 `skills/builtin/` 扫描：
+
+| 层级 | 路径 | 说明 |
+|------|------|------|
+| 内置源（当前） | `apps/backend/skills/builtin/` | 系统预装 Skill，只读 |
+| 内置源（遗留） | `apps/backend/capability_sources/builtin/skill/` | 历史存放位置，内容已同步到 `skills/builtin/`，不再作为扫描入口 |
+| 用户源 | `{RUNTIME_ROOT}/skills/store/` | 外部市场/zip 导入，可删除 |
+
+> `RUNTIME_ROOT` 默认为后端代码根目录，桌面打包模式下重定向到用户目录（如 `~/.config/aiasys-desktop/`）。
+
+### MCP 与协作专家
+
+非 Skill 类型的 capability（MCP Server、subagent）仍使用 `capability_sources/` 目录：
+
+| 层级 | 路径 | 说明 |
+|------|------|------|
+| 内置源 | `apps/backend/capability_sources/builtin/{mcp,subagent}/` | 系统预装 |
+| 用户源 | `{RUNTIME_ROOT}/capability_sources/store/{mcp,subagent}/` | 用户导入 |
+
 ## 能力类型
 
 | 类型 | 标识 | 说明 |
@@ -39,7 +64,7 @@
 
 ### 浏览可安装能力
 
-从内置源（`apps/backend/skills/builtin/`）和用户源（`apps/backend/skills/store/`）列出所有可安装的能力。支持按名称、类型和标签搜索过滤。
+从内置源（`apps/backend/skills/builtin/`）和用户源（`{RUNTIME_ROOT}/skills/store/`）列出所有可安装的能力。支持按名称、类型和标签搜索过滤。
 
 ### 安装
 

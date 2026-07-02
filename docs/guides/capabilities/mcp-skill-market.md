@@ -122,14 +122,17 @@ Skill 市场是浏览、搜索、安装和卸载 Skill 的入口。
 
 ### Skill 架构
 
-Skill 采用全局源仓库 + 工作区副本的两层架构：
+Skill 采用全局源仓库 + 工作区副本的两层架构。当前系统内置 Skill 的源目录有两个并行位置，注册表已统一从 `skills/builtin/` 扫描，`capability_sources/builtin/skill/` 为历史遗留路径，正在逐步合并。
 
 | 层级 | 路径 | 作用 |
 |------|------|------|
-| 内置源 | `apps/backend/skills/builtin/` | 系统预装，不可删除 |
-| 用户源 | `apps/backend/skills/store/` | 外部市场导入，可从全局仓库删除 |
+| 内置源（当前） | `apps/backend/skills/builtin/` | 系统预装 Skill，只读 |
+| 内置源（遗留） | `apps/backend/capability_sources/builtin/skill/` | 历史存放位置，内容已同步到 `skills/builtin/`，不再作为扫描入口 |
+| 用户源 | `{RUNTIME_ROOT}/skills/store/` | 外部市场/zip 导入，可删除 |
 | 工作区副本 | `{ws}/.aiasys/skills/` | 安装后实际运行的位置 |
 | 全局副本 | `global_workspace/.aiasys/skills/` | 全局启用后跨工作区共享 |
+
+> `RUNTIME_ROOT` 默认为后端代码根目录，桌面打包模式下重定向到用户目录（如 `~/.config/aiasys-desktop/`）。用户源和运行时数据都会落到该目录下。
 
 ## 内置 Skill 清单
 

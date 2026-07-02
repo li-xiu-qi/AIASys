@@ -66,4 +66,8 @@ contextBridge.exposeInMainWorld("__AIASYS_DESKTOP__", {
   selectFolder(options) {
     return ipcRenderer.invoke("aiasys:select-folder", options);
   },
+  // 在系统资源管理器中打开指定路径
+  openPath(targetPath) {
+    return ipcRenderer.invoke("aiasys:open-path", targetPath);
+  },
 });

@@ -29,6 +29,8 @@ declare global {
         title?: string;
         defaultPath?: string;
       }): Promise<SelectFolderResult>;
+      /** 在系统资源管理器中打开指定路径（桌面版） */
+      openPath?(targetPath: string): Promise<boolean>;
     };
   }
 }

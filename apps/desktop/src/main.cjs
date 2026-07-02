@@ -776,6 +776,19 @@ function createTray() {
         void shell.openPath(app.getPath("userData"));
       },
     },
+    {
+      label: "关于 AIASys",
+      click: () => {
+        const version = app.getVersion();
+        dialog.showMessageBox(mainWindow, {
+          type: "info",
+          title: "关于 AIASys",
+          message: `AIASys v${version}`,
+          detail: "新一代智能工业/科研平台\n本地部署优先，桌面端优先。",
+          buttons: ["确定"],
+        });
+      },
+    },
     { type: "separator" },
     {
       label: "退出",
@@ -844,6 +857,19 @@ async function bootstrap() {
 }
 
 // 注册 IPC：选择本地文件夹
+ipcMain.handle("aiasys:open-path", async (_event, targetPath) => {
+  if (!targetPath || typeof targetPath !== "string") {
+    return false;
+  }
+  try {
+    await shell.openPath(targetPath);
+    return true;
+  } catch (e) {
+    console.error("[aiasys-desktop] open-path failed:", e);
+    return false;
+  }
+});
+
 ipcMain.handle("aiasys:select-folder", async (_event, options = {}) => {
   if (!mainWindow || mainWindow.isDestroyed()) {
     return { canceled: true, filePaths: [] };

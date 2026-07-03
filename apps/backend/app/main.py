@@ -268,7 +268,12 @@ async def storage_migration_guard_middleware(request: Request, call_next):
 
 
 def _is_inline_file_preview(request: Request, response: Response | None = None) -> bool:
-    if not request.url.path.startswith("/api/files/download/"):
+    path = request.url.path
+    if not (
+        path.startswith("/api/files/download/")
+        or "/files/download/" in path
+        or "/global-workspace/download/" in path
+    ):
         return False
 
     if request.query_params.get("disposition") == "inline":

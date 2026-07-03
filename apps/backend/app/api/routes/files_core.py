@@ -252,10 +252,9 @@ async def download_file(
         if disposition == "inline":
             return FileResponse(
                 file_path,
+                filename=file_path.name,
                 media_type=media_type,
-                headers={
-                    "Content-Disposition": f'inline; filename="{sanitize_content_disposition_filename(file_path.name)}"'
-                },
+                content_disposition_type="inline",
             )
 
         return FileResponse(

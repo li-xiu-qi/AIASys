@@ -1196,7 +1196,14 @@ class ExecutionMixin:
             model_id: 模型配置 ID（如 my-kimi-model，优先使用）
             sandbox_mode: 沙盒模式，当前主线仅支持 local，用于首次创建会话
         """
-        config = self._get_config(model, user_id, model_id, session_id)
+        config = self._get_config(
+            model,
+            user_id,
+            model_id,
+            session_id,
+            thinking_enabled,
+            thinking_effort,
+        )
         session_key = get_session_key(user_id, session_id)
 
         workspace_registry = get_workspace_registry_service()

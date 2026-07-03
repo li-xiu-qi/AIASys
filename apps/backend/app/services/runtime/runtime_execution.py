@@ -29,19 +29,18 @@ from app.services.history import (
 logger = logging.getLogger(__name__)
 
 
-def _shell_quote(arg: str) -> str:
+def _shell_quote(arg: str, shell_family: str | None = None) -> str:
     """跨平台 shell 参数引用。
 
-    Windows 使用 PowerShell 单引号规则（内部单引号转义为两个单引号），
-    因为 AGENTS.md 已明确禁用 cmd.exe，ShellExecutor 在 Windows 上优先
-    降级到 PowerShell。
-    POSIX 平台沿用 shlex.quote。
+    默认按当前平台推断：Windows 用 PowerShell 单引号规则，POSIX 用 shlex.quote。
+    调用方可显式传入 shell_family（posix/powershell/wsl/busybox）以匹配目标解释器，
+    避免 uv 包装命令与 docker exec 命令在 Windows 上因解释器不一致而转义错误。
     """
-    if os.name == "nt":
-        # Note: This assumes PowerShell quoting. If the command is run under Git Bash
-        # or WSL bash, paths containing literal single quotes may not be escaped correctly.
-        # This is an edge case (paths rarely contain single quotes).
+    if shell_family is None:
+        shell_family = "powershell" if os.name == "nt" else "posix"
+    if shell_family == "powershell":
         return "'" + arg.replace("'", "''") + "'"
+    # posix / wsl / busybox 均按 POSIX shell 规则处理
     return shlex.quote(arg)
 
 
@@ -227,9 +226,9 @@ def wrap_shell_command_for_runtime(
         workdir = container.workspace_mount_path or "/workspace"
         env_args = _docker_exec_env_args(plan)
         wrapped = (
-            f"docker exec -w {_shell_quote(workdir)} "
+            f"docker exec -w {_shell_quote(workdir, shell_family='posix')} "
             f"{env_args}"
-            f"{_shell_quote(docker_target)} sh -lc {_shell_quote(command)}"
+            f"{_shell_quote(docker_target, shell_family='posix')} sh -lc {_shell_quote(command, shell_family='posix')}"
         )
         return wrapped, plan.workspace
 
@@ -255,15 +254,15 @@ def wrap_shell_command_for_runtime(
         # cmd.exe 已禁用，对齐 Copilot 不再使用 cmd。
         if os.name == "nt":
             wrapped = (
-                f"uv run --project {_shell_quote(str(project_dir))} "
-                f"--directory {_shell_quote(str(plan.workspace or project_dir))} "
-                f"powershell -NoProfile -Command {_shell_quote(command)}"
+                f"uv run --project {_shell_quote(str(project_dir), shell_family='powershell')} "
+                f"--directory {_shell_quote(str(plan.workspace or project_dir), shell_family='powershell')} "
+                f"powershell -NoProfile -Command {_shell_quote(command, shell_family='powershell')}"
             )
         else:
             wrapped = (
-                f"uv run --project {_shell_quote(str(project_dir))} "
-                f"--directory {_shell_quote(str(plan.workspace or project_dir))} "
-                f"sh -lc {_shell_quote(command)}"
+                f"uv run --project {_shell_quote(str(project_dir), shell_family='posix')} "
+                f"--directory {_shell_quote(str(plan.workspace or project_dir), shell_family='posix')} "
+                f"sh -lc {_shell_quote(command, shell_family='posix')}"
             )
         return wrapped, plan.workspace
 
@@ -288,7 +287,7 @@ def build_runtime_shell_env(
             env["AIASYS_RUNTIME_ENV_MATERIAL_PATH"] = plan.env.material_path
         if plan.env.python_executable:
             env["AIASYS_RUNTIME_PYTHON_EXECUTABLE"] = plan.env.python_executable
-            python_dir = str(Path(plan.env.python_executable).parent)
+            python_dir = os.path.dirname(str(plan.env.python_executable))
             env["PATH"] = f"{python_dir}{os.pathsep}{env.get('PATH', '')}"
     if plan.container_resource is not None:
         container = plan.container_resource
@@ -306,7 +305,7 @@ def build_runtime_shell_env(
 
     uv_bin = find_uv_binary()
     if uv_bin:
-        uv_dir = str(Path(uv_bin).parent)
+        uv_dir = os.path.dirname(str(uv_bin))
         current_path = env.get("PATH", "")
         if uv_dir not in current_path.split(os.pathsep):
             env["PATH"] = f"{current_path}{os.pathsep}{uv_dir}"
@@ -519,7 +518,7 @@ def _docker_exec_env_args(plan: RuntimeExecutionPlan) -> str:
         key_text = str(key).strip()
         if not key_text or not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key_text):
             continue
-        parts.append(f"-e {_shell_quote(key_text)}={_shell_quote(str(value))}")
+        parts.append(f"-e {_shell_quote(key_text, shell_family='posix')}={_shell_quote(str(value), shell_family='posix')}")
     return "".join(f"{part} " for part in parts)
 
 

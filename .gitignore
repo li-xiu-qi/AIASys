@@ -168,3 +168,4 @@ apps/backend/vendor/node/.download/
 # fnm 运行时下载的 Node.js 版本目录（桌面版运行时数据，不纳入版本控制）
 apps/backend/fnm/
 
+apps/backend/config.json

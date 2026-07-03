@@ -108,9 +108,11 @@ class ShellExecutor:
     def _detect_family_from_name(name: str) -> str | None:
         """根据可执行文件名或路径猜测 shell family。"""
         lower = name.lower()
+        # 去掉 Windows .exe 后缀，统一按 stem 判断
+        stem = Path(lower).stem
         if "wsl" in lower:
             return "wsl"
-        if lower.endswith("bash.exe") or lower.endswith("bash") or lower.endswith("sh"):
+        if stem in ("bash", "sh"):
             # busybox 也包含 sh，但前面已特判
             # Windows 内置 WSL bash 按 wsl family 处理
             if ShellExecutor._is_wsl_bash_path(name):
@@ -118,7 +120,7 @@ class ShellExecutor:
             return "posix"
         if "busybox" in lower:
             return "busybox"
-        if "powershell" in lower or lower.endswith("pwsh") or lower.endswith("pwsh.exe"):
+        if "powershell" in lower or stem == "pwsh":
             return "powershell"
         return None
 

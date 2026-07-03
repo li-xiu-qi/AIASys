@@ -329,11 +329,30 @@ export function StorageSettingsDialog() {
                           />
                           <div className="mt-2 space-y-1 text-xs text-muted-foreground">
                             <p>当前生效：{item.effective_path}</p>
+                            <p>默认值：{item.default_path}</p>
                             {item.overridden_by_env ? (
                               <p>由环境变量 {item.overridden_by_env} 控制，界面不能覆盖。</p>
                             ) : null}
                             {validation ? <p>{validation.message}</p> : null}
                           </div>
+                          {!item.overridden_by_env && (
+                            <div className="mt-2 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={isMigrationRunning || draft[item.key] === item.default_path}
+                                onClick={() => {
+                                  setDraft((prev) => ({ ...prev, [item.key]: item.default_path }));
+                                  setValidations((prev) => ({ ...prev, [item.key]: undefined }));
+                                  setMigration(null);
+                                  setSavedNotice(null);
+                                }}
+                              >
+                                恢复默认
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

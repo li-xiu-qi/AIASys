@@ -5,6 +5,7 @@ import json
 import sqlite3
 import zipfile
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 from fastapi import HTTPException
@@ -129,6 +130,34 @@ async def test_file_routes_use_workspace_root_for_bound_conversations(
     with zipfile.ZipFile(io.BytesIO(body)) as archive:
         assert "uploads/notes.txt" in archive.namelist()
         assert archive.read("uploads/notes.txt") == b"hello workspace"
+
+
+@pytest.mark.asyncio
+async def test_workspace_inline_download_supports_unicode_pdf_filename(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _build_workspace_service(tmp_path)
+    _patch_file_route_workspace(monkeypatch, tmp_path, service)
+
+    workspace_id = "unicode-preview"
+    service.create_workspace(
+        user_id="local_default",
+        workspace_id=workspace_id,
+        title="Unicode Preview",
+    )
+    workspace_root = service.get_workspace_root("local_default", workspace_id)
+    filename = "Cheng 等 - Harnessing AI to Build Virtual Cells.pdf"
+    (workspace_root / filename).write_bytes(b"%PDF-1.4\n")
+
+    response = await workspace_files_route.download_workspace_file(
+        workspace_id,
+        filename,
+        disposition="inline",
+        current_user=_build_user(),
+    )
+
+    assert response.headers["content-disposition"] == f"inline; filename*=utf-8''{quote(filename)}"
 
 
 @pytest.mark.asyncio
@@ -550,7 +579,7 @@ async def test_admin_list_all_files_returns_absolute_paths(
     workspace_dir = service._get_workspace_dir("local_default", "task-admin-list-all")
     listed_file = workspace_dir / "reports" / "summary.md"
     listed_file.parent.mkdir(parents=True, exist_ok=True)
-    listed_file.write_text("# summary\n", encoding="utf-8")
+    listed_file.write_text("# summary\n", encoding="utf-8", newline="\n")
 
     payload = await files_core_route.list_all_files(current_user=_build_user())
 

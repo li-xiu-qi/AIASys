@@ -29,6 +29,12 @@ declare global {
         title?: string;
         defaultPath?: string;
       }): Promise<SelectFolderResult>;
+      /** 在系统资源管理器中打开指定路径（桌面版） */
+      openPath?(targetPath: string): Promise<boolean>;
+      /** 获取桌面端应用版本号 */
+      getVersion?(): Promise<string>;
+      /** 用系统默认浏览器打开外部链接 */
+      openExternal?(url: string): Promise<boolean>;
     };
   }
 }

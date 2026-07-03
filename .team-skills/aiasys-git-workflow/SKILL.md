@@ -241,6 +241,17 @@ docs/description      - 文档
 2. 开发完成后合并回 `dev`
 3. 需要发布时，从 `dev` 提 PR 到 `main`，由主管理员合并
 
+### main/dev 分支关系保护
+
+仓库已配置 `.github/workflows/branch-relationship.yml`，在 push 到 `main` 或 PR 合并到 `main` 时执行检查：
+
+1. **PR 来源检查**：目标分支为 `main` 的 PR，来源分支必须是 `dev`。
+2. **独立提交检查**：`main` 上不允许存在 `dev` 没有的非 merge commit。
+
+这意味着 `main` 只能通过合并 `dev` 来更新。merge commit 是正常产物，会被允许；但直接 push 到 `main` 或从其他分支合并到 `main` 会被 CI 拦截。
+
+**配置要求**：在 GitHub Settings → Branches → Branch protection rules 中，将 `Branch Relationship / ensure-main-not-ahead-of-dev` 设为 `main` 分支的 Required status check，才能真正阻止非法合并。
+
 ### 工作流
 
 ```bash
@@ -346,7 +357,14 @@ git push --force-with-lease origin feature/mcp-config
 
 Rebase 用于**整理自己的本地历史**，不是用于改写已共享的历史。
 
-> **绝对禁止**：对已经合并到 `dev` / `main` 的 commit 做 rebase 或 force push。
+> **原则上禁止**：对已经合并到 `dev` / `main` 的 commit 做 rebase 或 force push。
+>
+> 例外情况（仅管理员执行，且需提前通知所有协作者）：
+> - 清理敏感信息泄露
+> - 修正错误作者身份或 bot 占位身份
+> - 移除不应出现在正式历史中的 `Co-authored-by` 等元数据
+>
+> 这些操作会重写公共历史，执行后所有协作者必须重新同步。
 
 ### 适用场景
 

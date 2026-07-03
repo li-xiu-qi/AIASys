@@ -247,7 +247,7 @@ async def test_write_file_append(tmp_workspace: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_write_file_records_workspace_history(tmp_workspace: Path) -> None:
-    (tmp_workspace / "history.txt").write_text("before\n", encoding="utf-8")
+    (tmp_workspace / "history.txt").write_text("before\n", encoding="utf-8", newline="\n")
 
     tool = WriteFile()
     result = await tool.invoke(
@@ -287,6 +287,41 @@ async def test_str_replace_file_single(tmp_workspace: Path) -> None:
         **StrReplaceFileParams(
             path="edit.txt",
             edit=FileEdit(old="world", new="AIASys"),
+        ).model_dump()
+    )
+
+    assert not result.is_error
+    assert (tmp_workspace / "edit.txt").read_text(encoding="utf-8") == "hello AIASys"
+
+
+@pytest.mark.asyncio
+async def test_str_replace_file_flat_alias(tmp_workspace: Path) -> None:
+    """验证 old_text / new_text 扁平别名可直接调用。"""
+    (tmp_workspace / "edit.txt").write_text("hello world", encoding="utf-8")
+
+    tool = StrReplaceFile()
+    result = await tool.invoke(
+        **StrReplaceFileParams(
+            path="edit.txt",
+            old_text="world",
+            new_text="AIASys",
+        ).model_dump()
+    )
+
+    assert not result.is_error
+    assert (tmp_workspace / "edit.txt").read_text(encoding="utf-8") == "hello AIASys"
+
+
+@pytest.mark.asyncio
+async def test_str_replace_file_edit_json_string(tmp_workspace: Path) -> None:
+    """验证 edit 为 JSON 字符串时自动解析。"""
+    (tmp_workspace / "edit.txt").write_text("hello world", encoding="utf-8")
+
+    tool = StrReplaceFile()
+    result = await tool.invoke(
+        **StrReplaceFileParams(
+            path="edit.txt",
+            edit='{"old": "world", "new": "AIASys"}',
         ).model_dump()
     )
 

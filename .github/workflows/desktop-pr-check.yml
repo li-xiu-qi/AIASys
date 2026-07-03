@@ -1,0 +1,59 @@
+name: Desktop PR Check
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'apps/desktop/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desktop-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Build web dist (in-job)
+        run: cd apps/web && npm ci && npm run build
+
+      - name: Setup Node.js for desktop
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install desktop deps
+        run: cd apps/desktop && npm ci
+
+      - name: Run desktop unit tests
+        run: cd apps/desktop && npm run test:unit
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "apps/backend/uv.lock"
+
+      - name: Install Python & backend deps
+        run: |
+          cd apps/backend
+          uv python install 3.12
+          uv sync --frozen
+
+      - name: Prepare runtime
+        run: cd apps/desktop && npm run prepare:runtime
+
+      - name: Build desktop (Linux dir)
+        run: cd apps/desktop && npm run dist:ci:linux

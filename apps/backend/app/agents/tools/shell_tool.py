@@ -32,6 +32,32 @@ DEFAULT_TIMEOUT = 60
 logger = logging.getLogger(__name__)
 MAX_TIMEOUT = 300  # 5分钟
 
+# Windows 上把硬编码的 C:\workspace 重定向到当前工作区物理路径，
+# 避免 SHOW-004 等场景的产物落到错误的绝对路径。
+_WINDOWS_WORKSPACE_RE = re.compile(
+    r"C:\\workspace\\?|C:/workspace/?",
+    re.IGNORECASE,
+)
+
+
+def _redirect_windows_workspace_path(command: str) -> str:
+    """Windows 上将命令中的 C:\\workspace 前缀替换为当前工作区物理路径。"""
+    if os.name != "nt":
+        return command
+    workspace = current_workspace.get()
+    if not workspace:
+        return command
+    workspace_str = str(workspace)
+    # 保持末尾分隔符与原始一致
+    def replacer(match: re.Match[str]) -> str:
+        matched = match.group(0)
+        sep = "\\" if matched.startswith("C:\\") or matched.startswith("c:\\") else "/"
+        # 如果原始匹配以分隔符结尾，保留分隔符
+        if matched.endswith(sep):
+            return workspace_str.rstrip("\\/") + sep
+        return workspace_str.rstrip("\\/")
+    return _WINDOWS_WORKSPACE_RE.sub(replacer, command)
+
 
 def _build_shell_exec_env() -> dict[str, str] | None:
     """构建 Shell 执行环境：os.environ 去敏 + 工作区自定义 env vars。"""
@@ -169,6 +195,15 @@ class Shell(AiasysTool):
 
         if not params.command or not params.command.strip():
             return ToolResult(content="命令不能为空", is_error=True)
+
+        # Windows 上把硬编码 C:\workspace 重定向到当前工作区物理路径
+        original_command = params.command
+        params.command = _redirect_windows_workspace_path(params.command)
+        if params.command != original_command:
+            logger.info(
+                "Shell 命令中的 C:\\workspace 已重定向到当前工作区: %s",
+                current_workspace.get(),
+            )
 
         # 危险命令检测：按平台合并检测模式
         patterns = list(_DANGEROUS_PATTERNS)

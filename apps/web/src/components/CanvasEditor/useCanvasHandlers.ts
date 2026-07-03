@@ -422,6 +422,7 @@ export function useCanvasHandlers(options: UseCanvasHandlersOptions) {
                 { name: normalizedFileName, meta },
                 sessionId,
                 token,
+                workspaceId,
               );
         onOpenPreviewFile(previewFile);
         return;

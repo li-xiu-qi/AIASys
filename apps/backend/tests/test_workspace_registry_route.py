@@ -44,15 +44,16 @@ async def _wait_for_workspace_initialization(
     raise TimeoutError(f"工作区 {workspace_id} 初始化超时")
 
 
-def test_workspace_registry_generates_short_workspace_id(tmp_path: Path) -> None:
+def test_workspace_registry_generates_timestamp_workspace_id(tmp_path: Path) -> None:
     service = _build_service(tmp_path)
 
     created = service.create_workspace(
         user_id="local_default",
-        title="短 ID 工作区",
+        title="时间戳 ID 工作区",
     )
 
-    assert re.fullmatch(r"[0-9a-f]{12}", created.workspace_id)
+    # workspace_id 格式：YYYYMMDD-HHMMSS-XXXX
+    assert re.fullmatch(r"\d{8}-\d{6}-[0-9a-f]{4}", created.workspace_id)
     assert (
         tmp_path
         / "local_default"

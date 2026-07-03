@@ -234,23 +234,55 @@ class StrReplaceFileParams(BaseModel):
     path: str = Field(
         description="要编辑的文件路径。相对路径基于当前工作区。支持 /global/ 前缀编辑全局工作区文件。"
     )
-    edit: FileEdit | list[FileEdit] = Field(
-        description="要应用的编辑操作。可以传入单个 edit 或 edit 列表"
+    # 扁平参数（推荐用法，与 Kimi DiffBlock / 通用编码工具对齐）
+    old_text: str | None = Field(
+        default=None,
+        description="要替换的旧字符串（扁平别名）。与 new_text 配合使用，优先于 edit 字段",
+    )
+    new_text: str | None = Field(
+        default=None,
+        description="替换后的新字符串（扁平别名）。与 old_text 配合使用，优先于 edit 字段",
+    )
+    # 嵌套 edit（兼容旧调用与批量编辑）
+    edit: FileEdit | list[FileEdit] | None = Field(
+        default=None,
+        description="要应用的编辑操作。支持单个 edit 或 edit 列表（批量编辑）",
+    )
+    replace_all: bool = Field(
+        default=False,
+        description="是否替换所有匹配项。默认只替换第一个",
     )
 
     @model_validator(mode="before")
     @classmethod
-    def _parse_edit_json(cls, values: Any) -> Any:
+    def _normalize(cls, values: Any) -> Any:
         if not isinstance(values, dict):
             return values
+
+        # 扁平参数优先：old_text / new_text -> 包装为 FileEdit
+        old_text = values.get("old_text")
+        new_text = values.get("new_text")
+        if old_text is not None or new_text is not None:
+            values.setdefault(
+                "edit",
+                FileEdit(old=old_text or "", new=new_text or ""),
+            )
+
+        # 兼容 edit 为 JSON 字符串的情况
         edit = values.get("edit")
         if isinstance(edit, str):
             try:
-                parsed = json.loads(edit)
-                values["edit"] = parsed
+                values["edit"] = json.loads(edit)
             except json.JSONDecodeError:
                 pass  # 让 model_validate 报原来的错误
+
         return values
+
+    @model_validator(mode="after")
+    def _validate(self) -> "StrReplaceFileParams":
+        if self.edit is None:
+            raise ValueError("必须提供 edit 或 old_text/new_text")
+        return self
 
 
 class StrReplaceFile(AiasysTool):
@@ -264,8 +296,13 @@ class StrReplaceFile(AiasysTool):
 
 使用方式：
 1. 先用 ReadFile 读取文件，确认要修改的内容
-2. 提供 `old`（原字符串）和 `new`（新字符串）
-3. 系统会精确匹配 `old` 并进行替换
+2. 提供 `old_text`（原字符串）和 `new_text`（新字符串）
+3. 系统会精确匹配 `old_text` 并进行替换
+
+参数别名（兼容）：
+- `old_text` / `new_text`：扁平参数，推荐使用
+- `edit.old` / `edit.new`：嵌套参数，保持向后兼容
+- `edit` 也可以是 JSON 字符串
 
 限制：
 - 只能编辑文本文件（如 .py、.md、.json、.csv、.txt、.yml、.html、.svg 等）
@@ -274,10 +311,14 @@ class StrReplaceFile(AiasysTool):
 - 注意：.svg 虽然是图片格式，但本质是文本，**允许**用 StrReplaceFile 编辑
 
 注意事项：
-- `old` 必须与文件中的内容完全匹配（包括空格和换行）
+- `old_text` 必须与文件中的内容完全匹配（包括空格和换行）
 - 默认只替换第一个匹配项；设置 `replace_all=true` 替换所有
-- 如果 `old` 在文件中找不到，会报错
+- 如果 `old_text` 在文件中找不到，会报错
 - 支持批量编辑：传入 `edit` 列表可一次性应用多处修改
+
+Examples:
+  edit={"old": "def foo():\\n    pass", "new": "def bar():\\n    return 42"}
+  old_text="hello world" new_text="hello AIASys"
 """
     params: type[BaseModel] = StrReplaceFileParams
 
@@ -332,19 +373,21 @@ class StrReplaceFile(AiasysTool):
 
         total_replacements = 0
         for edit in edits:
-            if edit.old == edit.new:
+            old_text = edit.old
+            new_text = edit.new
+            if old_text == new_text:
                 continue
-            if edit.old not in content:
+            if old_text not in content:
                 return ToolResult(
-                    content=f"未找到匹配字符串: {edit.old[:80]}...",
+                    content=f"未找到匹配字符串: {old_text[:80]}...",
                     is_error=True,
                 )
             if edit.replace_all:
-                count = content.count(edit.old)
-                content = content.replace(edit.old, edit.new)
+                count = content.count(old_text)
+                content = content.replace(old_text, new_text)
                 total_replacements += count
             else:
-                content = content.replace(edit.old, edit.new, 1)
+                content = content.replace(old_text, new_text, 1)
                 total_replacements += 1
 
         if content == original:

@@ -6,6 +6,10 @@ import {
   XCircle,
   CircleOff,
   Package,
+  Puzzle,
+  Plug,
+  Bot,
+  Wrench,
   Search,
   X,
   Trash2,
@@ -36,6 +40,16 @@ const KIND_LABEL: Record<string, string> = {
   skill_pack: "技能",
   mcp_server: "连接器",
   subagent: "专家",
+  native_tool: "原生工具",
+  runtime_helper: "运行时辅助",
+};
+
+const KIND_ICON: Record<string, React.ReactNode> = {
+  skill_pack: <Puzzle className="h-4 w-4 text-blue-500" />,
+  mcp_server: <Plug className="h-4 w-4 text-amber-500" />,
+  subagent: <Bot className="h-4 w-4 text-purple-500" />,
+  native_tool: <Wrench className="h-4 w-4 text-slate-500" />,
+  runtime_helper: <Package className="h-4 w-4 text-muted-foreground" />,
 };
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
@@ -315,7 +329,7 @@ export function CapabilityListPanel({
               )}
               onClick={() => onSelectCap(capId, cap.display_name || capId)}
             >
-              {STATUS_ICON[status] ?? STATUS_ICON.available}
+              {KIND_ICON[cap.kind] ?? STATUS_ICON[status] ?? STATUS_ICON.available}
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="truncate text-xs font-medium text-foreground">

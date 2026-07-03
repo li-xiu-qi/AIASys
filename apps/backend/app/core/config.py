@@ -22,6 +22,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 RUNTIME_ROOT = Path(os.environ.get("AIASYS_RUNTIME_ROOT", str(BASE_DIR))).expanduser()
 
 
+def _default_user_data_dir() -> Path:
+    """返回用户目录下的默认 AIASys 数据目录。"""
+    return Path.home() / "AIASys"
+
+
 def _resolve_runtime_path(
     env_name: str,
     default_path: Path,
@@ -117,8 +122,9 @@ def _get_config(path: str, default: Any = None) -> Any:
     return value if value is not None else default
 
 
-# 存储目录（统一使用 data/workspaces，session 存储在 .aiasys/session/ 子目录下）
-_DEFAULT_DATA_DIR = RUNTIME_ROOT / "data"
+# 存储目录（默认落到用户目录 ~/AIASys/ 下，session 存储在 .aiasys/session/ 子目录下）
+DEFAULT_USER_DATA_DIR = _default_user_data_dir()
+_DEFAULT_DATA_DIR = DEFAULT_USER_DATA_DIR / "data"
 _STORED_STORAGE_PATHS = read_runtime_storage_paths(RUNTIME_ROOT)
 DATA_DIR = _resolve_runtime_path(
     "AIASYS_RUNTIME_DATA_DIR",
@@ -127,12 +133,12 @@ DATA_DIR = _resolve_runtime_path(
 )
 LOGS_DIR = _resolve_runtime_path(
     "AIASYS_RUNTIME_LOGS_DIR",
-    RUNTIME_ROOT / "logs",
+    DEFAULT_USER_DATA_DIR / "logs",
     _STORED_STORAGE_PATHS.get("logs_dir"),
 )
 WORKSPACE_DIR = _resolve_runtime_path(
     "AIASYS_RUNTIME_WORKSPACES_DIR",
-    DATA_DIR / "workspaces",
+    DEFAULT_USER_DATA_DIR / "workspaces",
     _STORED_STORAGE_PATHS.get("workspaces_dir"),
 )
 GLOBAL_WORKSPACE_DIR_NAME = "global_workspace"

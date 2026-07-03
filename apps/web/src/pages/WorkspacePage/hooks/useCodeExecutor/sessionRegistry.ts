@@ -23,6 +23,8 @@ export interface SessionSlot {
   // 聊天
   chatItems: ChatItem[];
   streamingMessageId: string | null;
+  // 子 Agent 消息合并：task_tool_call_id -> ChatItem.id
+  subagentMessageIds: Map<string, string>;
   // 流式累积数据（命令式，不触发渲染）
   streamingSegments: ChatSegment[];
   outputAccumulators: Map<string, string>;
@@ -47,6 +49,7 @@ export function createEmptySlot(): SessionSlot {
     taskIdRef: undefined,
     chatItems: [],
     streamingMessageId: null,
+    subagentMessageIds: new Map(),
     streamingSegments: [],
     outputAccumulators: new Map(),
     toolCallMap: new Map(),

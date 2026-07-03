@@ -22,8 +22,10 @@ from app.services.agent.authorization import (
 from app.services.agent.errors import RunCancelled
 from app.services.agent.message_content import (
     downgrade_message_content_for_history,
+    extract_message_text,
     hydrate_message_images,
 )
+from app.services.history.session_history_projection import unwrap_user_prompt
 
 from ..base import AgentRuntimeEvent
 from .llm_clients.error_classifier import classify_api_error
@@ -97,6 +99,341 @@ class SessionStreamMixin:
             updated_message["content"] = downgraded_content
             prepared.append(updated_message)
         return prepared
+
+    # ------------------------------------------------------------------
+    # 工具调用辅助方法（授权 / 执行 / 收尾）
+    # ------------------------------------------------------------------
+
+    async def _authorize_single_tool(
+        self,
+        item: dict[str, Any],
+        tool_ctx: dict[str, Any],
+    ) -> tuple[bool, list[AgentRuntimeEvent], dict[str, Any] | None]:
+        """对单个工具做循环检测、参数校验和授权决策。
+
+        返回 (approved, events_to_yield, exec_info)。
+        approved=False 时 events 已包含 tool_result 等事件，调用方只需 yield。
+        """
+        events: list[AgentRuntimeEvent] = []
+        self._last_tool_name = item["function"]["name"]
+        events.append(
+            AgentRuntimeEvent(
+                kind="tool_call",
+                tool_call_id=item["id"],
+                tool_name=item["function"]["name"],
+                arguments=item["arguments"],
+            )
+        )
+
+        # 循环检测
+        loop_warning = self._check_loop_detection(
+            item["function"]["name"],
+            item["arguments"],
+        )
+        if loop_warning:
+            events.append(AgentRuntimeEvent(kind="system_warning", text=loop_warning))
+            tool_result = ToolResult(content=loop_warning, is_error=True)
+            events.append(
+                AgentRuntimeEvent(
+                    kind="tool_result",
+                    tool_call_id=item["id"],
+                    tool_name=item["function"]["name"],
+                    content=_serialize_tool_content_for_event(tool_result.content),
+                    is_error=tool_result.is_error,
+                )
+            )
+            self._append_message(
+                {
+                    "role": "tool",
+                    "tool_call_id": item["id"],
+                    "content": tool_result.content,
+                }
+            )
+            return False, events, None
+
+        # 参数解析错误
+        parse_error = item.get("_parse_error")
+        if parse_error:
+            tool_result = ToolResult(content=parse_error, is_error=True)
+            events.append(
+                AgentRuntimeEvent(
+                    kind="tool_result",
+                    tool_call_id=item["id"],
+                    tool_name=item["function"]["name"],
+                    content=_serialize_tool_content_for_event(tool_result.content),
+                    is_error=tool_result.is_error,
+                )
+            )
+            self._append_message(
+                {
+                    "role": "tool",
+                    "tool_call_id": item["id"],
+                    "content": tool_result.content,
+                }
+            )
+            return False, events, None
+
+        # 能力授权决策
+        resolved_tool_name = self._tool_registry._aliases.get(
+            item["function"]["name"], item["function"]["name"]
+        )
+        tool = self._tool_registry._tools.get(resolved_tool_name)
+
+        tool_risk = getattr(tool, "risk_level", "medium") if tool is not None else "medium"
+        tool_scope = getattr(tool, "effect_scope", "workspace") if tool is not None else "workspace"
+        tool_side_effect = getattr(tool, "side_effect", True) if tool is not None else True
+
+        auth_mode_str = self._spec.authorization_mode
+        if self._spec.yolo and auth_mode_str == "smart":
+            auth_mode_str = "full_auto"
+
+        skill_security: dict[str, Any] = {}
+        if resolved_tool_name in ("EnableSkill", "DisableSkill"):
+            skill_name = item["arguments"].get("name", "")
+            if skill_name:
+                skill_security = self._get_skill_security(skill_name)
+
+        plan_state = self._get_plan_state()
+        plan_mode_active = plan_state is not None and plan_state.mode == "active"
+        plan_file_path = self._get_plan_file_path()
+
+        auth_request = CapabilityAuthorizationRequest(
+            tool_name=resolved_tool_name or item["function"]["name"],
+            arguments=item["arguments"],
+            risk_level=tool_risk,
+            effect_scope=tool_scope,
+            side_effect=tool_side_effect,
+            authorization_mode=AuthorizationMode(auth_mode_str),
+            is_subagent=self._spec.is_subagent,
+            skill_security=skill_security,
+            plan_mode_active=plan_mode_active,
+            plan_file_path=plan_file_path,
+        )
+        auth_result = CapabilityAuthorizationService.decide(auth_request)
+
+        if auth_result.decision in ("ask",):
+            events.append(
+                AgentRuntimeEvent(
+                    kind="approval_required",
+                    tool_call_id=item["id"],
+                    tool_name=item["function"]["name"],
+                    arguments=item["arguments"],
+                )
+            )
+            events.append(
+                AgentRuntimeEvent(
+                    kind="capability_confirmation",
+                    tool_call_id=item["id"],
+                    tool_name=item["function"]["name"],
+                    arguments=item["arguments"],
+                    content=auth_result.confirmation_prompt
+                    or f"是否允许执行工具 {item['function']['name']}？",
+                )
+            )
+            approved, feedback = await self._confirmation_manager.wait_for_confirmation(
+                tool_call_id=item["id"],
+                tool_name=item["function"]["name"],
+                arguments=item["arguments"],
+                prompt=auth_result.confirmation_prompt
+                or f"是否允许执行工具 {item['function']['name']}？",
+                pattern_key=auth_result.pattern_key,
+                subagent_name=getattr(self._spec, "subagent_name", None),
+                agent_id=getattr(self._spec, "agent_id", None),
+            )
+            if not approved:
+                denial_msg = feedback or "操作被拒绝"
+                tool_result = ToolResult(content=denial_msg, is_error=True)
+                events.append(
+                    AgentRuntimeEvent(
+                        kind="tool_result",
+                        tool_call_id=item["id"],
+                        tool_name=item["function"]["name"],
+                        content=_serialize_tool_content_for_event(tool_result.content),
+                        is_error=tool_result.is_error,
+                    )
+                )
+                self._append_message(
+                    {
+                        "role": "tool",
+                        "tool_call_id": item["id"],
+                        "content": tool_result.content,
+                    }
+                )
+                return False, events, None
+
+        if auth_result.decision in ("deny", "block"):
+            denial_msg = (
+                auth_result.denial_message
+                or f"工具 {item['function']['name']} 已被系统拦截：{auth_result.reason}"
+            )
+            tool_result = ToolResult(content=denial_msg, is_error=True)
+            events.append(
+                AgentRuntimeEvent(
+                    kind="tool_result",
+                    tool_call_id=item["id"],
+                    tool_name=item["function"]["name"],
+                    content=_serialize_tool_content_for_event(tool_result.content),
+                    is_error=tool_result.is_error,
+                )
+            )
+            self._append_message(
+                {
+                    "role": "tool",
+                    "tool_call_id": item["id"],
+                    "content": tool_result.content,
+                }
+            )
+            return False, events, None
+
+        item_ctx = {**tool_ctx, "_tool_call_id": item["id"]}
+        exec_info: dict[str, Any] = {
+            "item": item,
+            "resolved_tool_name": resolved_tool_name,
+            "tool": tool,
+            "item_ctx": item_ctx,
+            "side_effect": tool_side_effect,
+        }
+        return True, events, exec_info
+
+    async def _execute_tool_stream(
+        self,
+        item: dict[str, Any],
+        item_ctx: dict[str, Any],
+    ) -> tuple[list[AgentRuntimeEvent], ToolResult]:
+        """调用单个工具的流式接口，返回收集到的事件和最终结果。"""
+        events: list[AgentRuntimeEvent] = []
+        final_tool_result: ToolResult | None = None
+        try:
+            stream_gen = self._tool_registry.invoke_stream(
+                item["function"]["name"],
+                item["arguments"],
+                ctx=item_ctx,
+            )
+            while True:
+                try:
+                    stream_event = await asyncio.wait_for(stream_gen.__anext__(), timeout=300)
+                except StopAsyncIteration:
+                    break
+
+                if stream_event.kind == "event" and stream_event.runtime_event is not None:
+                    from .session_utils import wrap_subagent_event
+
+                    wrapped = wrap_subagent_event(
+                        stream_event.runtime_event,
+                        item["id"],
+                    )
+                    events.append(wrapped)
+                elif stream_event.kind == "result":
+                    final_tool_result = stream_event.tool_result
+                    break
+
+            tool_result = final_tool_result or ToolResult(content="无结果", is_error=True)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "工具执行超时(300秒): session=%s tool=%s",
+                self.session_id,
+                item["function"]["name"],
+            )
+            tool_result = ToolResult(content="工具执行超时（300秒）", is_error=True)
+        except Exception as exc:
+            logger.exception(
+                "工具执行失败: session=%s tool=%s",
+                self.session_id,
+                item["function"]["name"],
+            )
+            tool_result = ToolResult(content=str(exc), is_error=True)
+        return events, tool_result
+
+    async def _finish_tool_execution(
+        self,
+        item: dict[str, Any],
+        tool_result: ToolResult,
+    ) -> AsyncGenerator[AgentRuntimeEvent, None]:
+        """工具执行后的统一收尾：权限恢复、提示追加、事件输出、消息入队。"""
+        if item["function"]["name"] == "exit_plan_mode" and not tool_result.is_error:
+            self._restore_pre_plan_permission_mode()
+
+        user_message = self._get_last_user_text()
+        text = user_message.lower()
+        is_expert_delegation_request = "专家" in text and any(
+            k in text for k in ("委派", "派给", "让", "交给", "处理", "来做")
+        )
+        if is_expert_delegation_request:
+            tool_name = item["function"]["name"]
+            if tool_name == "Task":
+                self._expert_delegation_hint_sent = True
+            elif tool_name == "ListSystemExperts":
+                tool_result.content = (
+                    str(tool_result.content) + "\n<system-reminder>\n"
+                    "用户要求将任务委派给专家处理。你已经获得专家目录，必须立即停止搜索/列出。\n"
+                    "下一步直接调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。\n"
+                    "如果目标专家未安装，先调用 InstallExpert(name='<role_id>')，然后立即 Task。\n"
+                    "</system-reminder>"
+                )
+            elif tool_name in ("InstallExpert", "ConfigureExpert"):
+                tool_result.content = (
+                    str(tool_result.content) + "\n<system-reminder>\n"
+                    "用户要求将任务委派给专家处理。专家已安装/配置，下一步立即调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。\n"
+                    "</system-reminder>"
+                )
+            else:
+                tool_result.content = (
+                    str(tool_result.content) + "\n<system-reminder>\n"
+                    "用户要求将任务委派给专家处理。请停止自己执行当前操作，"
+                    "直接调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。"
+                    "如果目标专家未安装，先调用 InstallExpert(name='<role_id>')，然后立即 Task。\n"
+                    "</system-reminder>"
+                )
+
+        yield AgentRuntimeEvent(
+            kind="tool_result",
+            tool_call_id=item["id"],
+            tool_name=item["function"]["name"],
+            content=_serialize_tool_content_for_event(tool_result.content),
+            is_error=tool_result.is_error,
+        )
+        self._append_message(
+            {
+                "role": "tool",
+                "tool_call_id": item["id"],
+                "content": tool_result.content,
+            }
+        )
+        if not tool_result.is_error:
+            self._reset_loop_counter(item["function"]["name"])
+
+    async def _execute_readonly_batch(
+        self,
+        infos: list[dict[str, Any]],
+        tool_ctx: dict[str, Any],
+    ) -> AsyncGenerator[AgentRuntimeEvent, None]:
+        """并发执行一批只读工具，结果按传入顺序输出。"""
+        if not infos:
+            return
+
+        async def run_one(
+            info: dict[str, Any],
+        ) -> tuple[dict[str, Any], list[AgentRuntimeEvent], ToolResult]:
+            events, tool_result = await self._execute_tool_stream(info["item"], info["item_ctx"])
+            return info, events, tool_result
+
+        results = await asyncio.gather(*(asyncio.create_task(run_one(info)) for info in infos))
+        for info, events, tool_result in results:
+            for event in events:
+                yield event
+            async for event in self._finish_tool_execution(info["item"], tool_result):
+                yield event
+
+    async def _execute_write_tool(
+        self,
+        info: dict[str, Any],
+    ) -> AsyncGenerator[AgentRuntimeEvent, None]:
+        """串行执行单个有副作用工具。"""
+        events, tool_result = await self._execute_tool_stream(info["item"], info["item_ctx"])
+        for event in events:
+            yield event
+        async for event in self._finish_tool_execution(info["item"], tool_result):
+            yield event
 
     async def prompt(
         self,
@@ -179,6 +516,8 @@ class SessionStreamMixin:
             aggregated_tool_calls: dict[int, dict[str, Any]] = {}
             latest_finish_reason: str | None = None
             latest_usage: dict[str, Any] | None = None
+            request_options = self._resolve_request_options()
+            suppress_reasoning_content = bool(request_options.thinking_disabled)
 
             stream_error: Exception | None = None
             for retry_attempt in range(4):  # 1 次原始 + 3 次重试
@@ -200,7 +539,7 @@ class SessionStreamMixin:
                         self._prepare_tools_for_model(),
                         self._resolve_temperature(),
                         self._resolve_max_tokens(),
-                        request_options=self._resolve_request_options(),
+                        request_options=request_options,
                     ):
                         if self._cancel_event.is_set():
                             break
@@ -220,7 +559,7 @@ class SessionStreamMixin:
                                 text=delta.content,
                             )
 
-                        if delta.reasoning_content:
+                        if delta.reasoning_content and not suppress_reasoning_content:
                             assistant_reasoning = merge_stream_fragment(
                                 assistant_reasoning,
                                 delta.reasoning_content,
@@ -308,7 +647,7 @@ class SessionStreamMixin:
                     fallback_message: dict[str, Any] = {"role": "assistant"}
                     if fallback_content:
                         fallback_message["content"] = fallback_content
-                    if assistant_reasoning:
+                    if assistant_reasoning and not suppress_reasoning_content:
                         fallback_message["reasoning_content"] = assistant_reasoning
                     self._append_message(fallback_message)
                     yield AgentRuntimeEvent(
@@ -343,7 +682,9 @@ class SessionStreamMixin:
                 await self._check_session_budget(input_tokens, output_tokens)
 
             assistant_content = "".join(assistant_parts) or None
-            assistant_reasoning_content = assistant_reasoning or ""
+            assistant_reasoning_content = (
+                None if suppress_reasoning_content else assistant_reasoning or ""
+            )
             tool_calls = self._build_openai_tool_calls(aggregated_tool_calls)
 
             # Fallback: if no structured tool_calls but content has raw tags
@@ -424,293 +765,34 @@ class SessionStreamMixin:
                 self._append_message(assistant_message)
 
                 tool_ctx = self._tool_context()
-                for item in tool_calls:
-                    self._last_tool_name = item["function"]["name"]
-                    yield AgentRuntimeEvent(
-                        kind="tool_call",
-                        tool_call_id=item["id"],
-                        tool_name=item["function"]["name"],
-                        arguments=item["arguments"],
+                idx = 0
+                read_only_batch: list[dict[str, Any]] = []
+                while idx < len(tool_calls):
+                    item = tool_calls[idx]
+                    approved, auth_events, exec_info = await self._authorize_single_tool(
+                        item, tool_ctx
                     )
-
-                    # 循环检测
-                    loop_warning = self._check_loop_detection(
-                        item["function"]["name"],
-                        item["arguments"],
-                    )
-                    if loop_warning:
-                        yield AgentRuntimeEvent(
-                            kind="system_warning",
-                            text=loop_warning,
-                        )
-                        tool_result = ToolResult(
-                            content=loop_warning,
-                            is_error=True,
-                        )
-                        yield AgentRuntimeEvent(
-                            kind="tool_result",
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            content=_serialize_tool_content_for_event(tool_result.content),
-                            is_error=tool_result.is_error,
-                        )
-                        tool_msg = {
-                            "role": "tool",
-                            "tool_call_id": item["id"],
-                            "content": tool_result.content,
-                        }
-                        self._append_message(tool_msg)
+                    for event in auth_events:
+                        yield event
+                    if not approved:
+                        idx += 1
                         continue
-
-                    # 参数解析错误
-                    parse_error = item.get("_parse_error")
-                    if parse_error:
-                        tool_result = ToolResult(content=parse_error, is_error=True)
-                        yield AgentRuntimeEvent(
-                            kind="tool_result",
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            content=_serialize_tool_content_for_event(tool_result.content),
-                            is_error=tool_result.is_error,
-                        )
-                        tool_msg = {
-                            "role": "tool",
-                            "tool_call_id": item["id"],
-                            "content": tool_result.content,
-                        }
-                        self._append_message(tool_msg)
-                        continue
-
-                    # 能力授权决策：所有工具调用都经过 CapabilityAuthorizationService
-                    # Plan Mode 的拦截也已下沉到授权策略链，不再在此处硬编码。
-                    resolved_tool_name = self._tool_registry._aliases.get(
-                        item["function"]["name"], item["function"]["name"]
-                    )
-                    tool = self._tool_registry._tools.get(resolved_tool_name)
-
-                    # 读取工具风险元数据
-                    tool_risk = (
-                        getattr(tool, "risk_level", "medium") if tool is not None else "medium"
-                    )
-                    tool_scope = (
-                        getattr(tool, "effect_scope", "workspace")
-                        if tool is not None
-                        else "workspace"
-                    )
-                    tool_side_effect = (
-                        getattr(tool, "side_effect", True) if tool is not None else True
-                    )
-
-                    # 确定授权模式：spec.authorization_mode 优先，yolo 做兼容映射
-                    auth_mode_str = self._spec.authorization_mode
-                    if self._spec.yolo and auth_mode_str == "smart":
-                        auth_mode_str = "full_auto"
-
-                    # EnableSkill 时尝试读取 Skill 安全元数据
-                    skill_security: dict[str, Any] = {}
-                    if resolved_tool_name in ("EnableSkill", "DisableSkill"):
-                        skill_name = item["arguments"].get("name", "")
-                        if skill_name:
-                            skill_security = self._get_skill_security(skill_name)
-
-                    # Plan Mode 上下文
-                    plan_state = self._get_plan_state()
-                    plan_mode_active = plan_state is not None and plan_state.mode == "active"
-                    plan_file_path = self._get_plan_file_path()
-
-                    auth_request = CapabilityAuthorizationRequest(
-                        tool_name=resolved_tool_name or item["function"]["name"],
-                        arguments=item["arguments"],
-                        risk_level=tool_risk,
-                        effect_scope=tool_scope,
-                        side_effect=tool_side_effect,
-                        authorization_mode=AuthorizationMode(auth_mode_str),
-                        is_subagent=self._spec.is_subagent,
-                        skill_security=skill_security,
-                        plan_mode_active=plan_mode_active,
-                        plan_file_path=plan_file_path,
-                    )
-                    auth_result = CapabilityAuthorizationService.decide(auth_request)
-
-                    if auth_result.decision in ("ask",):
-                        # 向后兼容：同时发送 approval_required 和 capability_confirmation
-                        yield AgentRuntimeEvent(
-                            kind="approval_required",
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            arguments=item["arguments"],
-                        )
-                        yield AgentRuntimeEvent(
-                            kind="capability_confirmation",
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            arguments=item["arguments"],
-                            content=auth_result.confirmation_prompt
-                            or f"是否允许执行工具 {item['function']['name']}？",
-                        )
-
-                        # 挂起等待用户通过 API 确认 / 拒绝
-                        approved, feedback = await self._confirmation_manager.wait_for_confirmation(
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            arguments=item["arguments"],
-                            prompt=auth_result.confirmation_prompt
-                            or f"是否允许执行工具 {item['function']['name']}？",
-                            pattern_key=auth_result.pattern_key,
-                            subagent_name=getattr(self._spec, "subagent_name", None),
-                            agent_id=getattr(self._spec, "agent_id", None),
-                        )
-
-                        if not approved:
-                            denial_msg = feedback or "操作被拒绝"
-                            tool_result = ToolResult(content=denial_msg, is_error=True)
-                            yield AgentRuntimeEvent(
-                                kind="tool_result",
-                                tool_call_id=item["id"],
-                                tool_name=item["function"]["name"],
-                                content=_serialize_tool_content_for_event(tool_result.content),
-                                is_error=tool_result.is_error,
-                            )
-                            tool_msg = {
-                                "role": "tool",
-                                "tool_call_id": item["id"],
-                                "content": tool_result.content,
-                            }
-                            self._append_message(tool_msg)
-                            continue
-
-                        # 用户批准：继续执行工具（不 continue，走到下面的工具调用逻辑）
-
-                    if auth_result.decision in ("deny", "block"):
-                        denial_msg = (
-                            auth_result.denial_message
-                            or f"工具 {item['function']['name']} 已被系统拦截：{auth_result.reason}"
-                        )
-                        tool_result = ToolResult(content=denial_msg, is_error=True)
-                        yield AgentRuntimeEvent(
-                            kind="tool_result",
-                            tool_call_id=item["id"],
-                            tool_name=item["function"]["name"],
-                            content=_serialize_tool_content_for_event(tool_result.content),
-                            is_error=tool_result.is_error,
-                        )
-                        tool_msg = {
-                            "role": "tool",
-                            "tool_call_id": item["id"],
-                            "content": tool_result.content,
-                        }
-                        self._append_message(tool_msg)
-                        continue
-
-                    # 构建带 tool_call_id 的 ctx，供 TaskTool 使用
-                    item_ctx = {**tool_ctx, "_tool_call_id": item["id"]}
-
-                    # 直接流式迭代工具事件：事件产生即 yield，避免缓冲导致死锁或实时性丢失。
-                    final_tool_result: ToolResult | None = None
-                    try:
-                        stream_gen = self._tool_registry.invoke_stream(
-                            item["function"]["name"],
-                            item["arguments"],
-                            ctx=item_ctx,
-                        )
-                        while True:
-                            try:
-                                stream_event = await asyncio.wait_for(
-                                    stream_gen.__anext__(), timeout=300
-                                )
-                            except StopAsyncIteration:
-                                break
-
-                            if (
-                                stream_event.kind == "event"
-                                and stream_event.runtime_event is not None
+                    if exec_info["side_effect"]:
+                        if read_only_batch:
+                            async for event in self._execute_readonly_batch(
+                                read_only_batch, tool_ctx
                             ):
-                                from .session_utils import wrap_subagent_event
-
-                                wrapped = wrap_subagent_event(
-                                    stream_event.runtime_event,
-                                    item["id"],
-                                )
-                                yield wrapped
-                            elif stream_event.kind == "result":
-                                final_tool_result = stream_event.tool_result
-                                break
-
-                        tool_result = final_tool_result or ToolResult(
-                            content="无结果", is_error=True
-                        )
-                    except asyncio.TimeoutError:
-                        logger.warning(
-                            "工具执行超时(300秒): session=%s tool=%s",
-                            self.session_id,
-                            item["function"]["name"],
-                        )
-                        tool_result = ToolResult(content="工具执行超时（300秒）", is_error=True)
-                    except Exception as exc:
-                        logger.exception(
-                            "工具执行失败: session=%s tool=%s",
-                            self.session_id,
-                            item["function"]["name"],
-                        )
-                        tool_result = ToolResult(content=str(exc), is_error=True)
-
-                    # exit_plan_mode 执行成功且用户已批准：恢复进入 Plan Mode 前的权限模式
-                    if item["function"]["name"] == "exit_plan_mode" and not tool_result.is_error:
-                        self._restore_pre_plan_permission_mode()
-
-                    # 对用户明确要求专家委派但 Agent 未使用专家工具的场景追加强制提示
-                    user_message = self._get_last_user_text()
-                    text = user_message.lower()
-                    is_expert_delegation_request = "专家" in text and any(
-                        k in text for k in ("委派", "派给", "让", "交给", "处理", "来做")
-                    )
-                    if is_expert_delegation_request:
-                        tool_name = item["function"]["name"]
-                        if tool_name == "Task":
-                            # 已正确委派，不再追加提示
-                            self._expert_delegation_hint_sent = True
-                        elif tool_name == "ListSystemExperts":
-                            # 已列出专家，下一步必须执行委派
-                            tool_result.content = (
-                                str(tool_result.content) + "\n<system-reminder>\n"
-                                "用户要求将任务委派给专家处理。你已经获得专家目录，必须立即停止搜索/列出。\n"
-                                "下一步直接调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。\n"
-                                "如果目标专家未安装，先调用 InstallExpert(name='<role_id>')，然后立即 Task。\n"
-                                "</system-reminder>"
-                            )
-                        elif tool_name in ("InstallExpert", "ConfigureExpert"):
-                            # 已安装/配置专家，继续完成委派
-                            tool_result.content = (
-                                str(tool_result.content) + "\n<system-reminder>\n"
-                                "用户要求将任务委派给专家处理。专家已安装/配置，下一步立即调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。\n"
-                                "</system-reminder>"
-                            )
-                        else:
-                            tool_result.content = (
-                                str(tool_result.content) + "\n<system-reminder>\n"
-                                "用户要求将任务委派给专家处理。请停止自己执行当前操作，"
-                                "直接调用 Task(subagent_name='<role_id>', description='任务简述', prompt='详细指令') 执行委派。"
-                                "如果目标专家未安装，先调用 InstallExpert(name='<role_id>')，然后立即 Task。\n"
-                                "</system-reminder>"
-                            )
-
-                    yield AgentRuntimeEvent(
-                        kind="tool_result",
-                        tool_call_id=item["id"],
-                        tool_name=item["function"]["name"],
-                        content=_serialize_tool_content_for_event(tool_result.content),
-                        is_error=tool_result.is_error,
-                    )
-                    tool_msg = {
-                        "role": "tool",
-                        "tool_call_id": item["id"],
-                        "content": tool_result.content,
-                    }
-                    self._append_message(tool_msg)
-
-                    # 工具执行成功后重置循环计数器
-                    if not tool_result.is_error:
-                        self._reset_loop_counter(item["function"]["name"])
+                                yield event
+                            read_only_batch = []
+                        async for event in self._execute_write_tool(exec_info):
+                            yield event
+                        idx += 1
+                        continue
+                    read_only_batch.append(exec_info)
+                    idx += 1
+                if read_only_batch:
+                    async for event in self._execute_readonly_batch(read_only_batch, tool_ctx):
+                        yield event
 
                 continue
 
@@ -1017,18 +1099,17 @@ class SessionStreamMixin:
         return False
 
     def _get_last_user_text(self) -> str:
-        """从 messages 中提取最近一条 user 消息的文本内容。"""
+        """从 messages 中提取最近一条 user 消息的真实用户输入文本。
+
+        先提取消息文本，再还原执行契约，避免把契约中的任务动词
+        （修改、创建、运行、测试等）误判为用户真实意图。
+        """
         for message in reversed(self.messages):
             if isinstance(message, dict) and message.get("role") == "user":
                 content = message.get("content", "")
-                if isinstance(content, str):
-                    return content
-                if isinstance(content, list):
-                    parts = []
-                    for item in content:
-                        if isinstance(item, dict) and item.get("type") == "text":
-                            parts.append(item.get("text", ""))
-                    return "\n".join(parts)
+                text = extract_message_text(content)
+                unwrapped = unwrap_user_prompt(text)
+                return unwrapped if isinstance(unwrapped, str) else text
         return ""
 
     def _get_skill_security(self, skill_name: str) -> dict[str, Any]:

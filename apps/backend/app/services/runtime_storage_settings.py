@@ -10,7 +10,13 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from app.core.config import DATA_DIR, LOGS_DIR, RUNTIME_ROOT, WORKSPACE_DIR
+from app.core.config import (
+    DATA_DIR,
+    DEFAULT_USER_DATA_DIR,
+    LOGS_DIR,
+    RUNTIME_ROOT,
+    WORKSPACE_DIR,
+)
 from app.core.runtime_storage_config import (
     STORAGE_ENV_BY_KEY,
     STORAGE_PATH_KEYS,
@@ -393,6 +399,12 @@ class RuntimeStorageSettingsService:
             Path(as_system_path(str(target))).rmdir()
         os.replace(as_system_path(str(temp_target)), as_system_path(str(target)))
 
+    _DEFAULT_PATHS: dict[str, Path] = {
+        "data_dir": DEFAULT_USER_DATA_DIR / "data",
+        "workspaces_dir": DEFAULT_USER_DATA_DIR / "workspaces",
+        "logs_dir": DEFAULT_USER_DATA_DIR / "logs",
+    }
+
     def get_settings(self) -> dict[str, object]:
         pending_paths = self._read_pending_paths()
         items = []
@@ -412,6 +424,7 @@ class RuntimeStorageSettingsService:
                     "key": key,
                     "effective_path": effective_path,
                     "configured_path": configured_path,
+                    "default_path": str(self._DEFAULT_PATHS[key].expanduser()),
                     "pending_path": pending_path,
                     "overridden_by_env": overridden_by_env,
                     "editable": overridden_by_env is None,

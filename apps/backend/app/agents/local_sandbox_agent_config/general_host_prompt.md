@@ -34,6 +34,8 @@
   - Windows: 目录列表用 `dir`，空设备重定向用 `2>nul`，路径分隔符用 `\`
   - Linux/macOS: 目录列表用 `ls`，空设备重定向用 `2>/dev/null`，路径分隔符用 `/`
 - 逻辑工作区通过 `workspace/` 相对路径映射到当前会话
+- 当前工作区的真实物理路径：${WORKSPACE_PHYSICAL_PATH}
+- ${WORKSPACE_REDIRECT_NOTE}
 - 全局工作区通过 `/global/...` 路径访问，用于跨任务共享的模板、参考数据和基准资料
   - 读取：`ReadFile(path="/global/templates/report.md")`
   - 写入：`WriteFile(path="/global/shared-data/ref.csv", content=...)`

@@ -10,6 +10,7 @@ export interface RuntimeStoragePathSetting {
   key: RuntimeStoragePathKey;
   effective_path: string;
   configured_path: string;
+  default_path: string;
   pending_path?: string | null;
   overridden_by_env?: string | null;
   editable: boolean;

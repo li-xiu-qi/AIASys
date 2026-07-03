@@ -144,7 +144,7 @@ export function useStreamEventHandler({
     slot.flushTimer = setTimeout(() => {
       slot.flushTimer = null;
       syncSegmentsToUI(sessionId);
-    }, 50);
+    }, 120);
   }, [getSessionSlot, syncSegmentsToUI]);
 
   // 当新的非 think segment 到达时，将前面未完成的 think segment 标记为已完成
@@ -161,6 +161,52 @@ export function useStreamEventHandler({
     const slot = getSessionSlot(sessionId);
     const segments = slot.streamingSegments;
     const streamingMsgId = slot.streamingMessageId;
+
+    const appendSubagentContent = (taskId: string, subagentName: string, contentText: string) => {
+      if (!contentText.trim()) return;
+      const existingId = slot.subagentMessageIds.get(taskId);
+      if (existingId) {
+        updateChatItems(sessionId, (prev) => {
+          const idx = prev.findIndex((item) => item.id === existingId);
+          if (idx === -1) {
+            slot.subagentMessageIds.delete(taskId);
+            const newId = `subagent-content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            slot.subagentMessageIds.set(taskId, newId);
+            return [
+              ...prev,
+              {
+                type: "message" as const,
+                id: newId,
+                sender: "system" as const,
+                role: "system" as const,
+                content: contentText,
+                timestamp: new Date(),
+              },
+            ];
+          }
+          const newItems = [...prev];
+          newItems[idx] = {
+            ...newItems[idx],
+            content: `${newItems[idx].content}\n${contentText}`,
+          };
+          return newItems;
+        });
+      } else {
+        const newId = `subagent-content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        slot.subagentMessageIds.set(taskId, newId);
+        updateChatItems(sessionId, (prev) => [
+          ...prev,
+          {
+            type: "message" as const,
+            id: newId,
+            sender: "system" as const,
+            role: "system" as const,
+            content: contentText,
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    };
 
     // Type: Turn Begin — 添加 turn 标记 segment
     if (eventType === "turn_begin" && "turn_n" in event) {
@@ -429,18 +475,7 @@ export function useStreamEventHandler({
           payload.content_type === "think" && payload.think
             ? `[${subagentName}] 思考: ${payload.think}`
             : `[${subagentName}] ${payload.text || ""}`;
-        if (!contentText.trim()) return;
-        updateChatItems(sessionId, (prev: ChatItem[]) => [
-          ...prev,
-          {
-            type: "message" as const,
-            id: `subagent-content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            sender: "system" as const,
-            role: "system" as const,
-            content: contentText,
-            timestamp: new Date(),
-          },
-        ]);
+        appendSubagentContent(taskId, subagentName, contentText);
       }
       return;
     }
@@ -479,18 +514,7 @@ export function useStreamEventHandler({
           event.content_type === "think" && event.think
             ? `[${subagentName}] 思考: ${event.think}`
             : `[${subagentName}] ${event.text || ""}`;
-        if (!contentText.trim()) return;
-        updateChatItems(sessionId, (prev: ChatItem[]) => [
-          ...prev,
-          {
-            type: "message" as const,
-            id: `subagent-content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            sender: "system" as const,
-            role: "system" as const,
-            content: contentText,
-            timestamp: new Date(),
-          },
-        ]);
+        appendSubagentContent(taskId, subagentName, contentText);
         return;
       }
 

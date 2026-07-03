@@ -254,8 +254,8 @@ function WorkspaceSidebarContent({
   const [pinnedSubAgentIds, setPinnedSubAgentIds] = useState<Set<string>>(new Set());
   const buildWorkspacePreviewFile = useCallback(
     (fileName: string): PreviewFile =>
-      createWorkspacePreviewFile(fileName, sessionId, token),
-    [sessionId, token],
+      createWorkspacePreviewFile(fileName, sessionId, token, workspaceId),
+    [sessionId, token, workspaceId],
   );
   const handleOpenSearchResult = useCallback(
     (file: WorkspaceFile) => {

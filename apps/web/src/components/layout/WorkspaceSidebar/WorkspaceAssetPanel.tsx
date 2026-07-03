@@ -1002,7 +1002,7 @@ const WorkspaceAssetPanelComponent: React.FC<WorkspaceAssetPanelProps> = ({
     (file: string | WorkspaceFile | PreviewFile): PreviewFile =>
       isGlobal
         ? createGlobalWorkspacePreviewFile(file, workspaceId, token)
-        : createWorkspacePreviewFile(file, sessionId, token),
+        : createWorkspacePreviewFile(file, sessionId, token, workspaceId),
     [isGlobal, sessionId, token, workspaceId],
   );
 

@@ -18,10 +18,24 @@ function tempDir(prefix) {
 function createFakeVenv(dir) {
   const venvDir = path.join(dir, ".venv");
   const binDir = path.join(venvDir, "bin");
+  const scriptsDir = path.join(venvDir, "Scripts");
+  const embeddedPythonDir = path.join(venvDir, "python");
   const libDir = path.join(venvDir, "lib", "python3.12", "site-packages");
   fs.mkdirSync(binDir, { recursive: true });
+  fs.mkdirSync(scriptsDir, { recursive: true });
+  fs.mkdirSync(embeddedPythonDir, { recursive: true });
   fs.mkdirSync(libDir, { recursive: true });
-  fs.writeFileSync(path.join(binDir, "python3"), "#!/usr/bin/env python3\n", "utf-8");
+  fs.writeFileSync(
+    path.join(binDir, "python3"),
+    "#!/usr/bin/env python3\n",
+    "utf-8",
+  );
+  fs.writeFileSync(
+    path.join(scriptsDir, "python.exe"),
+    "@echo off\r\n",
+    "utf-8",
+  );
+  fs.writeFileSync(path.join(embeddedPythonDir, "python.exe"), "MZ", "utf-8");
   fs.writeFileSync(path.join(libDir, "module.py"), "print('hello')\n", "utf-8");
   fs.writeFileSync(
     path.join(venvDir, "pyvenv.cfg"),
@@ -73,10 +87,9 @@ describe("venv archive", () => {
     const venvDir = createFakeVenv(backendRoot);
     const archivePath = path.join(backendRoot, ".venv.tar.gz");
 
-    await tar.create(
-      { gzip: true, file: archivePath, cwd: backendRoot },
-      [".venv"],
-    );
+    await tar.create({ gzip: true, file: archivePath, cwd: backendRoot }, [
+      ".venv",
+    ]);
 
     const extractRoot = path.join(tmpDir, "extracted");
     fs.mkdirSync(extractRoot, { recursive: true });
@@ -108,10 +121,9 @@ describe("venv archive", () => {
     const venvDir = createFakeVenv(backendRoot);
     const archivePath = path.join(backendRoot, ".venv.tar.gz");
 
-    await tar.create(
-      { gzip: true, file: archivePath, cwd: backendRoot },
-      [".venv"],
-    );
+    await tar.create({ gzip: true, file: archivePath, cwd: backendRoot }, [
+      ".venv",
+    ]);
     fs.rmSync(venvDir, { recursive: true, force: true });
 
     fs.writeFileSync(
@@ -124,13 +136,9 @@ describe("venv archive", () => {
     fs.mkdirSync(runtimeStateRoot, { recursive: true });
 
     const progressEvents = [];
-    await _preparePackagedVenv(
-      backendRoot,
-      runtimeStateRoot,
-      (event) => {
-        progressEvents.push(event);
-      },
-    );
+    await _preparePackagedVenv(backendRoot, runtimeStateRoot, (event) => {
+      progressEvents.push(event);
+    });
 
     const writableVenv = path.join(runtimeStateRoot, ".venv");
     assert.strictEqual(fs.existsSync(writableVenv), true);
@@ -150,13 +158,9 @@ describe("venv archive", () => {
     fs.mkdirSync(runtimeStateRoot, { recursive: true });
 
     const progressEvents = [];
-    await _preparePackagedVenv(
-      backendRoot,
-      runtimeStateRoot,
-      (event) => {
-        progressEvents.push(event);
-      },
-    );
+    await _preparePackagedVenv(backendRoot, runtimeStateRoot, (event) => {
+      progressEvents.push(event);
+    });
 
     const writableVenv = path.join(runtimeStateRoot, ".venv");
     assert.strictEqual(fs.existsSync(writableVenv), true);
@@ -172,8 +176,7 @@ describe("venv archive", () => {
 
     const runtimeStateRoot = path.join(tmpDir, "runtime");
     const writableVenv = path.join(runtimeStateRoot, ".venv");
-    fs.mkdirSync(path.join(writableVenv, "bin"), { recursive: true });
-    fs.writeFileSync(path.join(writableVenv, "bin", "python3"), "#!/bin/sh\necho ok", "utf-8");
+    createFakeVenv(runtimeStateRoot);
     fs.writeFileSync(path.join(writableVenv, "existing"), "yes", "utf-8");
 
     let called = false;
@@ -182,6 +185,9 @@ describe("venv archive", () => {
     });
 
     assert.strictEqual(called, false);
-    assert.strictEqual(fs.readFileSync(path.join(writableVenv, "existing"), "utf-8"), "yes");
+    assert.strictEqual(
+      fs.readFileSync(path.join(writableVenv, "existing"), "utf-8"),
+      "yes",
+    );
   });
 });

@@ -27,6 +27,7 @@ class StoragePathSetting(BaseModel):
     key: str
     effective_path: str
     configured_path: str
+    default_path: str
     pending_path: str | None = None
     overridden_by_env: str | None = None
     editable: bool

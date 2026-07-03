@@ -29,6 +29,7 @@ import {
   createWorkspacePreviewFile,
   resolveGlobalWorkspaceFileUrl,
   resolveWorkspaceFileUrl,
+  resolveWorkspaceScopedFileUrl,
 } from "@/utils/workspaceFiles";
 import {
   getSupportedPreviewHint,
@@ -366,6 +367,17 @@ const FilePreviewPanelComponent: React.FC<FilePreviewPanelProps> = ({
         );
       }
 
+      if (workspaceId) {
+        return appendMarkdownReferenceSuffix(
+          resolveWorkspaceScopedFileUrl(
+            `/workspace/${path}`,
+            workspaceId,
+            token,
+            previewUrlOptions,
+          ),
+          suffix,
+        );
+      }
       if (!sessionId) {
         return null;
       }
@@ -409,6 +421,7 @@ const FilePreviewPanelComponent: React.FC<FilePreviewPanelProps> = ({
         { name: path, meta },
         sessionId,
         token,
+        workspaceId,
       );
       if (onOpenPreviewFile) {
         onOpenPreviewFile(previewFile);

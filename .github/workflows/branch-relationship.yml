@@ -1,0 +1,68 @@
+name: Branch Relationship
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ensure-main-not-ahead-of-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check PR source branch
+        if: github.event_name == 'pull_request'
+        run: |
+          source_branch="${{ github.head_ref }}"
+          target_branch="${{ github.base_ref }}"
+
+          if [ "$target_branch" = "main" ] && [ "$source_branch" != "dev" ]; then
+            echo "❌ ERROR: Pull requests to 'main' must come from the 'dev' branch."
+            echo "Current source branch: $source_branch"
+            echo ""
+            echo "Required workflow:"
+            echo "  1. Merge your changes into 'dev' first"
+            echo "  2. Create a PR from 'dev' to 'main'"
+            echo ""
+            echo "For emergency hotfixes, cherry-pick the fix into 'dev' before merging to 'main'."
+            exit 1
+          fi
+
+          echo "✅ PR source branch check passed (from $source_branch to $target_branch)"
+
+      - name: Check main has no independent commits
+        run: |
+          git fetch origin main dev
+
+          # 检查 main 上是否有 dev 没有的非 merge commit
+          # merge commit 是正常的（dev merge 到 main 时产生）
+          # 非 merge commit 表示有人在 main 上直接提交或从其他分支合并
+          independent=$(git log origin/dev..origin/main --no-merges --oneline)
+
+          if [ -z "$independent" ]; then
+            echo "✅ main has no independent commits"
+            exit 0
+          fi
+
+          echo "❌ ERROR: main has commits that are not from dev merge:"
+          echo "$independent"
+          echo ""
+          echo "These commits exist on 'main' but not on 'dev'. To fix:"
+          echo ""
+          echo "Option 1 - Cherry-pick to dev then merge:"
+          echo "  git checkout dev"
+          echo "  git cherry-pick <commit-hash>"
+          echo "  git push origin dev"
+          echo "  # Then create a PR from dev to main"
+          echo ""
+          echo "Option 2 - Revert from main:"
+          echo "  git checkout main"
+          echo "  git revert <commit-hash>"
+          echo "  git push origin main"
+          echo ""
+          echo "All commits on main must come from merging dev."
+          exit 1

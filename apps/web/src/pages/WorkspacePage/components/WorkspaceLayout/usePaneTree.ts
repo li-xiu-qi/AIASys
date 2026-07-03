@@ -557,8 +557,8 @@ export function usePaneTree(
 
   const buildWorkspacePreviewFile = useCallback(
     (file: string | PreviewFile): PreviewFile =>
-      createWorkspacePreviewFile(file, executorSessionId, token),
-    [executorSessionId, token],
+      createWorkspacePreviewFile(file, executorSessionId, token, workspaceId),
+    [executorSessionId, token, workspaceId],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent, leafId: string) => {

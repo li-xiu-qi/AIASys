@@ -37,6 +37,7 @@ from app.services.agent.system_presets import (
     resolve_system_agent_preset_from_path,
 )
 from app.services.agent.utils import get_work_dir
+from app.services.history import current_workspace
 from app.services.runtime_tooling import (
     canonicalize_runtime_tool_name,
     probe_runtime_tool,
@@ -331,10 +332,21 @@ def _get_execution_env_info(
     """按当前工作区真实绑定生成提示词环境变量。"""
     env, workspace_id, env_id = _resolve_bound_python_env(session_id, user_id)
     available_shells = _get_available_shells()
+    workspace = current_workspace.get()
+    workspace_physical_path = str(workspace) if workspace else "未设置"
     platform_info = {
         "PLATFORM": platform.system(),
         "PLATFORM_VERSION": platform.release(),
         "AVAILABLE_SHELLS": ", ".join(available_shells) if available_shells else "未检测到",
+        "WORKSPACE_PHYSICAL_PATH": workspace_physical_path,
+        "WORKSPACE_REDIRECT_NOTE": (
+            "当前工作区的真实物理路径是：${WORKSPACE_PHYSICAL_PATH}。\n"
+            "禁止在 Shell 命令或文件路径中使用硬编码绝对路径 `C:\\workspace` 或 `C:/workspace`，"
+            "这类路径不会自动映射到当前工作区。所有文件操作都应使用 `workspace/` 相对路径、"
+            "`/workspace/...` 前缀或上述真实物理路径。"
+            if platform.system() == "Windows" and workspace
+            else ""
+        ),
     }
     if env is None:
         return {

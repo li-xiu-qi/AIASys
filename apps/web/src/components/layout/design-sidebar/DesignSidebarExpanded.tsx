@@ -10,6 +10,8 @@ import { DesignSidebarHistorySection } from "./DesignSidebarHistorySection";
 import { DesignSidebarFooter } from "./DesignSidebarFooter";
 import type { TaskWorkspaceSummary } from "@/pages/WorkspacePage/types";
 import type { SettingsSection } from "@/components/settings/global-settings";
+import { formatVersionLabel } from "@/lib/version";
+import webPackage from "../../../../package.json";
 
 interface DesignSidebarExpandedProps {
   avatarChar: string;
@@ -82,10 +84,18 @@ export function DesignSidebarExpanded({
               href="/"
             />
           </div>
-          <PanelLeftClose
-            className="w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground flex-shrink-0"
-            onClick={onClose}
-          />
+          <div className="flex items-center gap-2">
+            <span
+              className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground select-none"
+              title="当前版本"
+            >
+              {formatVersionLabel(webPackage.version)}
+            </span>
+            <PanelLeftClose
+              className="w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground flex-shrink-0"
+              onClick={onClose}
+            />
+          </div>
         </div>
       </div>
 

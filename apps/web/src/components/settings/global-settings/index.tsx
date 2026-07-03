@@ -16,6 +16,7 @@ import {
   Store,
   Search,
   X,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -26,9 +27,12 @@ import {
 import type { TaskWorkspaceSummary } from "@/pages/WorkspacePage/types";
 import type { LLMModelConfig } from "@/lib/api/llm";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
 import { SectionErrorFallback } from "@/components/error/SectionErrorFallback";
+import { formatVersionLabel } from "@/lib/version";
+import { apiRequest } from "@/lib/api/httpClient";
 
 export type SettingsSection =
   | "llm"
@@ -43,7 +47,8 @@ export type SettingsSection =
   | "monitor-tasks"
   | "template-management"
   | "template-market"
-  | "token-usage";
+  | "token-usage"
+  | "about";
 
 interface NavGroup {
   id: string;
@@ -97,6 +102,13 @@ const NAV_GROUPS: NavGroup[] = [
     label: "统计与用量",
     children: [
       { id: "token-usage", label: "Token 消耗", icon: <BarChart3 className="h-4 w-4" /> },
+    ],
+  },
+  {
+    id: "system",
+    label: "系统",
+    children: [
+      { id: "about", label: "关于", icon: <Info className="h-4 w-4" /> },
     ],
   },
 ];
@@ -170,6 +182,11 @@ const SECTION_META: Record<
     description: "查看跨会话的 LLM Token 消耗趋势与热力图",
     icon: BarChart3,
   },
+  about: {
+    title: "关于 AIASys",
+    description: "查看版本信息、检查更新与发布说明",
+    icon: Info,
+  },
 };
 
 const LAST_SECTION_KEY = "aiasys:last-settings-section";
@@ -197,7 +214,7 @@ export function GlobalSettingsDialog({
 }: GlobalSettingsDialogProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
-    () => new Set(["env", "market", "tasks", "templates", "insights"])
+    () => new Set(["env", "market", "tasks", "templates", "insights", "system"])
   );
   const [searchQuery, setSearchQuery] = useState("");
   const navRef = useRef<HTMLElement>(null);
@@ -728,6 +745,12 @@ function GlobalSettingsContent({ section, workspaceId, workspaceTitle, userId, w
           </Suspense>
         </div>
       );
+    case "about":
+      return (
+        <div className="h-full overflow-y-auto p-6">
+          <AboutSection />
+        </div>
+      );
     default:
       return (
         <div className="flex h-full flex-col items-center justify-center text-muted-fg">
@@ -737,4 +760,93 @@ function GlobalSettingsContent({ section, workspaceId, workspaceTitle, userId, w
         </div>
       );
   }
+}
+
+const RELEASES_URL = "https://github.com/AIAsys/AIASys/releases";
+
+function AboutSection() {
+  const [frontendVersion, setFrontendVersion] = useState<string>("-");
+  const [backendVersion, setBackendVersion] = useState<string>("-");
+  const [desktopVersion, setDesktopVersion] = useState<string>("-");
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const pkg = (await import("../../../../package.json")) as { version?: string };
+        setFrontendVersion(formatVersionLabel(pkg.version));
+      } catch {
+        setFrontendVersion("-");
+      }
+    })();
+    void (async () => {
+      try {
+        const data = await apiRequest<{ version?: string }>("/health");
+        setBackendVersion(formatVersionLabel(data.version));
+      } catch {
+        setBackendVersion("-");
+      }
+    })();
+    void (async () => {
+      try {
+        const desktop = typeof window !== "undefined" ? window.__AIASYS_DESKTOP__ : undefined;
+        if (desktop?.getVersion) {
+          const v = await desktop.getVersion();
+          setDesktopVersion(formatVersionLabel(v));
+        } else {
+          setDesktopVersion("Web 模式");
+        }
+      } catch {
+        setDesktopVersion("-");
+      }
+    })();
+  }, []);
+
+  const openReleases = useCallback(() => {
+    const desktop = typeof window !== "undefined" ? window.__AIASYS_DESKTOP__ : undefined;
+    if (desktop?.openExternal) {
+      void desktop.openExternal(RELEASES_URL);
+    } else {
+      window.open(RELEASES_URL, "_blank", "noopener,noreferrer");
+    }
+  }, []);
+
+  return (
+    <div className="space-y-6 max-w-xl">
+      <div className="space-y-1">
+        <h3 className="text-lg font-medium">AIASys</h3>
+        <p className="text-sm text-muted-foreground">
+          本地优先的 AI Agent 工作平台。桌面端优先，同时支持 Web 访问。
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border divide-y divide-border">
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm text-muted-foreground">桌面端版本</span>
+          <span className="text-sm font-medium">{desktopVersion}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm text-muted-foreground">前端版本</span>
+          <span className="text-sm font-medium">{frontendVersion}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm text-muted-foreground">后端版本</span>
+          <span className="text-sm font-medium">{backendVersion}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <Button variant="outline" onClick={openReleases}>
+          检查更新
+        </Button>
+        <Button variant="ghost" onClick={openReleases}>
+          查看发布说明
+        </Button>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        检查更新会打开 GitHub Releases 页面，可下载最新安装包或绿色版 zip。
+        当前未接入自动更新，升级后请重新运行安装脚本或覆盖安装。
+      </p>
+    </div>
+  );
 }

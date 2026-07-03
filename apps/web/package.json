@@ -1,7 +1,7 @@
 {
   "name": "aiasys-web",
   "private": true,
-  "version": "0.4.27",
+  "version": "0.4.29",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit",
     "preview": "vite preview",
     "perf:smoke:analysis": "node ./scripts/analysis-perf-smoke.mjs",
+    "test:unit": "node --experimental-strip-types src/utils/__tests__/*.test.mjs",
     "test:e2e:lifecycle": "../../scripts/dev/run_lifecycle_playwright.sh",
     "playwright:cli": "npx -y @playwright/cli@0.1.7 --config ../../.playwright/cli.config.json"
   },

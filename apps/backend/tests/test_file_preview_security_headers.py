@@ -50,6 +50,44 @@ async def test_inline_file_preview_response_removes_frame_blocking_headers(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/workspaces/workspace-1/files/download/Cheng%20%E7%AD%89.pdf",
+        "/api/workspaces/workspace-1/global-workspace/download/Cheng%20%E7%AD%89.pdf",
+    ],
+)
+async def test_workspace_inline_preview_response_removes_frame_blocking_headers(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+) -> None:
+    monkeypatch.setattr(app_main.AUTH_CONFIG, "enable_security_headers", True)
+    request = _build_request(path, "disposition=inline&preview_mode=embed_v1")
+
+    async def _call_next(_: Request) -> Response:
+        return Response(
+            content=b"%PDF-1.4",
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": "inline; filename*=utf-8''Cheng%20%E7%AD%89.pdf",
+                "X-Frame-Options": "DENY",
+                "X-XSS-Protection": "1; mode=block",
+                "Content-Security-Policy": "default-src 'self'",
+            },
+        )
+
+    response = await app_main.security_headers_middleware(request, _call_next)
+
+    assert response.headers["content-disposition"] == (
+        "inline; filename*=utf-8''Cheng%20%E7%AD%89.pdf"
+    )
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "x-frame-options" not in response.headers
+    assert "x-xss-protection" not in response.headers
+    assert "content-security-policy" not in response.headers
+
+
+@pytest.mark.asyncio
 async def test_attachment_download_keeps_frame_blocking_headers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -75,3 +113,80 @@ async def test_attachment_download_keeps_frame_blocking_headers(
     assert response.headers["x-frame-options"] == "DENY"
     assert response.headers["x-xss-protection"] == "1; mode=block"
     assert response.headers["content-security-policy"] == "default-src 'self'"
+
+
+@pytest.mark.asyncio
+async def test_workspace_scoped_inline_preview_removes_frame_blocking_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_main.AUTH_CONFIG, "enable_security_headers", True)
+    request = _build_request(
+        "/api/workspaces/workspace-demo/files/download/sample.pdf",
+        "disposition=inline",
+    )
+
+    async def _call_next(_: Request) -> Response:
+        return Response(
+            content=b"%PDF-1.4",
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'inline; filename="sample.pdf"',
+                "X-Frame-Options": "DENY",
+            },
+        )
+
+    response = await app_main.security_headers_middleware(request, _call_next)
+
+    assert response.headers["content-disposition"] == 'inline; filename="sample.pdf"'
+    assert "x-frame-options" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_global_workspace_download_inline_preview_removes_frame_blocking_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_main.AUTH_CONFIG, "enable_security_headers", True)
+    request = _build_request(
+        "/api/workspaces/workspace-demo/global-workspace/download/sample.pdf",
+        "disposition=inline",
+    )
+
+    async def _call_next(_: Request) -> Response:
+        return Response(
+            content=b"%PDF-1.4",
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'inline; filename="sample.pdf"',
+                "X-Frame-Options": "DENY",
+            },
+        )
+
+    response = await app_main.security_headers_middleware(request, _call_next)
+
+    assert response.headers["content-disposition"] == 'inline; filename="sample.pdf"'
+    assert "x-frame-options" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_workspace_scoped_attachment_keeps_frame_blocking_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(app_main.AUTH_CONFIG, "enable_security_headers", True)
+    request = _build_request(
+        "/api/workspaces/workspace-demo/files/download/sample.pdf",
+        "disposition=attachment",
+    )
+
+    async def _call_next(_: Request) -> Response:
+        return Response(
+            content=b"%PDF-1.4",
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'attachment; filename="sample.pdf"',
+            },
+        )
+
+    response = await app_main.security_headers_middleware(request, _call_next)
+
+    assert response.headers["content-disposition"] == 'attachment; filename="sample.pdf"'
+    assert response.headers["x-frame-options"] == "DENY"

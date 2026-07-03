@@ -162,13 +162,13 @@ export function useStreamEventHandler({
     const segments = slot.streamingSegments;
     const streamingMsgId = slot.streamingMessageId;
 
-    const appendSubagentContent = (taskId: string, subagentName: string, contentText: string) => {
+    const appendSubagentContent = (taskId: string, contentText: string) => {
       if (!contentText.trim()) return;
       const existingId = slot.subagentMessageIds.get(taskId);
       if (existingId) {
         updateChatItems(sessionId, (prev) => {
           const idx = prev.findIndex((item) => item.id === existingId);
-          if (idx === -1) {
+          if (idx === -1 || prev[idx].type !== "message") {
             slot.subagentMessageIds.delete(taskId);
             const newId = `subagent-content-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             slot.subagentMessageIds.set(taskId, newId);
@@ -185,9 +185,14 @@ export function useStreamEventHandler({
             ];
           }
           const newItems = [...prev];
+          const existing = newItems[idx];
+          if (existing.type !== "message") {
+            slot.subagentMessageIds.delete(taskId);
+            return newItems;
+          }
           newItems[idx] = {
-            ...newItems[idx],
-            content: `${newItems[idx].content}\n${contentText}`,
+            ...existing,
+            content: `${existing.content ?? ""}\n${contentText}`,
           };
           return newItems;
         });
@@ -475,7 +480,7 @@ export function useStreamEventHandler({
           payload.content_type === "think" && payload.think
             ? `[${subagentName}] 思考: ${payload.think}`
             : `[${subagentName}] ${payload.text || ""}`;
-        appendSubagentContent(taskId, subagentName, contentText);
+        appendSubagentContent(taskId, contentText);
       }
       return;
     }
@@ -514,7 +519,7 @@ export function useStreamEventHandler({
           event.content_type === "think" && event.think
             ? `[${subagentName}] 思考: ${event.think}`
             : `[${subagentName}] ${event.text || ""}`;
-        appendSubagentContent(taskId, subagentName, contentText);
+        appendSubagentContent(taskId, contentText);
         return;
       }
 

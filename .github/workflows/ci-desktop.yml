@@ -56,31 +56,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Resolve release tag
-        id: resolve_tag
-        shell: bash
-        run: |
-          RELEASE_TYPE="${{ github.event.inputs.release_type || 'beta' }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION=$(node -p "require('./apps/desktop/package.json').version")
-            if [ "$RELEASE_TYPE" = "stable" ]; then
-              TAG="v${VERSION}"
-            else
-              TAG="v${VERSION}-beta.${GITHUB_RUN_NUMBER}"
-            fi
-          else
-            TAG="${{ github.ref_name }}"
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
-          echo "Release tag: $TAG (type: $RELEASE_TYPE)"
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - name: Sync version from tag
         shell: bash
         run: |
-          TAG="${{ steps.resolve_tag.outputs.tag }}"
+          TAG="${{ github.ref_name }}"
           # 从 tag (如 v0.4.9) 提取版本号 (0.4.9)
           export VERSION="${TAG#v}"
           # pyproject.toml 版本必须是 PEP 440，fork-test/beta 后缀只能给 package.json
@@ -164,13 +143,55 @@ jobs:
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.target == 'mac' && 'false' || '' }}
 
-      - name: Upload to release
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+
+  release:
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve release tag
+        id: resolve_tag
+        shell: bash
+        run: |
+          RELEASE_TYPE="${{ github.event.inputs.release_type || 'beta' }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION=$(node -p "require('./apps/desktop/package.json').version")
+            if [ "$RELEASE_TYPE" = "stable" ]; then
+              TAG="v${VERSION}"
+            else
+              TAG="v${VERSION}-beta.${GITHUB_RUN_NUMBER}"
+            fi
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "release_type=$RELEASE_TYPE" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG (type: $RELEASE_TYPE)"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: desktop-*
+          merge-multiple: true
+
+      - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.resolve_tag.outputs.tag }}
           name: "${{ steps.resolve_tag.outputs.release_type == 'stable' && 'Release' || 'Beta' }} ${{ steps.resolve_tag.outputs.tag }}"
           draft: false
           prerelease: ${{ steps.resolve_tag.outputs.release_type != 'stable' }}
-          # 所有 job 都开启自动生成 release notes，避免先到达的 job 创建 release 时遗漏 notes
           generate_release_notes: true
-          files: ${{ matrix.files }}
+          files: artifacts/**

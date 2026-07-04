@@ -396,8 +396,8 @@ export function PaneRenderer({
         <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {leaf.tabs.map((tab) => {
             const isActive = tab.id === leaf.activeTabId;
-            // 终端和数据库 tab 保持挂载（keep-alive），其他 tab 仅在活跃时渲染
-            const isKeepAlive = !!(tab.terminalId || tab.databaseHandle);
+            // 终端、数据库和子 Agent tab 保持挂载（keep-alive），避免切换时重新加载导致闪烁
+            const isKeepAlive = !!(tab.terminalId || tab.databaseHandle || tab.subagentId);
             if (!isActive && !isKeepAlive) return null;
             return (
               <div

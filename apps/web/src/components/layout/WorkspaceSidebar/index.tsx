@@ -252,6 +252,7 @@ function WorkspaceSidebarContent({
     providedOpenWorkspaceSettings ?? contextOpenWorkspaceSettings;
   const [shouldLoadExecutionTree, setShouldLoadExecutionTree] = useState(false);
   const [pinnedSubAgentIds, setPinnedSubAgentIds] = useState<Set<string>>(new Set());
+  const workspaceId = workspaceSummary?.workspace_id;
   const buildWorkspacePreviewFile = useCallback(
     (fileName: string): PreviewFile =>
       createWorkspacePreviewFile(fileName, sessionId, token, workspaceId),

@@ -61,12 +61,12 @@
 5. **关联 PR**：PR 描述中必须关联 Issue（`Closes #XXX`、`Fixes #XXX` 或 `Refs #XXX`）。
 6. **取消认领**：如果中途无法继续，在 Issue 下说明并取消 assignee，让其他人接手。
 
-推荐使用以下状态标签标记 Issue 进度（非强制）：
+推荐使用以下 GitHub label 标记 Issue/PR 进度（非强制）：
 
-- `[认领中]` — 有人评论认领，等待维护者确认
-- `[进行中]` — 认领者已开工，最好附上预计 PR 时间
-- `[已有 PR]` — 已有关联 PR，优先 review 而非另开
-- `[需要帮助]` — 认领者遇到困难，欢迎接手
+- `status:claimed` — 有人评论认领，等待维护者确认
+- `status:in-progress` — 认领者已开工，最好附上预计 PR 时间
+- `status:has-pr` — 已有关联 PR，优先 review 而非另开
+- `status:blocked` — 认领者遇到困难，欢迎接手
 
 注意：
 

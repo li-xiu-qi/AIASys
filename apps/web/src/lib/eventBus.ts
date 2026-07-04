@@ -99,6 +99,7 @@ export const EVENTS = {
   SUBAGENT_EVENT: "subagent:event",
   SUBAGENT_CREATED: "subagent:created",
   SUBAGENT_STATUS_CHANGED: "subagent:status_changed",
+  OPEN_SUBAGENT_TAB: "subagent:open_tab",
   CODE_EXECUTION_EVENT: "code:execution",
   EXECUTION_ACTIVITY: "execution:activity",
 } as const;

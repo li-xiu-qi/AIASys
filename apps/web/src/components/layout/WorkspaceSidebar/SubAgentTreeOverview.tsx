@@ -55,7 +55,12 @@ export function SubAgentTreeOverview({
   }
 
   const handleSelectSubAgent = (agentId: string) => {
-    onSelectSubAgent(agentId);
+    // 优先在主画布 tab 中打开子 Agent 详情；未提供回调时再走侧边栏详情
+    if (_onOpenInMainCanvas) {
+      _onOpenInMainCanvas(agentId);
+    } else {
+      onSelectSubAgent(agentId);
+    }
   };
 
   return (

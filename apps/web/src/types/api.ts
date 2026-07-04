@@ -41,6 +41,7 @@ export interface SubagentContentEvent extends SSEEvent {
   text?: string;
   think?: string;
   task_tool_call_id: string;
+  agent_id?: string;
   subagent_name?: string;
   subagent_type?: string;
 }
@@ -49,6 +50,7 @@ export interface SubagentContentEvent extends SSEEvent {
 export interface SubagentEvent extends SSEEvent {
   type: "subagent_event";
   task_tool_call_id: string;
+  agent_id?: string;
   subagent_name?: string;
   payload: {
     type:
@@ -76,6 +78,7 @@ export interface SubagentToolCallEvent extends SSEEvent {
   tool_name: string;
   arguments: Record<string, unknown>;
   task_tool_call_id: string;
+  agent_id?: string;
   subagent_name?: string;
   subagent_type?: string;
 }
@@ -88,6 +91,7 @@ export interface SubagentToolResultEvent extends SSEEvent {
   content: string;
   is_error: boolean;
   task_tool_call_id: string;
+  agent_id?: string;
   subagent_name?: string;
   subagent_type?: string;
 }
@@ -97,6 +101,19 @@ export interface SubagentStepEvent extends SSEEvent {
   type: "subagent_step_begin";
   step_n: number;
   task_tool_call_id: string;
+  agent_id?: string;
+  subagent_name?: string;
+  subagent_type?: string;
+}
+
+/** Worker/SubAgent 生命周期事件 */
+export interface WorkerLifecycleEvent extends SSEEvent {
+  type: "worker_lifecycle";
+  scope?: "subagent";
+  status?: string;
+  reason?: string;
+  task_tool_call_id?: string;
+  agent_id?: string;
   subagent_name?: string;
   subagent_type?: string;
 }
@@ -222,6 +239,7 @@ export type AgentEvent =
   | SubagentToolResultEvent
   | SubagentStepEvent
   | TurnBeginEvent
+  | WorkerLifecycleEvent
   | TokenUsageEvent
   | FileChangesEvent
   | StatusEvent

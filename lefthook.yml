@@ -17,7 +17,9 @@ pre-commit:
 
     frontend-type-check:
       glob: "apps/web/src/**/*.{ts,tsx}"
-      run: cd apps/web && npx tsc --noEmit
+      # 必须用 -b（build mode），因为 apps/web/tsconfig.json 是 project references 结构，
+      # 直接 --noEmit 会因 files: [] 而不检查任何源文件。
+      run: cd apps/web && npx tsc -b --noEmit
 
     # --- Backend ---
     # 用 shell 参数替换去掉 apps/backend/ 前缀，因为命令在 apps/backend/ 下执行

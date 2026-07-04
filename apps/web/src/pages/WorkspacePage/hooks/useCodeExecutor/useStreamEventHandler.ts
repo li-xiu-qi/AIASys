@@ -185,7 +185,9 @@ export function useStreamEventHandler({
           const idx = prev.findIndex((item) => item.id === existingId);
           if (idx === -1 || prev[idx].type !== "message") return prev;
           const newItems = [...prev];
-          newItems[idx] = { ...newItems[idx], content };
+          const existingItem = newItems[idx];
+          if (existingItem.type !== "message") return prev;
+          newItems[idx] = { ...existingItem, content };
           return newItems;
         });
       } else {
@@ -483,10 +485,10 @@ export function useStreamEventHandler({
     // 处理子 Agent 生命周期事件，更新主对话状态卡片
     if (eventType === "worker_lifecycle" && event.scope === "subagent") {
       const taskId = event.task_tool_call_id;
-      const agentId = event.agent_id || taskId;
       const subagentName = String(event.subagent_name || event.subagent_type || "专家");
       const status = event.status;
       if (taskId && (status === "completed" || status === "failed" || status === "cancelled")) {
+        const agentId = event.agent_id || taskId;
         upsertSubagentStatusMessage(taskId, agentId, subagentName, status);
       }
       return;

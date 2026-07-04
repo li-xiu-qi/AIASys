@@ -206,9 +206,18 @@ function buildInitialChatItems(detail: SubAgentDetail): MessageChatItem[] {
       case "step_begin": {
         // step 边界：当前块有内容时结束，开始新块
         if (currentBlock && currentBlock.segments.length > 0) {
-          closeCurrentBlock();
+          currentBlock = null;
         }
-        ensureBlock(timestamp);
+        if (!currentBlock) {
+          currentBlock = {
+            id: generateId("ai-block"),
+            segments: [],
+            timestamp,
+          };
+          blocks.push(currentBlock);
+        } else if (!currentBlock.timestamp && timestamp) {
+          currentBlock.timestamp = timestamp;
+        }
         continue;
       }
       case "text":

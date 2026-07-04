@@ -6,6 +6,7 @@ import { TopBar } from "../TopBar";
 import type { MainContentProps } from "./types";
 import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { usePaneTree } from "./usePaneTree";
+import { eventBus, EVENTS } from "@/lib/eventBus";
 import { PaneRenderer } from "./PaneRenderer";
 import { reorderTabs } from "./paneTree";
 import {
@@ -199,6 +200,23 @@ export function MainContent({
     isConversationDockClosedByUser,
     setConversationDockOpen,
   ]);
+
+  // 子 Agent 启动时自动在 tab 栏打开详情
+  useEffect(() => {
+    const unsubscribe = eventBus.on(EVENTS.OPEN_SUBAGENT_TAB, (payload) => {
+      const agentId =
+        typeof payload === "object" &&
+        payload !== null &&
+        "agentId" in payload &&
+        typeof (payload as { agentId?: string }).agentId === "string"
+          ? (payload as { agentId: string }).agentId
+          : undefined;
+      if (agentId) {
+        openSubagentDetailTab(agentId);
+      }
+    });
+    return unsubscribe;
+  }, [openSubagentDetailTab]);
 
   const showWorkspaceHome =
     !currentWorkspace && !isLoadingWorkspaces && !executor.isRestoringSession;

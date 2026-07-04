@@ -17,8 +17,8 @@ import {
   sendSubagentMessage,
   streamSubagentEvents,
 } from "@/lib/api/subagents";
-import type { SubAgentDetail } from "@/hooks/useExecutionTree";
-import type { MessageChatItem } from "@/pages/WorkspacePage/types";
+import type { ExecutionEvent, SubAgentDetail } from "@/hooks/useExecutionTree";
+import type { ChatSegment, MessageChatItem } from "@/pages/WorkspacePage/types";
 
 export interface UseSubagentStreamOptions {
   userId?: string;
@@ -65,6 +65,269 @@ function createAiChatItem(text: string = "", isStreaming: boolean = true): Messa
   };
 }
 
+function stringifyStructuredValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeContextContent(content: unknown): string {
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (!part || typeof part !== "object") return "";
+        if ("text" in part && typeof part.text === "string") return part.text;
+        if ("think" in part && typeof part.think === "string") return part.think;
+        return stringifyStructuredValue(part);
+      })
+      .join("");
+  }
+  return stringifyStructuredValue(content);
+}
+
+function buildDispatchMessage(detail: SubAgentDetail): MessageChatItem | null {
+  // 优先从 context 中取第一条用户消息
+  const context = detail.context ?? [];
+  for (let i = 0; i < context.length; i += 1) {
+    const msg = context[i] as Record<string, unknown> | null | undefined;
+    if (msg?.role !== "user") continue;
+    const content = normalizeContextContent(msg.content).trim();
+    if (!content) continue;
+    return {
+      type: "message",
+      id: generateId("dispatch-context"),
+      sender: "user",
+      role: "user",
+      content,
+      timestamp:
+        typeof msg.timestamp === "string" && msg.timestamp
+          ? new Date(msg.timestamp)
+          : new Date(detail.created_at || Date.now()),
+    };
+  }
+
+  // 兜底：用 description 生成合成派发消息
+  const roleLabel = detail.subagent_type || "协作节点";
+  const taskDescription = detail.description?.trim();
+  let content = `派发 ${roleLabel} 执行当前子任务。`;
+  if (taskDescription) {
+    content = `派发 ${roleLabel} 执行：${taskDescription}`;
+  }
+  const meta = detail.meta as Record<string, unknown>;
+  const launchSpec = meta?.launch_spec as Record<string, unknown> | undefined;
+  const effectiveModel =
+    typeof launchSpec?.effective_model === "string" ? launchSpec.effective_model : null;
+  if (effectiveModel) {
+    content += `\n\n运行模型：${effectiveModel}`;
+  }
+
+  return {
+    type: "message",
+    id: generateId("dispatch-synthetic"),
+    sender: "user",
+    role: "user",
+    content,
+    timestamp: new Date(detail.created_at || Date.now()),
+  };
+}
+
+interface ReplayBlock {
+  id: string;
+  segments: ChatSegment[];
+  timestamp?: number;
+}
+
+function buildInitialChatItems(detail: SubAgentDetail): MessageChatItem[] {
+  const items: MessageChatItem[] = [];
+
+  // 1. 顶部固定一条用户派发消息
+  const dispatch = buildDispatchMessage(detail);
+  if (dispatch) {
+    items.push(dispatch);
+  }
+
+  // 2. 将历史事件按 step/turn 分组为 AI 消息
+  const blocks: ReplayBlock[] = [];
+  let currentBlock: ReplayBlock | null = null;
+
+  const ensureBlock = (timestamp?: number) => {
+    if (currentBlock) {
+      if (!currentBlock.timestamp && timestamp) {
+        currentBlock.timestamp = timestamp;
+      }
+      return currentBlock;
+    }
+    currentBlock = {
+      id: generateId("ai-block"),
+      segments: [],
+      timestamp,
+    };
+    blocks.push(currentBlock);
+    return currentBlock;
+  };
+
+  const closeCurrentBlock = () => {
+    currentBlock = null;
+  };
+
+  const appendSegment = (block: ReplayBlock, segment: ChatSegment) => {
+    const last = block.segments[block.segments.length - 1];
+    // 连续同类型文本/思考片段合并，避免流式 chunk 被分隔成多段
+    if (
+      last &&
+      (last.type === "text" || last.type === "think") &&
+      last.type === segment.type
+    ) {
+      last.content += segment.content;
+      return;
+    }
+    block.segments.push(segment);
+  };
+
+  for (const event of detail.events ?? []) {
+    const type = (event as ExecutionEvent).type;
+    const timestamp =
+      typeof event.timestamp === "number" ? event.timestamp : undefined;
+
+    switch (type) {
+      case "turn_begin":
+      case "turn_end":
+      case "status":
+        // 生命周期标记：turn_end 作为消息边界
+        if (type === "turn_end") {
+          closeCurrentBlock();
+        }
+        continue;
+      case "step_begin": {
+        // step 边界：当前块有内容时结束，开始新块
+        if (currentBlock && currentBlock.segments.length > 0) {
+          closeCurrentBlock();
+        }
+        ensureBlock(timestamp);
+        continue;
+      }
+      case "text":
+      case "content": {
+        const text =
+          typeof event.text === "string"
+            ? event.text
+            : typeof event.content === "string"
+              ? event.content
+              : "";
+        if (text) {
+          appendSegment(ensureBlock(timestamp), { type: "text", content: text });
+        }
+        continue;
+      }
+      case "think": {
+        const think = typeof event.think === "string" ? event.think : "";
+        if (think) {
+          appendSegment(ensureBlock(timestamp), { type: "think", content: think });
+        }
+        continue;
+      }
+      case "tool_call": {
+        const toolName = String(event.tool_name || "unknown");
+        const toolCallId =
+          typeof event.tool_call_id === "string" ? event.tool_call_id : undefined;
+        const args = event.arguments;
+        appendSegment(ensureBlock(timestamp), {
+          type: "tool_call",
+          content: "",
+          toolName,
+          toolCallId,
+          toolParams:
+            typeof args === "string" ? args : stringifyStructuredValue(args),
+        });
+        continue;
+      }
+      case "tool_result": {
+        const toolCallId =
+          typeof event.tool_call_id === "string" ? event.tool_call_id : undefined;
+        const toolName =
+          typeof event.tool_name === "string" ? event.tool_name : undefined;
+        appendSegment(ensureBlock(timestamp), {
+          type: "tool_output",
+          content: String(event.content || ""),
+          toolCallId,
+          toolName,
+          isError: Boolean(event.is_error),
+        });
+        continue;
+      }
+      case "ask_user_request": {
+        const requestText =
+          typeof event.request === "object" && event.request !== null
+            ? String((event.request as Record<string, unknown>).prompt || "")
+            : "";
+        appendSegment(ensureBlock(timestamp), {
+          type: "text",
+          content: requestText
+            ? `[子 Agent 等待用户确认] ${requestText}`
+            : "子 Agent 等待用户确认",
+        });
+        continue;
+      }
+      case "capability_confirmation":
+      case "subagent_capability_confirmation": {
+        const toolName = String(event.tool_name || "unknown");
+        appendSegment(ensureBlock(timestamp), {
+          type: "text",
+          content: `[子 Agent 能力确认] 工具: ${toolName}`,
+        });
+        continue;
+      }
+      default: {
+        const fallbackText =
+          typeof event.message === "string"
+            ? event.message
+            : typeof event.error === "string"
+              ? event.error
+              : "";
+        if (fallbackText.trim()) {
+          appendSegment(ensureBlock(timestamp), {
+            type: "text",
+            content: fallbackText,
+          });
+        }
+      }
+    }
+  }
+
+  const isRunning = detail.status === "running";
+  const aiMessages: MessageChatItem[] = blocks
+    .filter((block) => block.segments.length > 0)
+    .map((block, index, arr) => {
+      const content = block.segments
+        .map((segment) =>
+          segment.type === "tool_call"
+            ? `[工具调用: ${segment.toolName || "unknown"}]`
+            : segment.content,
+        )
+        .join("");
+      const isLast = index === arr.length - 1;
+      return {
+        type: "message",
+        id: block.id,
+        sender: "ai",
+        role: "assistant",
+        content,
+        segments: block.segments,
+        timestamp: new Date(
+          block.timestamp ? block.timestamp * 1000 : Date.now(),
+        ),
+        isStreaming: isLast ? isRunning : false,
+      };
+    });
+
+  return [...items, ...aiMessages];
+}
+
 export function useSubagentStream(
   options: UseSubagentStreamOptions,
 ): UseSubagentStreamReturn {
@@ -96,6 +359,16 @@ export function useSubagentStream(
     };
   }, []);
 
+  // 会话/子 Agent 切换时重置状态，避免旧内容残留
+  useEffect(() => {
+    setDetail(null);
+    setChatItems([]);
+    setIsLoading(false);
+    setIsRunning(false);
+    setError(null);
+    lastEventIdRef.current = 0;
+  }, [userId, sessionId, agentId]);
+
   // 加载子 Agent 详情
   const loadDetail = useCallback(async () => {
     if (!userId || !sessionId || !agentId) return;
@@ -106,6 +379,7 @@ export function useSubagentStream(
         API_ENDPOINTS.SESSION_SUBAGENT(userId, sessionId, agentId),
       );
       setDetail(data);
+      setChatItems(buildInitialChatItems(data));
       // wire.jsonl 中 metadata 占第 0 行（event_id=1），detail.events 已跳过 metadata。
       // 已有 N 个事件时，最后一个事件 event_id=N+1，下一条新事件 event_id=N+2，因此 lastEventId=N+1。
       lastEventIdRef.current = (data.events?.length ?? 0) + 1;

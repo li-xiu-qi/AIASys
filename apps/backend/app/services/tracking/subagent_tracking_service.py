@@ -294,8 +294,8 @@ class SubAgentTrackingService:
             content_type = payload.get("type") if isinstance(payload, dict) else None
 
             if content_type == "text":
-                text = payload.get("text", "").strip() if isinstance(payload, dict) else ""
-                if text:
+                text = payload.get("text", "") if isinstance(payload, dict) else ""
+                if isinstance(text, str) and text.strip():
                     return {
                         "type": "text",
                         "text": text,
@@ -304,8 +304,8 @@ class SubAgentTrackingService:
                 return None
 
             if content_type == "think":
-                think = payload.get("think", "").strip() if isinstance(payload, dict) else ""
-                if think:
+                think = payload.get("think", "") if isinstance(payload, dict) else ""
+                if isinstance(think, str) and think.strip():
                     return {
                         "type": "think",
                         "think": think,

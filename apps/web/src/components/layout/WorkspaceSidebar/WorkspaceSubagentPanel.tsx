@@ -225,7 +225,7 @@ export function WorkspaceSubagentPanel({
                       ? "border-tertiary/40 bg-tertiary/10 text-tertiary"
                       : "border-border bg-muted/40 text-muted-foreground hover:border-tertiary/20 hover:bg-tertiary/5",
                   )}
-                  onClick={() => onSelectSubAgent(sa.id)}
+                  onClick={() => onOpenInMainCanvas?.(sa.id) ?? onSelectSubAgent(sa.id)}
                 >
                   <Bot className="h-3 w-3 shrink-0" />
                   <span className="max-w-[120px] truncate">

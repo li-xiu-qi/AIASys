@@ -4,6 +4,8 @@ import { apiRequest } from "@/lib/api/httpClient";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { SubAgentDetailDrawer } from "@/components/layout/WorkspaceSidebar/SubAgentDetailDrawer";
 import { statusConfig } from "@/components/layout/WorkspaceSidebar/SubAgentCallCard";
+import { ToolPreviewPopover } from "@/components/ToolPreviewPopover";
+import { resolveToolPreviewFromEvents } from "@/lib/toolPreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,29 @@ export function SubagentTabContent({
   const [detailExpanded, setDetailExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 工具详情悬浮窗状态
+  const [toolPreviewOpen, setToolPreviewOpen] = useState(false);
+  const [toolPreviewData, setToolPreviewData] = useState<{
+    toolName: string;
+    toolParams?: Record<string, unknown>;
+    toolOutput?: string;
+    taskId?: string;
+    triggerRect?: DOMRect;
+  } | null>(null);
+
+  const handleViewToolDetails = useCallback(
+    (toolCallId: string, taskId: string | undefined, triggerRect: DOMRect) => {
+      if (!detail) return;
+      const { toolName, toolParams, toolOutput } = resolveToolPreviewFromEvents(
+        detail.events ?? [],
+        toolCallId,
+      );
+      setToolPreviewData({ toolName, toolParams, toolOutput, taskId, triggerRect });
+      setToolPreviewOpen(true);
+    },
+    [detail],
+  );
 
   const fetchDetail = useCallback(async () => {
     if (!userId || !sessionId) return;
@@ -180,7 +205,12 @@ export function SubagentTabContent({
         {/* Continue dialog */}
         <div className="flex flex-1 flex-col min-h-0">
           <div className="flex-1 overflow-auto px-4 py-2">
-            <ChatArea items={chatItems} sessionId={sessionId} isRunning={isRunning} />
+            <ChatArea
+              items={chatItems}
+              sessionId={sessionId}
+              isRunning={isRunning}
+              onViewToolDetails={handleViewToolDetails}
+            />
           </div>
 
           {streamError && (
@@ -222,6 +252,16 @@ export function SubagentTabContent({
           </div>
         </div>
       </div>
+
+      <ToolPreviewPopover
+        isOpen={toolPreviewOpen}
+        onClose={() => setToolPreviewOpen(false)}
+        toolName={toolPreviewData?.toolName || ""}
+        toolParams={toolPreviewData?.toolParams}
+        toolOutput={toolPreviewData?.toolOutput}
+        taskId={toolPreviewData?.taskId}
+        triggerRect={toolPreviewData?.triggerRect}
+      />
     </div>
   );
 }

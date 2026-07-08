@@ -1512,7 +1512,7 @@ class WorkspaceRegistryService:
         try:
             from app.services.container_resource import ContainerResourceService
 
-            service = ContainerResourceService(self.workspace_root, workspace_registry=self)
+            service = ContainerResourceService(self.base_dir, workspace_registry=self)
             registry = service.list_workspace_containers(user_id, workspace_id)
             for container in registry.containers:
                 try:

@@ -178,6 +178,7 @@ async def test_shell_interpreter_cmd_degrades_to_powershell(
     tmp_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """interpreter='cmd' 已禁用，统一降级到 PowerShell；PowerShell 不可用时返回错误。"""
+    real_os_name = os.name
     monkeypatch.setattr(os, "name", "nt")
     # 重置全局单例，确保在 monkeypatch 之后重新创建 ShellExecutor
     shell_executor_module._default_executor = None
@@ -186,11 +187,14 @@ async def test_shell_interpreter_cmd_degrades_to_powershell(
         **ShellParams(command="echo cmd_test", interpreter="cmd").model_dump()
     )
 
-    if shutil.which("powershell") or shutil.which("pwsh"):
+    # 仅在真实 Windows 上验证命令执行成功；在 Linux/macOS 上模拟 Windows 时，
+    # PowerShell 可能不理解被转换后的 Windows 路径，因此只验证降级逻辑。
+    if real_os_name == "nt" and (shutil.which("powershell") or shutil.which("pwsh")):
         assert not result.is_error
         assert "cmd_test" in result.output
     else:
         assert result.is_error
+        assert "cmd" in result.content.lower()
 
 
 @pytest.mark.asyncio
@@ -198,17 +202,22 @@ async def test_shell_interpreter_powershell_available(
     tmp_workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """interpreter='powershell' 在 PowerShell 可用时应正常执行。"""
+    real_os_name = os.name
     monkeypatch.setattr(os, "name", "nt")
+    # 重置全局单例，确保在 monkeypatch 之后重新创建 ShellExecutor
+    shell_executor_module._default_executor = None
     tool = Shell()
     result = await tool.invoke(
         **ShellParams(command="echo ps_test", interpreter="powershell").model_dump()
     )
 
-    if shutil.which("powershell") or shutil.which("pwsh"):
+    # 仅在真实 Windows 上验证命令执行成功；在 Linux/macOS 上模拟 Windows 时，
+    # PowerShell 可能不理解被转换后的 Windows 路径，因此只验证未报平台不可用错误。
+    if real_os_name == "nt" and (shutil.which("powershell") or shutil.which("pwsh")):
         assert not result.is_error
         assert "ps_test" in result.output
     else:
-        assert result.is_error
+        assert "仅在 Windows 上可用" not in result.content
 
 
 @pytest.mark.asyncio

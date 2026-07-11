@@ -150,6 +150,7 @@ export const API_ENDPOINTS = {
     `/api/skills/external-market/workspaces/${encodeURIComponent(workspaceId)}/install`,
 
   // Session
+  SESSIONS_CREATE: "/api/sessions/create",
   SESSIONS_LIST: (userId: string) => `/api/sessions/${userId}`,
   SESSION_DELETE: (userId: string, sessionId: string) =>
     `/api/sessions/${userId}/${sessionId}`,

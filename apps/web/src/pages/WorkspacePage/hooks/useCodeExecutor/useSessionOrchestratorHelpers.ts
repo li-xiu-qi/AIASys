@@ -10,6 +10,11 @@ interface AvailableDraftResponse {
   age_seconds?: number;
 }
 
+interface CreateSessionResponse {
+  session_id?: string;
+  title?: string;
+}
+
 type AppNavigateWindow = typeof globalThis & {
   appNavigate?: (path: string, options?: { replace?: boolean }) => void;
 };
@@ -51,6 +56,31 @@ export async function requestAvailableDraftId(
     }
     return null;
   } catch {
+    return null;
+  }
+}
+
+export async function requestCreateSession(
+  apiBaseUrl: string,
+  sessionId: string,
+  workspaceId?: string | null,
+  title?: string,
+): Promise<CreateSessionResponse | null> {
+  try {
+    const data = await apiRequest<CreateSessionResponse>(
+      `${apiBaseUrl}/api/sessions/create`,
+      {
+        method: "POST",
+        body: {
+          session_id: sessionId,
+          workspace_id: workspaceId || undefined,
+          title: title || "新对话",
+        },
+      },
+    );
+    return data ?? null;
+  } catch (err) {
+    console.warn("[Session] 创建后端会话失败:", err);
     return null;
   }
 }

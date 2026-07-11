@@ -9,6 +9,7 @@ import type { WorkspaceFile, TaskEvent } from "@/types/task";
 import {
   navigateToAnalysisSession,
   requestAvailableDraftId,
+  requestCreateSession,
   requestDraftCleanup,
 } from "./useSessionOrchestratorHelpers";
 import {
@@ -310,9 +311,17 @@ export function useSessionOrchestrator({
 
   const handleNewSession = useCallback(async () => {
     const targetSessionId = await prepareNewSession();
+    // 确保后端已创建 session 元数据，避免前端切换后刷新丢失会话。
+    // 失败不阻塞 UI，继续走前端乐观切换。
+    void requestCreateSession(
+      apiBaseUrl,
+      targetSessionId,
+      getWorkspaceId?.(),
+      "新对话",
+    );
     await activatePreparedSession(targetSessionId);
     return targetSessionId;
-  }, [prepareNewSession, activatePreparedSession]);
+  }, [prepareNewSession, activatePreparedSession, apiBaseUrl, getWorkspaceId]);
 
   const activateReplacementDraft = useCallback(async () => {
     // 删除当前正在查看的会话时，总是先切到一个全新的空白草稿，

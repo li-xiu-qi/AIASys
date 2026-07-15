@@ -30,6 +30,7 @@ FileHistoryOperation = Literal[
     "before_delete",
     "before_move",
     "before_restore",
+    "before_snapshot",
 ]
 
 

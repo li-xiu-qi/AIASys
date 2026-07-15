@@ -31,7 +31,7 @@
 | `multi_turn_context_test.py` | 多轮对话上下文连续性测试 |
 | `count_code.py` | 统计项目代码量 |
 
-> 根目录只保留**通用、可复用**的项目级工具脚本。一次性任务脚本（带硬编码 session_id / 输出路径 / 截图路径）归档到 `design-draft/archive/scripts/`，不留在本目录。
+> 根目录只保留**通用、可复用**的项目级工具脚本。一次性任务脚本（带硬编码 session_id / 输出路径 / 截图路径）归档到 `AIASys-design-draft/archive/scripts/`，不留在本目录。
 
 ### dev/
 
@@ -62,8 +62,8 @@
 
 ## 临时脚本归档
 
-已完成的临时任务脚本统一归档到 `design-draft/archive/scripts/`，不在本目录保留：
+已完成的临时任务脚本统一归档到 `AIASys-design-draft/archive/scripts/`，不在本目录保留：
 
-- `design-draft/archive/scripts/ux-audit-20250608/` — 2025-06-08 UX 审计相关脚本
-- `design-draft/archive/scripts/demo-record-20250607/` — 2025-06-07 Demo 视频录制脚本
-- `design-draft/archive/scripts/demo-qa-20250618/` — 2025-06-18 README 配图、知识图谱侧边栏检查等一次性 QA/Demo 脚本
+- `AIASys-design-draft/archive/scripts/ux-audit-20250608/` — 2025-06-08 UX 审计相关脚本
+- `AIASys-design-draft/archive/scripts/demo-record-20250607/` — 2025-06-07 Demo 视频录制脚本
+- `AIASys-design-draft/archive/scripts/demo-qa-20250618/` — 2025-06-18 README 配图、知识图谱侧边栏检查等一次性 QA/Demo 脚本

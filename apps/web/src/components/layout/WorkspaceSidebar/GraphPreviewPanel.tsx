@@ -152,6 +152,7 @@ export function GraphPreviewPanel({
 
   // 布局持久化
   const pixiExplorerRef = useRef<PixiExplorerHandle | null>(null);
+  const mountedRef = useRef(true);
   const [savedLayoutPositions, setSavedLayoutPositions] =
     useState<Record<string, GraphLayoutPosition> | null>(null);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
@@ -678,6 +679,7 @@ export function GraphPreviewPanel({
         dbPath: dbPath || undefined,
       });
       await graphApi.deleteEntity(deletedNodeId);
+      if (!mountedRef.current) return;
       setVisualization((prev) => {
         if (!prev) return prev;
         const removedEdges = prev.edges.filter(
@@ -710,9 +712,12 @@ export function GraphPreviewPanel({
       setIsDeleteNodeDialogOpen(false);
       void handleLoadStats();
     } catch (error) {
+      if (!mountedRef.current) return;
       setDeleteNodeError(error instanceof Error ? error.message : "删除节点失败");
     } finally {
-      setIsDeletingNode(false);
+      if (mountedRef.current) {
+        setIsDeletingNode(false);
+      }
     }
   }, [
     handleLoadStats,
@@ -964,6 +969,14 @@ export function GraphPreviewPanel({
     };
   }, []);
 
+  // mountedRef 防护：组件卸载后不更新状态
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // LLM 状态检测：面板加载时检查 LLM 是否可用（文档上传需要 LLM 抽取实体）
   useEffect(() => {
     if (!kgId || llmStatus) {
@@ -1011,9 +1024,6 @@ export function GraphPreviewPanel({
       <AlertDialog
         open={isDeleteNodeDialogOpen}
         onOpenChange={(open) => {
-          if (isDeletingNode) {
-            return;
-          }
           setIsDeleteNodeDialogOpen(open);
           if (!open) {
             setDeleteNodeError(null);
@@ -1035,7 +1045,7 @@ export function GraphPreviewPanel({
             </div>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingNode}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction asChild>
               <Button
                 type="button"

@@ -103,6 +103,14 @@ export function FileHistoryDialog({
   const [detailError, setDetailError] = useState<string | null>(null);
   const listRequestIdRef = useRef(0);
   const detailRequestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const selectedEntry = useMemo(
     () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
@@ -218,9 +226,13 @@ export function FileHistoryDialog({
       await loadEntries();
       setViewMode("diff");
     } catch (error) {
-      setDetailError(error instanceof Error ? error.message : "恢复文件失败");
+      if (mountedRef.current) {
+        setDetailError(error instanceof Error ? error.message : "恢复文件失败");
+      }
     } finally {
-      setIsRestoring(false);
+      if (mountedRef.current) {
+        setIsRestoring(false);
+      }
     }
   }, [headers, loadEntries, onRestored, scope, selectedEntry, workspaceId]);
 
@@ -387,7 +399,7 @@ export function FileHistoryDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isRestoring}>取消</AlertDialogCancel>
+          <AlertDialogCancel>取消</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => void handleRestore()}
             disabled={isRestoring}

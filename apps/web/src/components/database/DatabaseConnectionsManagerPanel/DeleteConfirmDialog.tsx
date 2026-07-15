@@ -36,7 +36,7 @@ export function DeleteConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+          <AlertDialogCancel>取消</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm} disabled={isDeleting}>
             {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             确认删除

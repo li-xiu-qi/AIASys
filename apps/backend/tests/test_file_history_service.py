@@ -9,7 +9,7 @@ def test_file_history_records_diff_restore_and_prunes(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
     notes = workspace_root / "notes.md"
     notes.parent.mkdir(parents=True)
-    notes.write_text("v1\n", encoding="utf-8")
+    notes.write_text("v1\n", encoding="utf-8", newline="\n")
     service = FileHistoryService(max_entries_per_file=1)
 
     first = service.record_file_before_change(
@@ -21,7 +21,7 @@ def test_file_history_records_diff_restore_and_prunes(tmp_path: Path) -> None:
     )
     assert first is not None
 
-    notes.write_text("v2\n", encoding="utf-8")
+    notes.write_text("v2\n", encoding="utf-8", newline="\n")
     second = service.record_file_before_change(
         workspace_root,
         "notes.md",
@@ -35,7 +35,7 @@ def test_file_history_records_diff_restore_and_prunes(tmp_path: Path) -> None:
     entries = service.list_entries(workspace_root, "notes.md")
     assert [entry.id for entry in entries] == [second.id]
 
-    notes.write_text("v3\n", encoding="utf-8")
+    notes.write_text("v3\n", encoding="utf-8", newline="\n")
     _, current_exists, diff = service.diff_entry(workspace_root, second.id)
     assert current_exists is True
     assert "-v2\n" in diff

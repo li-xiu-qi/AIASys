@@ -54,6 +54,7 @@ import { useSidebarContext } from "./context";
 import type { GlobalResourceNode } from "./assetPreviewFactory";
 import { WorkspaceSearchPanel } from "./WorkspaceSearchPanel";
 import { FileChangesPanel } from "./FileChangesPanel";
+import { SnapshotsPanel } from "./SnapshotsPanel";
 import { isActivityPanelView } from "./context/activityBarUtils";
 
 const LazyWorkspaceAssetPanel = lazy(() =>
@@ -371,6 +372,11 @@ function WorkspaceSidebarContent({
       }
       fileChangesContent={
         <FileChangesPanel
+          workspaceId={workspaceSummary?.workspace_id ?? null}
+        />
+      }
+      snapshotsContent={
+        <SnapshotsPanel
           workspaceId={workspaceSummary?.workspace_id ?? null}
         />
       }

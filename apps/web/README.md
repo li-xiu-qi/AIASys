@@ -8,7 +8,7 @@ AIASys 前端应用，基于 React + TypeScript + Vite，主要页面是 `/analy
 - TypeScript `5.9`
 - Vite `7`
 - Tailwind CSS `4`
-- Radix UI / shadcn/ui
+- Base UI / shadcn/ui
 
 ## 快速开始
 

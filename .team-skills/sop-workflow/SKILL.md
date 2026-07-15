@@ -269,7 +269,7 @@ description: Execute development tasks following the SOP 5-Step workflow (Requir
 **前端（React/TypeScript）:**
 - React 19 + TypeScript 5.9
 - Tailwind CSS 4
-- shadcn/ui + Radix UI
+- shadcn/ui + Base UI
 - 禁止内联样式，统一使用 Tailwind
 - 必须使用 `cn()` 工具函数合并类名
 - 竞态防护：所有副作用操作使用请求锁

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
   Clock3,
@@ -312,6 +312,14 @@ export function ChannelAssetsSection({
     return () => abortCtrl.abort();
   }, [channels]);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const [createPlatform, setCreatePlatform] = useState<ManualChannelPlatform>("weixin");
   const [createName, setCreateName] = useState("");
   const [createAccountId, setCreateAccountId] = useState("");
@@ -327,13 +335,19 @@ export function ChannelAssetsSection({
     setIsDeletingChannel(true);
     try {
       await onDeleteChannel(pendingDeleteChannelId);
-      setShowDeleteDialog(false);
+      if (mountedRef.current) {
+        setShowDeleteDialog(false);
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "删除频道失败";
-      showError(message);
+      if (mountedRef.current) {
+        const message = err instanceof Error ? err.message : "删除频道失败";
+        showError(message);
+      }
     } finally {
-      setIsDeletingChannel(false);
-      setPendingDeleteChannelId(null);
+      if (mountedRef.current) {
+        setIsDeletingChannel(false);
+        setPendingDeleteChannelId(null);
+      }
     }
   };
 
@@ -1147,7 +1161,7 @@ export function ChannelAssetsSection({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingChannel}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void confirmDelete()}
               disabled={isDeletingChannel}

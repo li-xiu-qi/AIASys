@@ -373,6 +373,17 @@ export const API_ENDPOINTS = {
     `/api/workspaces/${encodeURIComponent(workspaceId)}/files/history/change-events`,
   GLOBAL_WORKSPACE_CHANGE_EVENTS: (workspaceId: string) =>
     `/api/workspaces/${encodeURIComponent(workspaceId)}/global-workspace/history/change-events`,
+
+  // Workspace snapshots
+  WORKSPACE_SNAPSHOTS: (workspaceId: string) =>
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/snapshots`,
+  WORKSPACE_SNAPSHOT: (workspaceId: string, snapshotId: string) =>
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/snapshots/${encodeURIComponent(snapshotId)}`,
+  WORKSPACE_SNAPSHOT_APPLY: (workspaceId: string, snapshotId: string) =>
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/snapshots/${encodeURIComponent(snapshotId)}/apply`,
+  WORKSPACE_SNAPSHOT_DIFF: (workspaceId: string, snapshotId: string) =>
+    `/api/workspaces/${encodeURIComponent(workspaceId)}/snapshots/${encodeURIComponent(snapshotId)}/diff`,
+
   WORKSPACE_FILE_UPLOAD: (workspaceId: string) =>
     `/api/workspaces/${encodeURIComponent(workspaceId)}/files/upload`,
   WORKSPACE_FILE_CREATE: (workspaceId: string) =>

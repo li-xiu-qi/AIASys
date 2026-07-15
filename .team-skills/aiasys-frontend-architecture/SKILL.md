@@ -36,7 +36,7 @@ description: |
 | 路由 | 自定义手动路由 | 基于 `window.history`，**无 React Router** |
 | 状态管理 | React Context + 自定义 Hooks | **无 Redux / Zustand / Jotai** |
 | API 层 | 基于 fetch 的 `httpClient` | 位于 `src/lib/api/` |
-| UI 组件 | shadcn/ui + Radix UI | 位于 `src/components/ui/` |
+| UI 组件 | shadcn/ui + Base UI | 位于 `src/components/ui/` |
 | 构建 | Vite | 标准配置 |
 
 ---

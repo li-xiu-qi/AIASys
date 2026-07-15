@@ -111,7 +111,7 @@ docs/superpowers/
 /.agents/**/.git/
 
 # 设计草稿（不纳入项目）
-/design-draft/**
+/AIASys-design-draft/**
 
 # 前端截图验证产物
 apps/design-draft/

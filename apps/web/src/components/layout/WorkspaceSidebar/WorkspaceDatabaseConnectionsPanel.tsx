@@ -65,6 +65,13 @@ export function WorkspaceDatabaseConnectionsPanel({
 
   const selectedHandleRef = useRef(selectedHandle);
   const handlesRef = useRef(handles);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   useEffect(() => {
     selectedHandleRef.current = selectedHandle;
     handlesRef.current = handles;
@@ -172,22 +179,28 @@ export function WorkspaceDatabaseConnectionsPanel({
     setIsDeleting(true);
     try {
       await deleteDatabaseConnector(deletingConnectorId);
-      setHandles((prev) => prev.filter((h) => h.connector_id !== deletingConnectorId));
-      setStatusMap((prev) => {
-        const next = new Map(prev);
-        for (const [handle] of prev) {
-          const h = handlesRef.current.find((x) => x.handle === handle);
-          if (h && h.connector_id === deletingConnectorId) {
-            next.delete(handle);
+      if (mountedRef.current) {
+        setHandles((prev) => prev.filter((h) => h.connector_id !== deletingConnectorId));
+        setStatusMap((prev) => {
+          const next = new Map(prev);
+          for (const [handle] of prev) {
+            const h = handlesRef.current.find((x) => x.handle === handle);
+            if (h && h.connector_id === deletingConnectorId) {
+              next.delete(handle);
+            }
           }
-        }
-        return next;
-      });
+          return next;
+        });
+      }
     } catch (err) {
-      setError(getDatabaseConnectorErrorMessage(err, "删除数据库连接失败"));
+      if (mountedRef.current) {
+        setError(getDatabaseConnectorErrorMessage(err, "删除数据库连接失败"));
+      }
     } finally {
-      setIsDeleting(false);
-      setDeletingConnectorId(null);
+      if (mountedRef.current) {
+        setIsDeleting(false);
+        setDeletingConnectorId(null);
+      }
     }
   }, [deletingConnectorId]);
 
@@ -365,7 +378,7 @@ export function WorkspaceDatabaseConnectionsPanel({
       <AlertDialog
         open={Boolean(deletingConnectorId)}
         onOpenChange={(open) => {
-          if (!open && !isDeleting) setDeletingConnectorId(null);
+          if (!open) setDeletingConnectorId(null);
         }}
       >
         <AlertDialogContent>
@@ -378,7 +391,7 @@ export function WorkspaceDatabaseConnectionsPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleDeleteConfirm()}
               disabled={isDeleting}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   Container,
@@ -448,6 +448,14 @@ export function ExecutionResourcesPanel({
   const [selectingSandboxId, setSelectingSandboxId] = useState<string | null>(null);
   const [showUvConfirmDialog, setShowUvConfirmDialog] = useState(false);
   const [pendingDockerResource, setPendingDockerResource] = useState<WorkspaceContainerResource | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const loadRegistry = useCallback(async () => {
     if (!workspaceId) {
@@ -527,10 +535,14 @@ export function ExecutionResourcesPanel({
       setNotice({ type: "success", message: "工作区 UV 环境已初始化。" });
       await loadRegistry();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "启用 Python 失败";
-      setNotice({ type: "error", message });
+      if (mountedRef.current) {
+        const message = err instanceof Error ? err.message : "启用 Python 失败";
+        setNotice({ type: "error", message });
+      }
     } finally {
-      setIsEnsuringUv(false);
+      if (mountedRef.current) {
+        setIsEnsuringUv(false);
+      }
     }
   }, [loadRegistry, workspaceId]);
 
@@ -552,10 +564,14 @@ export function ExecutionResourcesPanel({
         setNotice({ type: "success", message: "Python 环境已更新。" });
         await loadRegistry();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "设置 Python 环境失败";
-        setNotice({ type: "error", message });
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : "设置 Python 环境失败";
+          setNotice({ type: "error", message });
+        }
       } finally {
-        setBindingEnvId(null);
+        if (mountedRef.current) {
+          setBindingEnvId(null);
+        }
       }
     },
     [loadRegistry, workspaceId],
@@ -578,10 +594,14 @@ export function ExecutionResourcesPanel({
         await loadRegistry();
         await onWorkspaceUpdated?.();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "登记 Python 解释器失败";
-        setNotice({ type: "error", message });
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : "登记 Python 解释器失败";
+          setNotice({ type: "error", message });
+        }
       } finally {
-        setBindingEnvId(null);
+        if (mountedRef.current) {
+          setBindingEnvId(null);
+        }
       }
     },
     [loadRegistry, onWorkspaceUpdated, workspaceId],
@@ -600,10 +620,14 @@ export function ExecutionResourcesPanel({
         });
         await loadRegistry();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "取消登记失败";
-        setNotice({ type: "error", message });
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : "取消登记失败";
+          setNotice({ type: "error", message });
+        }
       } finally {
-        setUnregisteringEnvId(null);
+        if (mountedRef.current) {
+          setUnregisteringEnvId(null);
+        }
       }
     },
     [loadRegistry, workspaceId],
@@ -619,11 +643,15 @@ export function ExecutionResourcesPanel({
         setNotice({ type: "success", message: `已安装 ${packages.join(", ")}。` });
         await loadRegistry();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "安装依赖失败";
-        setNotice({ type: "error", message });
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : "安装依赖失败";
+          setNotice({ type: "error", message });
+        }
         throw err;
       } finally {
-        setInstallingEnvId(null);
+        if (mountedRef.current) {
+          setInstallingEnvId(null);
+        }
       }
     },
     [loadRegistry, workspaceId],
@@ -652,10 +680,14 @@ export function ExecutionResourcesPanel({
         setNotice({ type: "success", message: "当前工作区已切换到 Docker 沙盒。" });
         await onWorkspaceUpdated?.();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "切换 Docker 沙盒失败";
-        setNotice({ type: "error", message });
+        if (mountedRef.current) {
+          const message = err instanceof Error ? err.message : "切换 Docker 沙盒失败";
+          setNotice({ type: "error", message });
+        }
       } finally {
-        setSelectingSandboxId(null);
+        if (mountedRef.current) {
+          setSelectingSandboxId(null);
+        }
       }
     },
     [onWorkspaceUpdated, workspaceId, workspaceSummary?.runtime_binding?.env_vars],
@@ -831,7 +863,7 @@ export function ExecutionResourcesPanel({
             </div>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isEnsuringUv}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               disabled={isEnsuringUv}
               onClick={() => {
@@ -861,7 +893,6 @@ export function ExecutionResourcesPanel({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              disabled={Boolean(selectingSandboxId)}
               onClick={() => setPendingDockerResource(null)}
             >
               取消

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   AlertCircle,
   Loader2,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CodeMirrorEditor } from "./CodeMirrorEditor";
 import { useEditableFile } from "@/hooks/useEditableFile";
+import { useSaveShortcut } from "@/hooks/useSaveShortcut";
 import { getWorkspaceEditorLanguage } from "@/utils/workspaceFileEditing";
 import { cn } from "@/lib/utils";
 import { FileUploadToast, useFileUploadToast } from "@/components/file/FileUploadToast";
@@ -72,19 +73,11 @@ export function CodeEditorPanel({
     }
   }, [editable, dirty, isSaving, save, showSuccess, showError]);
 
-  // 键盘快捷键
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
-        event.preventDefault();
-        if (editable && dirty && !isSaving) {
-          void handleSave();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editable, dirty, isSaving, handleSave]);
+  useSaveShortcut({
+    onSave: handleSave,
+    enabled: editable && dirty && !isSaving,
+    isSaving,
+  });
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 

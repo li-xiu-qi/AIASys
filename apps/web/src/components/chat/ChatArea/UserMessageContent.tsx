@@ -4,7 +4,7 @@
  * 专门处理用户消息的渲染，包括文本和附件
  */
 import { Check, ChevronDown, FileText, Pencil, X, Hash } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { MarkdownImage } from "../MarkdownImage";
 import { useChatAreaContext } from "./context";
 import { TableIcon } from "./chatAreaIcons";
@@ -115,6 +115,13 @@ export function UserMessageContent() {
     [content],
   );
   const [isCollapsed, setIsCollapsed] = useState(isCollapsible);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleStartEdit = () => {
     if (!canRewrite || isRunning) {
@@ -153,11 +160,15 @@ export function UserMessageContent() {
     setIsSubmitting(true);
     try {
       await onRewriteUserMessage(msgItem.id, nextContent, content.trim());
-      setIsEditing(false);
+      if (mountedRef.current) {
+        setIsEditing(false);
+      }
     } catch {
       // 编辑失败时保持编辑状态，让用户可以重试
     } finally {
-      setIsSubmitting(false);
+      if (mountedRef.current) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -198,11 +209,7 @@ export function UserMessageContent() {
           </div>
           <AlertDialog
             open={isConfirmOpen}
-            onOpenChange={(open) => {
-              if (!isSubmitting) {
-                setIsConfirmOpen(open);
-              }
-            }}
+            onOpenChange={setIsConfirmOpen}
           >
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -212,7 +219,7 @@ export function UserMessageContent() {
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isSubmitting}>
+                <AlertDialogCancel>
                   取消
                 </AlertDialogCancel>
                 <AlertDialogAction

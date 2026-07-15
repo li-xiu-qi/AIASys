@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { API_ENDPOINTS } from "@/config/api";
 import { apiRequest } from "@/lib/api/httpClient";
 import { CodeMirrorEditor } from "@/components/editor/CodeMirrorEditor";
+import { useSaveShortcut } from "@/hooks/useSaveShortcut";
 import { useWorkspaceMarkdownComponents } from "@/components/markdown/WorkspaceMarkdownComponents";
 import {
   getWorkspaceEditorLanguage,
@@ -608,6 +609,20 @@ const FilePreviewPanelComponent: React.FC<FilePreviewPanelProps> = ({
     if (!file?.name || editContent === null) return;
     await persistFileContent(editContent);
   }, [file?.name, editContent, persistFileContent]);
+
+  const fileName = file?.name;
+  const isEditableFileType = fileName ? isGenericallyEditable(fileName) : false;
+  const canEditScope =
+    isEditableFileType &&
+    (isGlobalResource ? canEditGlobalFile : canEditCurrentFile);
+  const sourceModeEnabled =
+    canEditScope && sourceViewMode === "source" && hasUnsavedChanges && !isSaving;
+
+  useSaveShortcut({
+    onSave: handleSave,
+    enabled: sourceModeEnabled,
+    isSaving,
+  });
 
   // 空状态
   if (!file) {

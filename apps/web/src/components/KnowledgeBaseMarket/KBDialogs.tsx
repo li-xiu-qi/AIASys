@@ -576,7 +576,7 @@ export function DeleteConfirmDialog({
   onConfirm,
 }: DeleteConfirmDialogProps) {
   return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!isDeleting) onOpenChange(v); }}>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>确认删除</AlertDialogTitle>
@@ -587,7 +587,7 @@ export function DeleteConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting} onClick={() => { if (!isDeleting) onOpenChange(false); }}>
+          <AlertDialogCancel onClick={() => { if (!isDeleting) onOpenChange(false); }}>
             取消
           </AlertDialogCancel>
           <AlertDialogAction

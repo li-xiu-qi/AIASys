@@ -7,7 +7,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertDialog,
@@ -284,6 +284,14 @@ export function GlobalAutoTaskDialog({
     message: string;
   } | null>(null);
 
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (currentWorkspaceId) {
@@ -432,7 +440,9 @@ export function GlobalAutoTaskDialog({
         error instanceof Error ? error.message : "读取全局自动化任务状态失败。";
       setLoadError(message);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -470,11 +480,15 @@ export function GlobalAutoTaskDialog({
       closeEditor();
       await loadAutoTasks();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "保存自动化任务失败。";
-      setEditorFeedback({ tone: "error", message });
+      if (mountedRef.current) {
+        const message =
+          error instanceof Error ? error.message : "保存自动化任务失败。";
+        setEditorFeedback({ tone: "error", message });
+      }
     } finally {
-      setIsSaving(false);
+      if (mountedRef.current) {
+        setIsSaving(false);
+      }
     }
   }, [
     draft,
@@ -553,11 +567,15 @@ export function GlobalAutoTaskDialog({
         });
         await loadAutoTasks();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "切换自动化任务状态失败。";
-        setFeedback({ tone: "error", message });
+        if (mountedRef.current) {
+          const message =
+            error instanceof Error ? error.message : "切换自动化任务状态失败。";
+          setFeedback({ tone: "error", message });
+        }
       } finally {
-        setPendingTaskId(null);
+        if (mountedRef.current) {
+          setPendingTaskId(null);
+        }
       }
     },
     [loadAutoTasks],
@@ -582,11 +600,15 @@ export function GlobalAutoTaskDialog({
         });
         await loadAutoTasks();
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "立即运行失败。";
-        setFeedback({ tone: "error", message });
+        if (mountedRef.current) {
+          const message =
+            error instanceof Error ? error.message : "立即运行失败。";
+          setFeedback({ tone: "error", message });
+        }
       } finally {
-        setPendingTaskId(null);
+        if (mountedRef.current) {
+          setPendingTaskId(null);
+        }
       }
     },
     [loadAutoTasks],
@@ -601,18 +623,26 @@ export function GlobalAutoTaskDialog({
     setFeedback(null);
     try {
       await deleteWorkspaceAutoTask(task.workspace_id, task.task_id);
-      setPendingDeleteTask(null);
-      setFeedback({
-        tone: "success",
-        message: `${getTaskTitle(task)} 已删除。`,
-      });
+      if (mountedRef.current) {
+        setPendingDeleteTask(null);
+      }
+      if (mountedRef.current) {
+        setFeedback({
+          tone: "success",
+          message: `${getTaskTitle(task)} 已删除。`,
+        });
+      }
       await loadAutoTasks();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "删除自动化任务失败。";
-      setFeedback({ tone: "error", message });
+      if (mountedRef.current) {
+        const message =
+          error instanceof Error ? error.message : "删除自动化任务失败。";
+        setFeedback({ tone: "error", message });
+      }
     } finally {
-      setPendingTaskId(null);
+      if (mountedRef.current) {
+        setPendingTaskId(null);
+      }
     }
   }, [loadAutoTasks, pendingDeleteTask]);
 
@@ -1129,7 +1159,7 @@ export function GlobalAutoTaskDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pendingTaskId === pendingDeleteTask?.task_id}>
+            <AlertDialogCancel>
               取消
             </AlertDialogCancel>
             <AlertDialogAction

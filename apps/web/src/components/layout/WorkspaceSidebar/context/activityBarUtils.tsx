@@ -4,6 +4,7 @@ import {
   FolderOpen,
   GitBranch,
   Globe,
+  History,
   Search,
 } from "lucide-react";
 import type { ActivityBarItem } from "../ActivityBar";
@@ -15,6 +16,7 @@ export type ActivityPanelView =
   | "database"
   | "subagents"
   | "file-changes"
+  | "snapshots"
 ;
 
 export interface ViewButton {
@@ -42,6 +44,7 @@ export function getViewButtons(
       : [
           { id: "subagents" as const, label: "专家协作节点", icon: <Bot className="h-4 w-4 text-success" /> },
           { id: "file-changes" as const, label: "文件变更", icon: <GitBranch className="h-4 w-4 text-info" /> },
+          { id: "snapshots" as const, label: "版本", icon: <History className="h-4 w-4 text-warning" /> },
         ]),
   ];
 }
@@ -54,6 +57,7 @@ export function getDefaultActivityItems(): Array<ActivityBarItem<ActivityPanelVi
     { id: "search", label: "文件搜索", icon: <Search className="h-4 w-4" /> },
     { id: "subagents", label: "专家协作节点", icon: <Bot className="h-4 w-4" /> },
     { id: "file-changes", label: "文件变更", icon: <GitBranch className="h-4 w-4" /> },
+    { id: "snapshots", label: "版本", icon: <History className="h-4 w-4" /> },
   ];
 }
 
@@ -78,6 +82,7 @@ export function isActivityPanelView(view: string): view is ActivityPanelView {
     view === "resources" ||
     view === "database" ||
     view === "subagents" ||
-    view === "file-changes"
+    view === "file-changes" ||
+    view === "snapshots"
   );
 }

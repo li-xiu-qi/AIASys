@@ -79,6 +79,7 @@ export function FileChangesPanel({
   const [historyDialogFile, setHistoryDialogFile] = useState<WorkspaceFile | null>(null);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const requestIdRef = useRef(0);
+  const mountedRef = useRef(true);
 
   const loadData = useCallback(async () => {
     if (!workspaceId) return;
@@ -103,6 +104,13 @@ export function FileChangesPanel({
       }
     }
   }, [workspaceId, scope]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     void loadData();
@@ -183,11 +191,17 @@ export function FileChangesPanel({
       await restoreFileHistoryEntry(scope, workspaceId, selectedEntry.id, {
         headers,
       });
-      await loadData();
+      if (mountedRef.current) {
+        await loadData();
+      }
     } catch (err) {
-      setDiffError(err instanceof Error ? err.message : "恢复文件失败");
+      if (mountedRef.current) {
+        setDiffError(err instanceof Error ? err.message : "恢复文件失败");
+      }
     } finally {
-      setIsRestoring(false);
+      if (mountedRef.current) {
+        setIsRestoring(false);
+      }
     }
   }, [workspaceId, scope, selectedEntry, headers, loadData]);
 
@@ -349,7 +363,7 @@ export function FileChangesPanel({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isRestoring}>取消</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => void handleRestore()}
               disabled={isRestoring}

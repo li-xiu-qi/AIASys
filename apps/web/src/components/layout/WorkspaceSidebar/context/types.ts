@@ -22,7 +22,8 @@ export type SidebarTab =
   | "auto-tasks"
   | "env"
   | "terminal"
-  | "file-changes";
+  | "file-changes"
+  | "snapshots";
 
 // Context 状态接口
 export interface SidebarState {

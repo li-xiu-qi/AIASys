@@ -4,6 +4,7 @@ import {
   Database,
   GitBranch,
   Globe,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,6 +107,7 @@ interface WorkspaceContextPanelProps {
   resourcesContent?: React.ReactNode;
   editorContent?: React.ReactNode;
   fileChangesContent?: React.ReactNode;
+  snapshotsContent?: React.ReactNode;
 
   subagentCount?: number | null;
   runningSubagentCount?: number | null;
@@ -151,6 +153,7 @@ export function WorkspaceContextPanel({
   resourcesContent,
   editorContent,
   fileChangesContent,
+  snapshotsContent,
   onRequestSubagentDock: _onRequestSubagentDock,
   subagentCount: _subagentCount = null,
   runningSubagentCount: _runningSubagentCount = null,
@@ -539,12 +542,22 @@ export function WorkspaceContextPanel({
         </div>
       </div>
     );
+    const snapshotsNode = snapshotsContent ?? (
+      <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+        <History className="h-6 w-6 text-muted-foreground/40" />
+        <div className="mt-3 text-sm font-medium text-foreground">暂无版本</div>
+        <div className="mt-1 text-xs leading-5 text-muted-foreground">
+          保存当前工作区状态后，版本会出现在这里。
+        </div>
+      </div>
+    );
     // sidebar 模式面板（右侧 Tab 切换）
     const tabPanels: { id: string; node: React.ReactNode }[] = [
       { id: "artifacts", node: artifactsContent },
       { id: "subagents", node: subagentContent },
       { id: "search", node: searchNode },
       { id: "file-changes", node: fileChangesNode },
+      { id: "snapshots", node: snapshotsNode },
       {
         id: "database",
         node:
@@ -617,6 +630,7 @@ export function WorkspaceContextPanel({
         ),
       },
       { id: "file-changes", node: fileChangesNode },
+      { id: "snapshots", node: snapshotsNode },
       { id: "resources", node: resourcesNode },
       { id: "subagents", node: subagentContent },
     ];
@@ -629,6 +643,7 @@ export function WorkspaceContextPanel({
     selectedDatabaseHandle,
     sessionId,
     fileChangesContent,
+    snapshotsContent,
     resourcesContent,
     onManageDatabaseConnections,
     onCreateDatabaseConnection,

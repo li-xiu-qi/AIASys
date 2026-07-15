@@ -22,7 +22,7 @@ description: |
 | TypeScript | 5.9 | 类型安全 |
 | Tailwind CSS | 4 | 原子化样式 |
 | shadcn/ui | Latest | 组件库 |
-| Radix UI | Latest | Headless UI 基座 |
+| Base UI | Latest | Headless UI 基座（已从 Radix UI 迁移） |
 
 ---
 

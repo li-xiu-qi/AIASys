@@ -1,7 +1,7 @@
 {
   "name": "aiasys-web",
   "private": true,
-  "version": "0.4.33",
+  "version": "0.4.34",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,8 @@
     "playwright:cli": "npx -y @playwright/cli@0.1.7 --config ../../.playwright/cli.config.json"
   },
   "dependencies": {
+    "@base-ui/react": "^1.6.0",
+    "@base-ui/utils": "^0.3.1",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-javascript": "^6.2.5",

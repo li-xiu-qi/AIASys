@@ -1,13 +1,8 @@
 import { apiRequest } from "@/lib/api/httpClient";
+import { DEFAULT_CONVERSATION_TITLE } from "@/lib/conversationTitles";
 
 interface DraftCleanupResponse {
   total?: number;
-}
-
-interface AvailableDraftResponse {
-  available?: boolean;
-  session_id?: string;
-  age_seconds?: number;
 }
 
 interface CreateSessionResponse {
@@ -41,25 +36,6 @@ export async function requestDraftCleanup(
   }
 }
 
-export async function requestAvailableDraftId(
-  apiBaseUrl: string,
-  workspaceId?: string | null,
-): Promise<string | null> {
-  try {
-    const url = new URL(`${apiBaseUrl}/api/sessions/available-draft`, globalThis.location.origin);
-    if (workspaceId) {
-      url.searchParams.set("workspace_id", workspaceId);
-    }
-    const data = await apiRequest<AvailableDraftResponse>(url.toString());
-    if (data.available && data.session_id) {
-      return data.session_id;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function requestCreateSession(
   apiBaseUrl: string,
   sessionId: string,
@@ -74,7 +50,7 @@ export async function requestCreateSession(
         body: {
           session_id: sessionId,
           workspace_id: workspaceId || undefined,
-          title: title || "新对话",
+          title: title || DEFAULT_CONVERSATION_TITLE,
           status: "active",
         },
       },

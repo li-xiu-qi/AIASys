@@ -27,6 +27,7 @@ from app.utils.path_utils import as_system_path, atomic_write_text
 from ..base import RuntimeSessionCreateSpec
 from .capability_confirmation import CapabilityConfirmationManager
 from .llm_clients.message_protocol import InternalMessage
+from .loop_detection import ContinuationState, ThinkingLoopDetector
 from .session_budget import SessionBudgetMixin
 from .session_compaction import SessionCompactionMixin
 from .session_stream import SessionStreamMixin
@@ -85,7 +86,8 @@ class AiasysRuntimeSession(
         # 与 _estimated_token_count 共同组成 effective_token_count，
         # 用于运行中触发压缩、预算检查的更准确判断。
         self._pending_token_estimate: int = 0
-        self._continuation_count: int = 0
+        self._continuation_state = ContinuationState()
+        self._thinking_loop_detector = ThinkingLoopDetector()
         self.budget: Any | None = spec.budget if spec.budget is not None else self._load_budget()
         self._session_turn_count: int = 0
         self._current_turn_n: int | None = None
@@ -100,6 +102,19 @@ class AiasysRuntimeSession(
         # Feature flags for runtime adaptive behaviors
         self._auto_nudge_enabled = os.getenv("AIASYS_AUTO_NUDGE_ENABLED", "true").lower() == "true"
         self._loop_guard_enabled = os.getenv("AIASYS_LOOP_GUARD_ENABLED", "true").lower() == "true"
+        # thinking 流死循环检测（流式中途中止 + 注入诱导跳出）。与 _loop_guard_enabled
+        # 管的工具调用重复检测是两件事，独立开关：前者误报会打断正常推理，
+        # 需要能单独关掉而不牵连已验证多轮的工具循环检测。
+        self._thinking_loop_guard_enabled = (
+            os.getenv("AIASYS_THINKING_LOOP_GUARD_ENABLED", "true").lower() == "true"
+        )
+        # 截断自动续写的六道守卫。关掉后退回「只看次数上限」的旧行为。
+        self._continuation_guard_enabled = (
+            os.getenv("AIASYS_CONTINUATION_GUARD_ENABLED", "true").lower() == "true"
+        )
+        # thinking 循环诱导跳出在一次 run 内只注入一次：注入后若仍循环，
+        # 让它自然走到 max_tokens 或结束，不反复打断（反复注入本身会变成新的循环）。
+        self._thinking_loop_nudge_sent = False
 
         # 从 metadata.json 恢复上次 LLM 返回的精确 context_tokens。
         # 顶层 context_tokens 与 budget 独立，确保 budget 关闭后仍能恢复精确值。

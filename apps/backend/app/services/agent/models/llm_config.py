@@ -12,6 +12,14 @@ class LoopControl(BaseModel):
 
     max_steps_per_turn: int = 500
     max_retries_per_step: int = 3
+    max_auto_continues: int = Field(
+        default=3,
+        description=(
+            "输出被 max_tokens 截断后自动续写的次数上限。0 表示关闭自动续写。"
+            "达到上限或被续写守卫拦下时停止并向用户说明原因。"
+        ),
+        ge=0,
+    )
     reserved_context_size: int = 50000
     compaction_trigger_ratio: float = 0.85
     max_preserved_messages: int = Field(

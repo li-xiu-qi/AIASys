@@ -421,6 +421,98 @@ class TeamStore:
             conflicts_with = _find_scope_conflicts(state.missions, mission, artifacts)
             return {"conflictsWith": conflicts_with, "kept": False}
 
+    # ------------------------------------------------------------------
+    # Inbox（文件信箱）
+    # ------------------------------------------------------------------
+
+    async def inbox(self, name: str, limit: int = 20) -> list[dict[str, str]]:
+        """读取团队信箱，newest-first。
+
+        name 为 'team' 时返回全部；否则只返回 to=name 或 to=all 的消息。
+        """
+        inbox_dir = self._state_dir / "comms" / "inbox"
+        messages: list[dict[str, str]] = []
+        try:
+            entries = sorted(inbox_dir.iterdir(), reverse=True)
+        except FileNotFoundError:
+            return messages
+
+        import re as _re
+
+        _FM_RE = _re.compile(r"^---\n([\s\S]*?)\n---\n?([\s\S]*)$")
+
+        for entry in entries:
+            if not entry.is_file() or not entry.name.endswith(".md"):
+                continue
+            if len(messages) >= limit:
+                break
+            try:
+                raw = entry.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            fm_match = _FM_RE.match(raw)
+            if not fm_match:
+                continue
+            meta_block = fm_match.group(1)
+            body = fm_match.group(2).strip()
+            meta: dict[str, str] = {}
+            for line in meta_block.split("\n"):
+                kv = _re.match(r"^(\w+):\s*(.*)$", line)
+                if kv:
+                    meta[kv.group(1)] = kv.group(2)
+
+            to_field = meta.get("to", "")
+            if name != "team" and to_field != name and to_field != "all":
+                continue
+
+            messages.append(
+                {
+                    "message_id": meta.get("message_id", ""),
+                    "from": meta.get("from", "?"),
+                    "to": to_field,
+                    "subject": meta.get("subject", ""),
+                    "sent_at": meta.get("sent_at", ""),
+                    "body": body,
+                    "file": entry.name,
+                }
+            )
+        return messages
+
+    # ------------------------------------------------------------------
+    # Teardown（收尾关闭）
+    # ------------------------------------------------------------------
+
+    async def teardown(self, force: bool = False) -> dict[str, list[str]]:
+        """收尾：标记关闭 + 清理工作间。
+
+        force=False 时保留 dirty 工作间；force=True 时强制清理。
+        状态目录与日志永久保留（可审计）。
+        幂等：已关闭的团队直接返回空列表。
+        """
+        async with self._lock:
+            # 防重复 teardown
+            if self._state_file.exists():
+                state = await self._load()
+                if state.closed_at is not None:
+                    return {"removed": [], "kept": []}
+
+            # 先标记关闭（防止中途出错后 resume 复活）
+            try:
+                state = await self._load()
+                state.closed_at = _iso_now()
+                await self._save(state)
+            except TeamError:
+                pass
+
+            removed: list[str] = []
+            kept: list[str] = []
+
+            # AIASys 无 worktree 概念，但为接口兼容保留签名
+            # 如有任务目录需要清理，在此处扩展
+            # 当前仅返回空结果（设计文档明确不做 worktree）
+
+            return {"removed": removed, "kept": kept}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -432,6 +524,10 @@ def _dataclass_default(obj: Any) -> Any:
     if hasattr(obj, "__dataclass_fields__"):
         return obj.__dict__
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _normalize_lease_files(lease: dict[str, Any]) -> list[str]:

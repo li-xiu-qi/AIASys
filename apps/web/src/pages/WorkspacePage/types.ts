@@ -25,6 +25,8 @@ export type ChatSegment = {
   monitorCommand?: string;
   monitorStatus?: string;
   monitorExitCode?: number | null;
+  /** 显示提示：后端根据 origin 映射，前端据此决定渲染方式 */
+  display_hint?: "visible" | "collapsed" | "hidden";
 };
 
 export type WorkerRecord = {

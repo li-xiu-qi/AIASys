@@ -220,6 +220,7 @@ export function useStreamEventHandler({
         type: "turn",
         content: `Turn ${event.turn_n}`,
         turnN: event.turn_n,
+        display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
       });
       scheduleFlush(sessionId);
     }
@@ -235,7 +236,11 @@ export function useStreamEventHandler({
             content: lastSeg.content + event.text,
           };
         } else {
-          segments.push({ type: "text", content: event.text });
+          segments.push({
+            type: "text",
+            content: event.text,
+            display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
+          });
         }
         scheduleFlush(sessionId);
       } else if (event.content_type === "think" && event.think) {
@@ -256,6 +261,7 @@ export function useStreamEventHandler({
             type: "think",
             content: event.think,
             isComplete: false,
+            display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
           });
         }
         scheduleFlush(sessionId);
@@ -271,6 +277,7 @@ export function useStreamEventHandler({
         toolName: event.tool_name,
         toolCallId: event.tool_call_id,
         toolParams: JSON.stringify(event.arguments || {}),
+        display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
       });
       scheduleFlush(sessionId);
 
@@ -341,6 +348,7 @@ export function useStreamEventHandler({
         toolName: toolName,
         toolCallId: event.tool_call_id,
         isError: isError,
+        display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
       });
       syncSegmentsToUI(sessionId);
 
@@ -603,6 +611,7 @@ export function useStreamEventHandler({
           monitorExitCode: exitCode,
           isComplete: status === "completed" || status === "error" || status === "killed",
           isError: status === "error" || status === "killed" || (exitCode !== null && exitCode !== 0),
+          display_hint: (event as { display_hint?: "visible" | "collapsed" | "hidden" }).display_hint ?? "visible",
         });
       }
       syncSegmentsToUI(sessionId);

@@ -78,6 +78,9 @@ class AgentRuntimeEvent:
     tokens_after: int | None = None
     saved_tokens: int | None = None
     summary_tokens: int | None = None
+    # 显示流分层：origin → display_hint 的后端映射结果（前端渲染语义）
+    # None 表示尚未设置，由 SSE 序列化层按需补充；前端缺省视为 "visible"
+    display_hint: Literal["visible", "collapsed", "hidden"] | None = None
 
 
 @runtime_checkable

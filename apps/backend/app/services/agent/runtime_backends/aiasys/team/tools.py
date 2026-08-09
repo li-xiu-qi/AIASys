@@ -969,19 +969,27 @@ class TeamSpawnTool(AiasysTool):
 
         # 2a. 计算 write_allow_root（仅 build 类任务需要）
         # 将 mission.scope 中的相对路径拼接为 repo_root 下的绝对路径。
-        # 路径已通过 os.path.realpath() 解析，避免符号链接绕过。
         write_allow_root: list[str] | None = None
         if mission.kind == "build" and mission.scope:
             write_allow_root = []
             for scope_entry in mission.scope:
                 scope_norm = _normalize_scope(scope_entry)
-                # 拼接 repo_root + scope，再规范化为绝对路径
                 combined = os.path.join(state.repo_root, scope_norm)
                 try:
                     resolved = os.path.realpath(combined)
                 except (OSError, ValueError):
                     resolved = os.path.abspath(combined)
                 write_allow_root.append(resolved)
+
+        # 2b. 解析资源租约（resolve mission lease 声明 → 运行时租约键列表）
+        # 对独占资源（notebook）做冲突检测：被其他 mission 持有时直接拒绝。
+        # 非独占资源仅登记，不检测冲突。
+        resource_lease_keys: list[str] = []
+        if mission.kind == "build" and mission.lease:
+            try:
+                resource_lease_keys = await store.resolve_mission_resource_leases(mission)
+            except TeamError as exc:
+                return _make_tool_result(f"team_spawn 被拒绝（资源租约冲突）: {exc}", is_error=True)
 
         # 3. 依赖门控：依赖未全部 merged 拒绝启动
         # （store.set_status("active") 内部已实现该门控，这里直接调用）
@@ -1027,6 +1035,7 @@ class TeamSpawnTool(AiasysTool):
                 prompt=prompt,
                 background=True,
                 write_allow_root=write_allow_root,
+                resource_lease_keys=resource_lease_keys,
             ):
                 task_results.append(result)
 

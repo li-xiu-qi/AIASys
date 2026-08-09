@@ -1,4 +1,4 @@
-"""Multi-agent team collaboration store (mission state layer).
+"""Multi-agent team collaboration store (mission state layer + resource lease table).
 
 # 移植自 step-code src/agent/team/store.ts（MIT, Copyright (c) 2026 stepfun-ai）
 # 变更：
@@ -6,6 +6,7 @@
 # - 状态落盘改为 asyncio 友好的原子写（tempfile + os.replace）
 # - scope 比对使用 os.path.realpath() + 路径分量前缀，避免符号链接与裸字符串误匹配
 # - merge 门的 git 相关门（门③ tip 校验、门⑤ diff 范围校验）改为产出物指纹比对
+# - 第三步新增：资源租约表（仅 notebook / kernel 独占，其余靠 scope 声明互斥）
 """
 
 from __future__ import annotations
@@ -36,8 +37,11 @@ class TeamMission:
     status: str = "planned"
     owner: str | None = None
     reviewed_commit: str | None = None
-    lease: dict[str, Any] | None = None
+    lease: dict[str, Any] | None = None  # 资源租约声明（规划期填写）
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    # 运行时持有的资源键列表（spawn 时填充，teardown 时清空）
+    # 持久化到 state.json 以支持审计与进程重启后恢复占用关系
+    resource_lease_keys: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -50,6 +54,9 @@ class TeamState:
     closed_at: str | None = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     missions: list[TeamMission] = field(default_factory=list)
+    # 运行时资源租约表：{normalized_lease_key -> {mission_id, resource_type, ...}}
+    # 持久化以支持进程重启后恢复占用关系
+    resource_leases: dict[str, Any] = field(default_factory=dict)
 
 
 class TeamError(Exception):
@@ -110,10 +117,7 @@ def _path_components(p: str) -> tuple[str, ...]:
 
 
 def _scope_covers_path(scope: str, file_path: str) -> bool:
-    """目录语义的前缀匹配：`src/data/` 覆盖 `src/data/x.ts`，不覆盖 `src/database/x.ts`。
-
-    使用路径分量比对，避免 `src/data` 误匹配 `src/database` 这类裸字符串前缀问题。
-    """
+    """目录语义的前缀匹配。"""
     scope_norm = _normalize_scope(scope)
     file_norm = _normalize_scope(file_path)
     if scope_norm == file_norm:
@@ -124,10 +128,7 @@ def _scope_covers_path(scope: str, file_path: str) -> bool:
 
 
 def _scopes_overlap(a: str, b: str) -> bool:
-    """两个 scope 是否冲突（目录语义下互为前缀即重叠）。
-
-    先用 os.path.realpath() 解析符号链接，避免符号链接绕过互斥检查。
-    """
+    """两个 scope 是否冲突（目录语义下互为前缀即重叠）。"""
     try:
         a_real = os.path.realpath(a) if os.path.exists(a) else os.path.normpath(a)
     except (OSError, ValueError):
@@ -154,8 +155,128 @@ def _resolve_real_path(path: str) -> str:
     try:
         return os.path.realpath(path)
     except (OSError, ValueError):
-        # 路径可能不存在，退化为规范形式
         return os.path.normpath(path)
+
+
+# ---------------------------------------------------------------------------
+# Resource Lease Helpers
+# ---------------------------------------------------------------------------
+
+_RESOURCE_LEASE_MAP: dict[str, dict[str, Any]] = {
+    # 工具名 → {resource_type, resource_id_arg, exclusive}
+    # 判断依据（写进注释，防止实现漂移）：
+    #
+    # notebook / kernel（exclusive）：
+    #   IPython 内核命名空间是会话级共享的，两个 worker 同时在一个内核里跑代码
+    #   会互相覆盖变量，这是 AIASys 特有的冲突热点，git worktree 之类的文件级
+    #   隔离完全管不住。设计文档 3.6 明确这是唯一需要独占租约的资源类型。
+    #
+    # dataset（非独占）：
+    #   SQLite WAL 模式支持并发 insert，insert 语义天然并发安全，无需独占锁。
+    #
+    # knowledge_graph（非独占）：
+    #   insert 语义，已有 GraphLock 保护，无需独占。
+    #
+    # knowledge_base（非独占）：
+    #   文档入库是 insert 语义，SQLite WAL 支持并发，无需独占。
+    #
+    # env_id（非独占）：
+    #   os.environ 修改是进程级的，hermes.py 有 __exit__ 还原机制，
+    #   并发下竞态待后续修复 hermes.py，此处仅登记不独占。
+    #
+    # canvas（无资源租约，靠路径守卫）：
+    #   文件操作，write_allow_root 路径守卫已足够。
+    "EditNotebookFile": {
+        "resource_type": "notebook",
+        "resource_id_arg": "notebook_path",
+        "exclusive": True,
+    },
+    "CreateSessionNotebook": {
+        "resource_type": "notebook",
+        "resource_id_arg": "notebook_path",
+        "exclusive": True,
+    },
+    "RunNotebook": {
+        "resource_type": "notebook",
+        "resource_id_arg": "notebook_path",
+        "exclusive": True,
+    },
+    "WriteCanvas": {
+        "resource_type": "canvas",
+        "resource_id_arg": "canvas_path",
+        "exclusive": False,
+    },
+    "CreateDataTable": {
+        "resource_type": "dataset",
+        "resource_id_arg": "table_id",
+        "exclusive": False,
+    },
+    "DeleteDataTableRecord": {
+        "resource_type": "dataset",
+        "resource_id_arg": "table_path",
+        "exclusive": False,
+    },
+    "InsertDataTableRecords": {
+        "resource_type": "dataset",
+        "resource_id_arg": "table_path",
+        "exclusive": False,
+    },
+    "UpdateDataTableRecord": {
+        "resource_type": "dataset",
+        "resource_id_arg": "table_path",
+        "exclusive": False,
+    },
+    "CreateKnowledgeGraph": {
+        "resource_type": "knowledge_graph",
+        "resource_id_arg": "graph_id",
+        "exclusive": False,
+    },
+    "DeleteKnowledgeGraph": {
+        "resource_type": "knowledge_graph",
+        "resource_id_arg": "graph_id",
+        "exclusive": False,
+    },
+    "CreateGraphEntity": {
+        "resource_type": "knowledge_graph",
+        "resource_id_arg": "base_id",
+        "exclusive": False,
+    },
+    "DeleteGraphEntity": {
+        "resource_type": "knowledge_graph",
+        "resource_id_arg": "base_id",
+        "exclusive": False,
+    },
+    "CreateGraphRelation": {
+        "resource_type": "knowledge_graph",
+        "resource_id_arg": "base_id",
+        "exclusive": False,
+    },
+    "CreateKnowledgeBase": {
+        "resource_type": "knowledge_base",
+        "resource_id_arg": "name",
+        "exclusive": False,
+    },
+    "DeleteDocumentsFromKnowledgeBase": {
+        "resource_type": "knowledge_base",
+        "resource_id_arg": "knowledge_base_id",
+        "exclusive": False,
+    },
+    "DeleteKnowledgeBase": {
+        "resource_type": "knowledge_base",
+        "resource_id_arg": "knowledge_base_id",
+        "exclusive": False,
+    },
+    "DeleteEnvVar": {"resource_type": "env_id", "resource_id_arg": "name", "exclusive": False},
+}
+
+
+def _normalize_lease_key(resource_type: str, resource_id: str) -> str:
+    """生成规范化的租约键：`{resource_type}:{normalized_resource_id}`。"""
+    return f"{resource_type}:{_normalize_scope(str(resource_id))}"
+
+
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -164,32 +285,31 @@ def _resolve_real_path(path: str) -> str:
 
 
 class TeamStore:
-    """Mission 状态层：六态状态机 + 依赖硬化门控 + scope 互斥检查 + 原子写落盘。"""
+    """Mission 状态层：六态状态机 + 依赖硬化门控 + scope 互斥检查 + 资源租约表 + 原子写落盘。"""
 
     def __init__(self, state_dir: str) -> None:
-        """
-        Args:
-            state_dir: 团队状态目录（存放 state.json）。
-        """
         self._state_dir = Path(state_dir).resolve()
         self._state_file = self._state_dir / "state.json"
         # 并发安全：asyncio.Lock 保护 load-modify-save 循环。
-        # 理由：AIASys 是 asyncio 架构，同一进程内多个 worker 可能并发访问 store。
-        # asyncio.Lock 在单进程内有效，且不引入跨进程开销。
-        # 若未来部署为多进程，可升级为 filelock（本项目已有 filelock 依赖）。
         self._lock = asyncio.Lock()
+        # 运行时资源租约表（内存中）：{normalized_lease_key -> {mission_id, ...}}
+        # 与 state.json 中的 resource_leases 字段保持同步（写操作通过 _save 持久化）。
+        self._runtime_lease_table: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # Persistence（原子写 + 并发安全）
     # ------------------------------------------------------------------
 
     async def _load(self) -> TeamState:
-        """从磁盘加载状态。"""
+        """从磁盘加载状态，同时恢复运行时租约表。"""
         try:
             raw = await asyncio.to_thread(self._state_file.read_text, encoding="utf-8")
         except FileNotFoundError as exc:
             raise TeamError("team 尚未初始化——先运行 team_init。") from exc
-        data = json.loads(raw)
+        data: dict[str, Any] = json.loads(raw)
+        # 恢复运行时租约表，并同步到 TeamState（让 state.resource_leases 反映内存表）
+        self._runtime_lease_table = {k: v for k, v in data.pop("resource_leases", {}).items()}
+        data["resource_leases"] = dict(self._runtime_lease_table)
         # 反序列化：把 dict 转回 dataclass
         if "missions" in data and isinstance(data["missions"], list):
             data["missions"] = [
@@ -198,18 +318,18 @@ class TeamStore:
         return TeamState(**data)
 
     async def _save(self, state: TeamState) -> None:
-        """原子写：先写临时文件，再 os.replace，避免写一半崩溃损坏状态。"""
+        """原子写：先写临时文件，再 os.replace。"""
         self._state_dir.mkdir(parents=True, exist_ok=True)
         tmp_fd, tmp_path = tempfile.mkstemp(
             dir=str(self._state_dir), suffix=".tmp", prefix=".state-"
         )
         try:
+            # 将运行时租约表嵌入 state 以便持久化
+            state.resource_leases = dict(self._runtime_lease_table)
             with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
                 json.dump(state, f, ensure_ascii=False, indent=2, default=_dataclass_default)
-            # 原子替换（同一文件系统内）
             os.replace(tmp_path, str(self._state_file))
         except BaseException:
-            # 清理临时文件（如果还在）
             try:
                 os.unlink(tmp_path)
             except OSError:
@@ -235,7 +355,6 @@ class TeamStore:
         async with self._lock:
             if self._state_file.exists():
                 state = await self._load()
-                # 重进已关闭的团队：清掉关闭标记，状态全部保留
                 if state.closed_at is not None:
                     state.closed_at = None
                     await self._save(state)
@@ -253,28 +372,19 @@ class TeamStore:
     # ------------------------------------------------------------------
 
     async def plan(self, missions: list[TeamMission]) -> list[TeamMission]:
-        """登记一批任务。
-
-        1. deps 必须引用已存在的任务 id（本批次或之前批次）。
-        2. build 类的 scope 必须两两不重叠；survey 允许 scope 为空。
-        3. 路径比对前用 os.path.realpath() 规范化，并按路径分量比对前缀。
-        """
+        """登记一批任务。"""
         async with self._lock:
             state = await self._load()
             existing_ids = {m.id for m in state.missions}
 
-            # 先校验 deps 与 scope 重叠
             new_missions: list[TeamMission] = []
             for idx, m in enumerate(missions):
-                # 分配 id（M1, M2, ...）
                 m.id = f"M{len(state.missions) + idx + 1}"
 
-                # deps 校验：引用必须存在
                 for dep in m.deps:
                     if dep not in existing_ids and dep not in {n.id for n in new_missions}:
                         raise TeamError(f"任务 {m.id} 依赖了不存在的任务「{dep}」。")
 
-                # scope 互斥：仅 build 类检查
                 if m.kind == "build":
                     candidates = [
                         (other.id, other.scope)
@@ -310,7 +420,6 @@ class TeamStore:
 
             _assert_valid_transition(mission, new_status)
 
-            # 切到 active 前的依赖硬化门控（移植自 step-code spawn 门）
             if new_status == "active":
                 unmerged = [
                     dep
@@ -338,36 +447,18 @@ class TeamStore:
         reviewed_commit: str | None = None,
         artifacts: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
-        """收编任务（六道门检查）。
-
-        门〇（空产出检查）：任务声明的产出物落点无任何新增文件/记录即拒绝。
-        门①（已审阅）：调用方传入 reviewed_commit 即声明已审且干净。
-        门②（审阅结论干净）：调用方责任（本步只做纯逻辑判断，不做 git 操作）。
-        门③（tip 未移动）：AIASys 无 commit，改为产出物指纹比对（path + size + mtime + content hash）。
-        门④（依赖已收编）：遍历 deps 检查 status == merged。
-        门⑤（无范围外产出）：逐产出物比对 lease，含文件、数据表等。
-
-        Args:
-            mission_id: 要收编的任务 id。
-            reviewed_commit: 审阅时的产出物指纹（字符串，本步不做格式强求，按字符串比对）。
-            artifacts: 产出物清单（本步预留，用于门③指纹比对）。
-
-        Returns:
-            {"conflictsWith": [...], "kept": bool}
-        """
+        """收编任务（六道门检查）。"""
         async with self._lock:
             state = await self._load()
             mission = next((m for m in state.missions if m.id == mission_id), None)
             if mission is None:
                 raise TeamError(f"任务 {mission_id} 不存在。")
 
-            # 先过状态门
             if mission.status != "completed":
                 raise TeamError(
                     f"任务 {mission.id} 状态是 {mission.status}，只有 completed 才能合并。"
                 )
 
-            # 门④：依赖已收编（直接搬）
             unmerged = [
                 dep
                 for dep in mission.deps
@@ -377,23 +468,15 @@ class TeamStore:
             if unmerged:
                 raise TeamError(f"门④：依赖 {unmerged} 尚未合并。")
 
-            # 门①：已审阅（直接搬）
             if reviewed_commit is None:
                 raise TeamError("门①：未传入 reviewed_commit，请先审阅。")
 
-            # 门②：审阅结论干净（调用方责任，本步只做纯逻辑占位）
-            # 本步不做实际 git 操作，门② 的干净性由调用方保证。
-
-            # 门〇：空产出检查（从 step-code 移植，放在门③之前）
-            # 如果 artifacts 存在且为空列表，说明 worker 没有产出任何东西。
             if artifacts is not None and len(artifacts) == 0:
                 raise TeamError(
                     f"门〇：任务 {mission.id} 没有任何产出物落点。"
                     " 可能原因：① worker 忘了保存产出；② worker 提交到了错误的位置。"
                 )
 
-            # 门③：tip 未移动 → 产出物指纹比对
-            # AIASys 无 commit，用 artifacts 的指纹列表比对 reviewed_commit。
             if artifacts is not None:
                 current_fp = _compute_artifacts_fingerprint(artifacts)
                 if current_fp != reviewed_commit:
@@ -401,7 +484,6 @@ class TeamStore:
                         f"门③：产出物指纹已变更（审阅时 {reviewed_commit[:12]}，现在 {current_fp[:12]}）——请重新审阅。"
                     )
 
-            # 门⑤：无范围外产出 → 逐产出物比对 lease
             if artifacts is not None and mission.lease is not None:
                 allowed_files = _normalize_lease_files(mission.lease)
                 for art in artifacts:
@@ -411,13 +493,11 @@ class TeamStore:
                             f"门⑤：产出物 {art_path} 超出任务 lease 范围 {allowed_files}。"
                         )
 
-            # 全部通过 → 状态迁移
             _assert_valid_transition(mission, "merged")
             mission.status = "merged"
             mission.reviewed_commit = reviewed_commit
             await self._save(state)
 
-            # 波及检测：其他未 merged 的 build 任务，scope 与本次产出物重叠的列出来
             conflicts_with = _find_scope_conflicts(state.missions, mission, artifacts)
             return {"conflictsWith": conflicts_with, "kept": False}
 
@@ -426,10 +506,7 @@ class TeamStore:
     # ------------------------------------------------------------------
 
     async def inbox(self, name: str, limit: int = 20) -> list[dict[str, str]]:
-        """读取团队信箱，newest-first。
-
-        name 为 'team' 时返回全部；否则只返回 to=name 或 to=all 的消息。
-        """
+        """读取团队信箱，newest-first。"""
         inbox_dir = self._state_dir / "comms" / "inbox"
         messages: list[dict[str, str]] = []
         try:
@@ -479,39 +556,398 @@ class TeamStore:
         return messages
 
     # ------------------------------------------------------------------
-    # Teardown（收尾关闭）
+    # Teardown（收尾关闭 + 释放所有资源租约）
     # ------------------------------------------------------------------
 
     async def teardown(self, force: bool = False) -> dict[str, list[str]]:
-        """收尾：标记关闭 + 清理工作间。
-
-        force=False 时保留 dirty 工作间；force=True 时强制清理。
-        状态目录与日志永久保留（可审计）。
-        幂等：已关闭的团队直接返回空列表。
-        """
+        """收尾：标记关闭 + 清理工作间 + 释放所有资源租约。"""
         async with self._lock:
-            # 防重复 teardown
+            # 释放所有活跃租约
+            state = await self._load()
+            for mission in state.missions:
+                self._release_all_mission_leases_in_state(state, mission.id)
+
             if self._state_file.exists():
-                state = await self._load()
                 if state.closed_at is not None:
+                    state.resource_leases = {}
+                    self._runtime_lease_table.clear()
+                    await self._save(state)
                     return {"removed": [], "kept": []}
 
-            # 先标记关闭（防止中途出错后 resume 复活）
             try:
                 state = await self._load()
                 state.closed_at = _iso_now()
+                state.resource_leases = {}
+                self._runtime_lease_table.clear()
                 await self._save(state)
             except TeamError:
                 pass
 
             removed: list[str] = []
             kept: list[str] = []
-
-            # AIASys 无 worktree 概念，但为接口兼容保留签名
-            # 如有任务目录需要清理，在此处扩展
-            # 当前仅返回空结果（设计文档明确不做 worktree）
-
             return {"removed": removed, "kept": kept}
+
+    # ------------------------------------------------------------------
+    # Resource Lease Table（运行时资源租约）
+    # ------------------------------------------------------------------
+    #
+    # 设计依据（设计文档 3.6）：
+    # 资源租约收窄为「仅 notebook / kernel 需要独占租约」。
+    # 理由：IPython 内核命名空间是会话级共享的，两个 worker 同时在一个内核
+    # 里跑代码会互相覆盖变量，这是 AIASys 特有的冲突热点。
+    #
+    # 其余资源（数据表 insert 语义、知识图谱 insert 语义、环境变量进程级恢复）
+    # 靠 scope 声明互斥即可，不做重量级独占锁。
+
+    async def acquire_resource_lease(
+        self,
+        mission_id: str,
+        resource_type: str,
+        resource_id: str,
+        lease_key: str,
+        exclusive: bool = True,
+    ) -> None:
+        """申请资源租约（运行时执行期调用）。
+
+        Args:
+            mission_id: 申请资源的 mission id。
+            resource_type: 资源类型（notebook / dataset 等）。
+            resource_id: 资源业务 ID。
+            lease_key: 规范化的租约键（用于工具层快速比对）。
+            exclusive: 是否独占。True 时资源被其他 mission 持有则拒绝；
+               False 时仅登记不检测冲突（非独占资源靠 scope 声明互斥）。
+
+        Raises:
+            TeamError: exclusive=True 且资源被别的 mission 持有时抛出。
+        """
+        async with self._lock:
+            state = await self._load()
+            norm_key = _normalize_lease_key(resource_type, resource_id)
+            existing = self._runtime_lease_table.get(norm_key)
+            if exclusive and existing is not None and existing.get("mission_id") != mission_id:
+                holder = existing.get("mission_id", "?")
+                raise TeamError(
+                    f"资源租约冲突：资源「{resource_type}:{resource_id}」"
+                    f"当前被 mission「{holder}」持有，"
+                    f"mission「{mission_id}」无法申请。"
+                )
+            entry = {
+                "mission_id": mission_id,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "lease_key": lease_key,
+                "acquired_at": _iso_now(),
+                "exclusive": exclusive,
+            }
+            self._runtime_lease_table[norm_key] = entry
+            state.resource_leases[norm_key] = entry
+            await self._save(state)
+
+    async def release_resource_lease(
+        self,
+        mission_id: str,
+        resource_type: str,
+        resource_id: str,
+    ) -> None:
+        """释放资源租约。"""
+        async with self._lock:
+            state = await self._load()
+            norm_key = _normalize_lease_key(resource_type, resource_id)
+            existing = self._runtime_lease_table.get(norm_key)
+            if existing is not None and existing.get("mission_id") == mission_id:
+                del self._runtime_lease_table[norm_key]
+                state.resource_leases.pop(norm_key, None)
+                await self._save(state)
+
+    async def release_all_mission_leases(self, mission_id: str) -> None:
+        """释放某 mission 持有的全部资源租约（teardown / 异常退出时调用）。"""
+        async with self._lock:
+            state = await self._load()
+            self._release_all_mission_leases_in_state(state, mission_id)
+            await self._save(state)
+
+    def _release_all_mission_leases_in_state(self, state: "TeamState", mission_id: str) -> None:
+        """在给定 state 对象上删除属于 mission_id 的全部租约（不 save）。"""
+        keys_to_delete = [
+            key
+            for key, entry in self._runtime_lease_table.items()
+            if entry.get("mission_id") == mission_id
+        ]
+        for key in keys_to_delete:
+            del self._runtime_lease_table[key]
+            state.resource_leases.pop(key, None)
+
+    def get_lease_holder(self, resource_type: str, resource_id: str) -> str | None:
+        """查询资源当前持有者 mission_id，无人持有时返回 None。
+
+        只读取内存中的运行时表，进程重启后需先 load()。
+        """
+        norm_key = _normalize_lease_key(resource_type, resource_id)
+        return self._runtime_lease_table.get(norm_key, {}).get("mission_id")
+
+    async def resolve_mission_resource_leases(self, mission: TeamMission) -> list[str]:
+        """将 mission 的 lease 声明解析为运行时租约键列表，并校验冲突。
+
+        对声明为独占的资源（notebook / kernel）做运行时冲突检测。
+
+        Returns:
+            本 mission 成功申请的 lease_key 列表。
+
+        Raises:
+            TeamError: 独占资源被其他 mission 持有时抛出。
+        """
+        lease_keys: list[str] = []
+        if not mission.lease:
+            return lease_keys
+
+        for resource_type, resource_ids in mission.lease.items():
+            if not isinstance(resource_ids, list):
+                continue
+            for resource_id in resource_ids:
+                resource_id = str(resource_id).strip()
+                if not resource_id:
+                    continue
+                lease_key = _normalize_lease_key(resource_type, resource_id)
+                # 从 _RESOURCE_LEASE_MAP 查该资源类型的 exclusive 标记
+                # 找不到映射时默认 True（安全保守）
+                is_exclusive = True
+                for _tool_cfg in _RESOURCE_LEASE_MAP.values():
+                    if _tool_cfg.get("resource_type") == resource_type:
+                        is_exclusive = _tool_cfg.get("exclusive", True)
+                        break
+                try:
+                    await self.acquire_resource_lease(
+                        mission_id=mission.id,
+                        resource_type=resource_type,
+                        resource_id=resource_id,
+                        lease_key=lease_key,
+                        exclusive=is_exclusive,
+                    )
+                    lease_keys.append(lease_key)
+                except TeamError:
+                    raise
+        return lease_keys
+
+    async def get_mission_lease_keys(self, mission_id: str) -> list[str]:
+        """获取某 mission 当前持有的全部 lease_key。"""
+        async with self._lock:
+            state = await self._load()
+            return [
+                entry["lease_key"]
+                for entry in state.resource_leases.values()
+                if entry.get("mission_id") == mission_id
+            ]
+
+
+# ---------------------------------------------------------------------------
+# Workspace Memory Sharding
+# ---------------------------------------------------------------------------
+# 设计依据：workspace_memory.md 全文覆盖写，多 agent 并行写会互相覆盖。
+# 方案：每个 mission 写自己的分片文件，合并由主控执行。
+
+
+def get_workspace_memory_shard_path(workspace_memory_dir: Path, mission_id: str) -> Path:
+    """返回 mission 专属的 workspace_memory 分片文件路径。
+
+    分片文件落在 {workspace_memory_dir}/shards/{mission_id}.md。
+    主文件为 {workspace_memory_dir}/workspace_memory.md。
+
+    Worker 只能写自己的分片，不能写其他 mission 的分片，也不能写主文件。
+    """
+    shards_dir = workspace_memory_dir / "shards"
+    return shards_dir / f"{mission_id}.md"
+
+
+def get_workspace_memory_main_path(workspace_memory_dir: Path) -> Path:
+    """返回 workspace_memory 主文件路径。"""
+    return workspace_memory_dir / "workspace_memory.md"
+
+
+def merge_workspace_memory_shards(
+    workspace_memory_dir: Path,
+    mission_ids: list[str] | None = None,
+) -> str:
+    """合并 mission 分片到主文件（仅主控调用）。
+
+    按分片文件最后修改时间排序，依次追加到主文件。
+    跳过空分片。
+
+    Args:
+        workspace_memory_dir: workspace_memory 目录（包含主文件 + shards/）。
+        mission_ids: 要合并的 mission id 列表；None 表示合并全部。
+
+    Returns:
+        合并后的主文件完整内容。
+    """
+    main_path = get_workspace_memory_main_path(workspace_memory_dir)
+    shards_dir = workspace_memory_dir / "shards"
+
+    # 读取现有主文件内容（如果存在）
+    existing_content = ""
+    if main_path.exists():
+        existing_content = main_path.read_text(encoding="utf-8")
+
+    # 收集分片内容
+    shard_files: list[tuple[float, str]] = []  # (mtime, content)
+    if shards_dir.exists():
+        entries = sorted(shards_dir.iterdir(), key=lambda p: p.stat().st_mtime)
+        for entry in entries:
+            if not entry.is_file() or not entry.name.endswith(".md"):
+                continue
+            if mission_ids is not None and entry.stem not in mission_ids:
+                continue
+            try:
+                content = entry.read_text(encoding="utf-8").strip()
+                if content:
+                    shard_files.append((entry.stat().st_mtime, content))
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    # 合并：主文件内容 + 各分片内容（分片间加分隔线）
+    parts = [existing_content.rstrip()] if existing_content.strip() else []
+    for _, content in shard_files:
+        parts.append(f"\n\n<!-- shard start -->\n{content}\n<!-- shard end -->")
+
+    merged = "\n".join(parts).strip() + "\n"
+    return merged
+
+
+# ---------------------------------------------------------------------------
+# Per-Agent Write Allow Root 守卫（第二步 + 第三步扩展）
+# ---------------------------------------------------------------------------
+
+# 写工具名 → 参数中表示目标文件路径的参数名（文件类工具）
+_WRITE_PATH_ARG: dict[str, str] = {
+    "WriteFile": "path",
+    "StrReplaceFile": "path",
+    "CreateFile": "path",
+    "EditNotebookFile": "notebook_path",
+    # Shell：命令级路径无法可靠提取，守卫激活时整工具拒绝（见下方逻辑）
+    "Shell": "__command__",
+}
+
+# 写工具名 → 参数中表示目标资源 ID 的参数名（非文件类资源工具）
+# 从 _RESOURCE_LEASE_MAP 自动派生，保证两处映射一致。
+_RESOURCE_LEASE_ARG: dict[str, str] = {
+    tool_name: cfg["resource_id_arg"]
+    for tool_name, cfg in _RESOURCE_LEASE_MAP.items()
+    if cfg.get("resource_id_arg")
+}
+
+
+def _resolve_path_for_guard(raw: str) -> str:
+    """将原始路径字符串规范化为绝对路径。"""
+    try:
+        return os.path.realpath(raw)
+    except (OSError, ValueError):
+        return os.path.abspath(raw)
+
+
+def _check_path_allowed(target: str, allow_roots: list[str], tool_name: str = "") -> str | None:
+    """检查路径是否在允许的根列表内。返回 None 表示放行。"""
+    resolved = _resolve_path_for_guard(target)
+    for root in allow_roots:
+        root_norm = _normalize_scope(root)
+        target_norm = _normalize_scope(resolved)
+        if root_norm == target_norm:
+            return None
+        root_slash = root_norm if root_norm.endswith("/") else root_norm + "/"
+        if target_norm.startswith(root_slash):
+            return None
+    tool_label = f"工具「{tool_name}」" if tool_name else ""
+    return (
+        f"写范围守卫硬拒绝：{tool_label}试图写入「{resolved}」，"
+        f"但当前 agent 仅允许写入以下范围：{allow_roots}。"
+    )
+
+
+def _check_lease_allowed(lease_key: str, allowed_leases: list[str]) -> str | None:
+    """检查资源租约键是否在允许列表中。返回 None 表示放行。"""
+    for allowed in allowed_leases:
+        allowed_norm = _normalize_scope(allowed)
+        lease_norm = _normalize_scope(lease_key)
+        if allowed_norm == lease_norm:
+            return None
+        allowed_slash = allowed_norm if allowed_norm.endswith("/") else allowed_norm + "/"
+        if lease_norm.startswith(allowed_slash):
+            return None
+    return (
+        f"资源租约守卫拒绝：工具试图操作资源「{lease_key}」，"
+        f"但当前 mission 的租约列表为：{allowed_leases}。"
+    )
+
+
+def check_write_guard(
+    write_allow_root: list[str] | None,
+    tool_name: str,
+    arguments: dict[str, Any],
+    resource_lease_keys: list[str] | None = None,
+) -> str | None:
+    """检查写操作是否被允许（第二步：路径守卫 + 第三步：资源租约守卫）。
+
+    执行两层检查，任一不通过即拒绝：
+
+    1. **路径守卫**（file-based 工具）：目标路径必须在 write_allow_root 内。
+    2. **资源租约守卫**（non-file 工具）：资源的 lease_key 必须在
+       resource_lease_keys 内。
+
+    Args:
+        write_allow_root: 允许写入的绝对路径前缀列表；None 表示不限制。
+        tool_name: 被调用的工具名称。
+        arguments: 工具参数（已解析为 dict）。
+        resource_lease_keys: 本 mission 持有的资源租约键列表；None 表示不限制。
+
+    Returns:
+        错误消息字符串表示被拒绝；None 表示允许。
+    """
+    # 无任何限制配置 → 直接放行
+    if not write_allow_root and not resource_lease_keys:
+        return None
+
+    # --- 第二步扩展：资源租约检查（非文件资源）---
+    lease_arg = _RESOURCE_LEASE_ARG.get(tool_name)
+    if lease_arg is not None and resource_lease_keys:
+        raw_resource_id = arguments.get(lease_arg)
+        if raw_resource_id and str(raw_resource_id).strip():
+            lease_cfg = _RESOURCE_LEASE_MAP.get(tool_name, {})
+            resource_type = lease_cfg.get("resource_type", "")
+            lease_key_full = _normalize_lease_key(resource_type, str(raw_resource_id).strip())
+            lease_denial = _check_lease_allowed(lease_key_full, resource_lease_keys)
+            if lease_denial:
+                return lease_denial
+
+    # --- 第一步：文件路径检查（保留原有逻辑）---
+    # write_allow_root=None 表示不限制路径（非 team 场景），跳过路径检查
+    if write_allow_root is not None:
+        path_arg = _WRITE_PATH_ARG.get(tool_name)
+        if path_arg is None:
+            # 工具既不在路径映射也不在资源租约映射 → 未注册工具，保守拒绝
+            if tool_name not in _RESOURCE_LEASE_ARG:
+                return (
+                    f"写范围守卫：工具「{tool_name}」的写路径参数未注册，"
+                    f"无法校验写入范围。请向 _WRITE_PATH_ARG 注册该工具。"
+                )
+            # 工具在资源租约映射中（如 CreateDataTable），跳过路径检查
+            # 资源租约检查在上方已完成
+            return None
+
+        # Shell 工具：无法可靠提取命令级目标路径
+        if path_arg == "__command__":
+            return (
+                "写范围守卫：Shell 工具的命令级路径无法应用范围守卫（已知缺口）。"
+                "请使用专用的文件工具（WriteFile / StrReplaceFile / CreateFile）"
+                "在允许范围内执行写操作，或让主控代理执行跨范围写。"
+            )
+
+        raw_path = arguments.get(path_arg)
+        if not raw_path or not str(raw_path).strip():
+            return f"写范围守卫：工具「{tool_name}」缺少目标路径参数「{path_arg}」。"
+
+        path_denial = _check_path_allowed(str(raw_path).strip(), write_allow_root, tool_name)
+        if path_denial:
+            return path_denial
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -524,10 +960,6 @@ def _dataclass_default(obj: Any) -> Any:
     if hasattr(obj, "__dataclass_fields__"):
         return obj.__dict__
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 def _normalize_lease_files(lease: dict[str, Any]) -> list[str]:
@@ -548,11 +980,7 @@ def _is_path_allowed(path: str, allowed_prefixes: list[str]) -> bool:
 
 
 def _compute_artifacts_fingerprint(artifacts: list[dict[str, Any]]) -> str:
-    """计算产出物清单的指纹（简化版：按 path 排序后拼接）。
-
-    完整实现应包含 content hash / size / mtime，但本步只做纯逻辑判断，
-    具体指纹算法由调用方保证，此处做稳定排序即可。
-    """
+    """计算产出物清单的指纹。"""
     sorted_arts = sorted(artifacts, key=lambda a: a.get("path", ""))
     parts = []
     for art in sorted_arts:
@@ -577,89 +1005,3 @@ def _find_scope_conflicts(
         and m.id != merged.id
         and any(_scope_covers_path(s, p) for s in merged.scope for p in changed_paths if p)
     ]
-
-
-# ---------------------------------------------------------------------------
-# Per-Agent Write Allow Root 守卫
-# ---------------------------------------------------------------------------
-# 已知缺口（不在此步修复，代码注释中标注）：
-# 1. Shell 工具：worker 可 `cd` 到别处再写文件，路径校验管不住命令级路径。
-#    Windows 上无 Landlock/Seatbelt 等价物，应用层守卫是当前唯一可行方案。
-# 2. 部分写工具（Canvas、DataTable、GraphRAG、KnowledgeBase 等）尚未标注
-#    write_path_arg，这些工具的写操作在守卫启用时会被拒绝（fail-closed）。
-
-# 写工具名 → 参数中表示目标文件路径的参数名
-_WRITE_PATH_ARG: dict[str, str] = {
-    "WriteFile": "path",
-    "StrReplaceFile": "path",
-    "CreateFile": "path",
-    # Shell：命令级路径无法可靠提取，守卫激活时整工具拒绝（见下方逻辑）
-    "Shell": "__command__",
-}
-
-
-def _resolve_path_for_guard(raw: str) -> str:
-    """将原始路径字符串规范化为绝对路径（符号链接解析 + 不存在时用 abspath 回退）。"""
-    try:
-        return os.path.realpath(raw)
-    except (OSError, ValueError):
-        return os.path.abspath(raw)
-
-
-def check_write_guard(
-    write_allow_root: list[str] | None,
-    tool_name: str,
-    arguments: dict[str, Any],
-) -> str | None:
-    """检查写操作是否被允许。
-
-    Args:
-        write_allow_root: 允许写入的绝对路径前缀列表；None 表示不限制。
-            调用方应保证列表中的路径是已规范化的绝对路径。
-        tool_name: 被调用的工具名称。
-        arguments: 工具参数（已解析为 dict）。
-
-    Returns:
-        错误消息字符串表示被拒绝；None 表示允许。
-    """
-    # 无限制配置 → 直接放行
-    if not write_allow_root:
-        return None
-
-    path_arg = _WRITE_PATH_ARG.get(tool_name)
-    if path_arg is None:
-        # 工具未在映射中：保守拒绝（fail-closed）
-        return (
-            f"写范围守卫：工具「{tool_name}」的写路径参数未注册，"
-            f"无法校验写入范围。请向 _WRITE_PATH_ARG 注册该工具。"
-        )
-
-    # Shell 工具：无法可靠提取命令级目标路径 → 整工具拒绝
-    if path_arg == "__command__":
-        return (
-            "写范围守卫：Shell 工具的命令级路径无法应用范围守卫（已知缺口）。"
-            "请使用专用的文件工具（WriteFile / StrReplaceFile / CreateFile）"
-            "在允许范围内执行写操作，或让主控代理执行跨范围写。"
-        )
-
-    raw_path = arguments.get(path_arg)
-    if not raw_path or not str(raw_path).strip():
-        return f"写范围守卫：工具「{tool_name}」缺少目标路径参数「{path_arg}」。"
-
-    target = _resolve_path_for_guard(str(raw_path).strip())
-
-    for root in write_allow_root:
-        # 双方都做路径分量前缀比对，避免裸字符串误匹配
-        root_norm = _normalize_scope(root)
-        target_norm = _normalize_scope(target)
-        if root_norm == target_norm:
-            return None
-        root_slash = root_norm if root_norm.endswith("/") else root_norm + "/"
-        if target_norm.startswith(root_slash):
-            return None
-
-    return (
-        f"写范围守卫硬拒绝：工具「{tool_name}」试图写入「{target}」，"
-        f"但当前 agent 仅允许写入以下范围：{write_allow_root}。"
-        "请检查任务 scope 设置，或让主控代理重新规划任务范围。"
-    )

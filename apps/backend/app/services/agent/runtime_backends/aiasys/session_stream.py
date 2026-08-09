@@ -506,7 +506,8 @@ class SessionStreamMixin:
 
         # Per-Agent Write Allow Root 守卫：在工具执行前校验目标路径
         write_allow_root = item_ctx.get("write_allow_root")
-        if write_allow_root:
+        resource_lease_keys = item_ctx.get("resource_lease_keys")
+        if write_allow_root or resource_lease_keys:
             tool_name = item["function"]["name"]
             arguments = item.get("arguments") or {}
             if isinstance(arguments, str):
@@ -514,7 +515,7 @@ class SessionStreamMixin:
                     arguments = json.loads(arguments)
                 except (json.JSONDecodeError, TypeError):
                     arguments = {}
-            denial = check_write_guard(write_allow_root, tool_name, arguments)
+            denial = check_write_guard(write_allow_root, tool_name, arguments, resource_lease_keys)
             if denial:
                 tool_result = ToolResult(content=denial, is_error=True)
                 yield AgentRuntimeEvent(

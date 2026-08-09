@@ -1,7 +1,7 @@
 """Multi-agent team collaboration tools (step 2: tool layer).
 
 Seven tools: team_init / team_plan / team_status / team_send / team_inbox / team_merge / team_teardown
-Explicitly NOT implementing team_spawn (requires background spawn infrastructure, next step).
+Step 3 adds: team_spawn (background subagent spawn with fail-closed write guard).
 
 移植自 step-code src/agent/team/store.ts（MIT, Copyright (c) 2026 stepfun-ai）
 参考 kimi-code tower 实现（tpoisonooo/feat-cowork 分支）
@@ -859,6 +859,229 @@ class TeamTeardownTool(AiasysTool):
 
 
 # ---------------------------------------------------------------------------
+# Feature flag: write guard readiness
+# ---------------------------------------------------------------------------
+
+# 写范围守卫（Per-Agent Write Allow Root）尚未实现。
+# 在此 flag 为 False 时，team_spawn 拒绝派生 kind=="build" 的任务，
+# 只允许派生 kind=="survey" 的只读任务。
+# 下一步实现写范围守卫后，将此常量改为 True 即可开放 build 派生。
+TEAM_SPAWN_WRITE_GUARD_READY: bool = False
+
+
+# ---------------------------------------------------------------------------
+# team_spawn
+# ---------------------------------------------------------------------------
+
+
+class TeamSpawnTool(AiasysTool):
+    """派生子 Agent 执行团队任务（后台模式）。
+
+    工作流程：
+    1. 校验调用方是主控（depth==0）。
+    2. 校验 mission 存在且依赖全部 merged（走 store 门控）。
+    3. 写范围守卫检查：守卫未就绪时拒绝 build 类任务。
+    4. 调用 TaskTool(background=True) 派生子 Agent。
+    5. 将 mission 切到 active，owner 设为 task_id。
+
+    仅主控可调用。
+    risk_level=high：派生子 Agent 属于高影响操作，可能触发 LLM API 调用和文件写入。
+    effect_scope=workspace：子 Agent 在团队工作区内执行。
+    side_effect=True：会改变 mission 状态、创建子 Agent 会话。
+    dangerous=False：不直接删除数据（但派生 build 任务可写文件，需守卫控制）。
+    """
+
+    name = "team_spawn"
+    description = (
+        "派生子 Agent 执行团队任务（后台模式，立即返回 task_id）。"
+        "系统强制检查：依赖未全部 merged 时拒绝启动。"
+        "写范围守卫未就绪时仅允许 survey 类任务。"
+        "参数: mission_id(任务id), prompt(给子Agent的完整指令), subagent_type(子Agent类型, 可选, 默认coder)。"
+        "返回: task_id（用于后续查询状态）。仅主控可调用。"
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "mission_id": {
+                "type": "string",
+                "description": "要执行的任务 id（如 M1）。",
+            },
+            "prompt": {
+                "type": "string",
+                "description": "给子 Agent 的完整任务指令。",
+            },
+            "subagent_type": {
+                "type": "string",
+                "description": "子 Agent 类型（如 coder, researcher, reviewer）。省略时默认 coder。",
+            },
+        },
+        "required": ["mission_id", "prompt"],
+    }
+    risk_level = "high"
+    effect_scope = "workspace"
+    side_effect = True
+    dangerous = False
+
+    async def invoke(
+        self,
+        ctx: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> ToolResult:
+        ctx = ctx or {}
+        if err := _require_controller(ctx):
+            return _make_tool_result(err, is_error=True)
+
+        mission_id = str(kwargs.get("mission_id") or "").strip()
+        prompt = str(kwargs.get("prompt") or "").strip()
+        subagent_type = str(kwargs.get("subagent_type") or "").strip() or "coder"
+
+        if not mission_id:
+            return _make_tool_result("mission_id 不能为空。", is_error=True)
+        if not prompt:
+            return _make_tool_result("prompt 不能为空。", is_error=True)
+
+        state_dir = _resolve_team_state_dir(ctx)
+        store = await _get_store(state_dir)
+
+        # 1. 加载状态，查找 mission
+        try:
+            state = await store.load()
+        except TeamError as exc:
+            return _make_tool_result(f"team_spawn 失败: {exc}", is_error=True)
+
+        mission = next((m for m in state.missions if m.id == mission_id), None)
+        if mission is None:
+            return _make_tool_result(f"任务 {mission_id} 不存在。", is_error=True)
+
+        # 2. 写范围守卫检查（fail-closed）
+        # 守卫未就绪时，拒绝派生 build 类任务（写类任务）。
+        # 只允许派生 survey 类任务（只读调查）。
+        if mission.kind == "build" and not TEAM_SPAWN_WRITE_GUARD_READY:
+            return _make_tool_result(
+                "team_spawn 被拒绝：写范围守卫（Per-Agent Write Allow Root）尚未就绪，"
+                "无法安全派生 build 类任务（可能写任意路径）。"
+                "请先实现写范围守卫，然后将 TEAM_SPAWN_WRITE_GUARD_READY 设为 True。"
+                "当前仅允许派生 survey 类（只读）任务。",
+                is_error=True,
+            )
+
+        # 3. 依赖门控：依赖未全部 merged 拒绝启动
+        # （store.set_status("active") 内部已实现该门控，这里直接调用）
+        try:
+            updated_mission = await store.set_status(mission_id, "active")
+        except TeamError as exc:
+            return _make_tool_result(f"team_spawn 被拒绝: {exc}", is_error=True)
+        except Exception as exc:
+            logger.exception("team_spawn set_status 未预期错误")
+            return _make_tool_result(f"team_spawn 失败: {exc}", is_error=True)
+
+        # 4. 调用 TaskTool(background=True) 派生子 Agent
+        try:
+            from app.services.agent.runtime_backends.aiasys.tools.task_tool import TaskTool
+
+            task_tool = TaskTool()
+            # 构建子 Agent 所需的 ctx（继承当前 ctx 的关键字段）
+            spawn_ctx = {
+                "user_id": ctx.get("user_id"),
+                "session_id": ctx.get("session_id"),
+                "host_session_id": ctx.get("session_id"),
+                "workspace": ctx.get("workspace"),
+                "session_root": ctx.get("session_root"),
+                "agent_path": ctx.get("agent_path", "/root"),
+                "agent_config": ctx.get("agent_config") or {},
+                "llm_config": ctx.get("llm_config"),
+                "parent_registry": ctx.get("parent_registry"),
+                "authorization_mode": ctx.get("authorization_mode") or "smart",
+                "yolo": ctx.get("yolo", False),
+                "mcp_configs": ctx.get("mcp_configs"),
+                "collaboration_policy": ctx.get("collaboration_policy"),
+                "budget": ctx.get("budget"),
+                "messages": ctx.get("messages") or [],
+            }
+            # 只保留非 None 值
+            spawn_ctx = {k: v for k, v in spawn_ctx.items() if v is not None}
+
+            task_results: list[ToolResult] = []
+            async for result in task_tool.invoke_stream(
+                spawn_ctx,
+                subagent_name=subagent_type,
+                description=f"Team task {mission_id}: {updated_mission.title}",
+                prompt=prompt,
+                background=True,
+            ):
+                task_results.append(result)
+
+            if not task_results:
+                return _make_tool_result(
+                    "team_spawn 失败: TaskTool 未返回结果。",
+                    is_error=True,
+                )
+
+            first_result = task_results[0]
+            if first_result.is_error:
+                # 派生失败，回滚 mission 状态
+                try:
+                    await store.set_status(mission_id, "planned")
+                except Exception:
+                    pass
+                return _make_tool_result(
+                    f"team_spawn 失败: {first_result.content}",
+                    is_error=True,
+                )
+
+            # 从 artifacts 中提取 task_id
+            task_id = None
+            if first_result.artifacts:
+                for artifact in first_result.artifacts:
+                    if isinstance(artifact, dict) and "task_id" in artifact:
+                        task_id = artifact["task_id"]
+                        break
+
+            if not task_id:
+                # fallback: 从 content 解析
+                import re
+
+                match = re.search(r"task_id:\s*(\S+)", first_result.content or "")
+                task_id = match.group(1) if match else None
+
+            if not task_id:
+                return _make_tool_result(
+                    "team_spawn 失败: 未能获取 task_id。",
+                    is_error=True,
+                )
+
+            # 5. 更新 mission owner
+            async with store._lock:
+                state = await store._load()
+                m = next((m for m in state.missions if m.id == mission_id), None)
+                if m is not None:
+                    m.owner = task_id
+                    await store._save(state)
+
+            return _make_tool_result(
+                f"任务 {mission_id} 已在后台启动。\n"
+                f"- task_id: {task_id}\n"
+                f"- subagent_type: {subagent_type}\n"
+                f"- 状态: active\n"
+                f"- 提示: 使用 team_status(mission_id='{mission_id}') 查询进度"
+            )
+
+        except ImportError as exc:
+            return _make_tool_result(
+                f"team_spawn 失败: 无法加载 TaskTool: {exc}",
+                is_error=True,
+            )
+        except Exception as exc:
+            logger.exception("team_spawn 未预期错误")
+            # 回滚 mission 状态
+            try:
+                await store.set_status(mission_id, "planned")
+            except Exception:
+                pass
+            return _make_tool_result(f"team_spawn 失败: {exc}", is_error=True)
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -870,6 +1093,7 @@ ALL_TOOLS: list[type[AiasysTool]] = [
     TeamInboxTool,
     TeamMergeTool,
     TeamTeardownTool,
+    TeamSpawnTool,
 ]
 
 TOOL_CLASSES: dict[str, type[AiasysTool]] = {cls.name: cls for cls in ALL_TOOLS}

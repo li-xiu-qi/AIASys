@@ -630,10 +630,10 @@ class TestWindowsFilenameSafety:
 
 class TestToolRegistration:
     def test_seven_tools_registered(self):
-        """验证七个工具都注册了。"""
+        """验证八个工具都注册了（含 team_spawn）。"""
         from app.services.agent.runtime_backends.aiasys.team.tools import ALL_TOOLS
 
-        assert len(ALL_TOOLS) == 7
+        assert len(ALL_TOOLS) == 8
 
     async def test_risk_levels_set(self):
         """验证每个工具的风险级别都正确设置。"""
@@ -645,6 +645,7 @@ class TestToolRegistration:
             "team_inbox": ("readonly", "workspace", False, False),
             "team_merge": ("high", "workspace", True, False),
             "team_teardown": ("high", "workspace", True, True),
+            "team_spawn": ("high", "workspace", True, False),
         }
         from app.services.agent.runtime_backends.aiasys.team.tools import ALL_TOOLS
 

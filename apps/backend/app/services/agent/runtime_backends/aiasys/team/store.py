@@ -163,7 +163,7 @@ def _resolve_real_path(path: str) -> str:
 # ---------------------------------------------------------------------------
 
 _RESOURCE_LEASE_MAP: dict[str, dict[str, Any]] = {
-    # 工具名 → {resource_type, resource_id_arg, exclusive}
+    # 工具名 → {resource_type, resource_id_arg, exclusive, require_lease}
     # 判断依据（写进注释，防止实现漂移）：
     #
     # notebook / kernel（exclusive）：
@@ -171,14 +171,24 @@ _RESOURCE_LEASE_MAP: dict[str, dict[str, Any]] = {
     #   会互相覆盖变量，这是 AIASys 特有的冲突热点，git worktree 之类的文件级
     #   隔离完全管不住。设计文档 3.6 明确这是唯一需要独占租约的资源类型。
     #
-    # dataset（非独占）：
-    #   SQLite WAL 模式支持并发 insert，insert 语义天然并发安全，无需独占锁。
+    # dataset（非独占，但删除类要求持有租约）：
+    #   insert 语义（CreateDataTable / InsertDataTableRecords）天然并发安全，无需独占。
+    #   删除操作（DeleteDataTableRecord）不可逆，且会让其它 mission 正在读的资源消失，
+    #   因此要求操作前该资源已在本 mission 的租约内登记（require_lease=True），
+    #   但不阻止多个 mission 同时持有同一数据表的租约（非独占）。
     #
-    # knowledge_graph（非独占）：
-    #   insert 语义，已有 GraphLock 保护，无需独占。
+    # knowledge_graph（非独占，但删除/实体操作要求持有租约）：
+    #   insert 语义（CreateKnowledgeGraph / CreateGraphEntity / CreateGraphRelation）
+    #   天然并发安全。删除操作（DeleteKnowledgeGraph / DeleteGraphEntity）不可逆，
+    #   同理由 require_lease=True。
+    #   注意：同一资源类型有两种参数名——CreateKnowledgeGraph 用 graph_id，
+    #   CreateGraphEntity/DeleteGraphEntity 用 base_id（两者语义相同，都是图谱 ID）。
+    #   本次不动工具参数名，映射表分别注册即可。
     #
-    # knowledge_base（非独占）：
-    #   文档入库是 insert 语义，SQLite WAL 支持并发，无需独占。
+    # knowledge_base（非独占，但删除类要求持有租约）：
+    #   文档入库（CreateKnowledgeBase / UploadDocuments）是 insert 语义。
+    #   删除（DeleteDocumentsFromKnowledgeBase / DeleteKnowledgeBase）不可逆，
+    #   同理由 require_lease=True。
     #
     # env_id（非独占）：
     #   os.environ 修改是进程级的，hermes.py 有 __exit__ 还原机制，
@@ -190,83 +200,104 @@ _RESOURCE_LEASE_MAP: dict[str, dict[str, Any]] = {
         "resource_type": "notebook",
         "resource_id_arg": "notebook_path",
         "exclusive": True,
+        "require_lease": True,
     },
     "CreateSessionNotebook": {
         "resource_type": "notebook",
         "resource_id_arg": "notebook_path",
         "exclusive": True,
+        "require_lease": True,
     },
     "RunNotebook": {
         "resource_type": "notebook",
         "resource_id_arg": "notebook_path",
         "exclusive": True,
+        "require_lease": True,
     },
     "WriteCanvas": {
         "resource_type": "canvas",
         "resource_id_arg": "canvas_path",
         "exclusive": False,
+        "require_lease": False,
     },
     "CreateDataTable": {
         "resource_type": "dataset",
         "resource_id_arg": "table_id",
         "exclusive": False,
+        "require_lease": False,
     },
     "DeleteDataTableRecord": {
         "resource_type": "dataset",
         "resource_id_arg": "table_path",
         "exclusive": False,
+        "require_lease": True,  # 删除不可逆，要求持有租约
     },
     "InsertDataTableRecords": {
         "resource_type": "dataset",
         "resource_id_arg": "table_path",
         "exclusive": False,
+        "require_lease": False,
     },
     "UpdateDataTableRecord": {
         "resource_type": "dataset",
         "resource_id_arg": "table_path",
         "exclusive": False,
+        "require_lease": False,
     },
     "CreateKnowledgeGraph": {
         "resource_type": "knowledge_graph",
         "resource_id_arg": "graph_id",
         "exclusive": False,
+        "require_lease": False,
     },
     "DeleteKnowledgeGraph": {
         "resource_type": "knowledge_graph",
         "resource_id_arg": "graph_id",
         "exclusive": False,
+        "require_lease": True,  # 删除不可逆，要求持有租约
     },
     "CreateGraphEntity": {
         "resource_type": "knowledge_graph",
         "resource_id_arg": "base_id",
         "exclusive": False,
+        "require_lease": False,
     },
     "DeleteGraphEntity": {
         "resource_type": "knowledge_graph",
         "resource_id_arg": "base_id",
         "exclusive": False,
+        "require_lease": True,  # 删除不可逆，要求持有租约
     },
     "CreateGraphRelation": {
         "resource_type": "knowledge_graph",
         "resource_id_arg": "base_id",
         "exclusive": False,
+        "require_lease": False,
     },
     "CreateKnowledgeBase": {
         "resource_type": "knowledge_base",
         "resource_id_arg": "name",
         "exclusive": False,
+        "require_lease": False,
     },
     "DeleteDocumentsFromKnowledgeBase": {
         "resource_type": "knowledge_base",
         "resource_id_arg": "knowledge_base_id",
         "exclusive": False,
+        "require_lease": True,  # 删除不可逆，要求持有租约
     },
     "DeleteKnowledgeBase": {
         "resource_type": "knowledge_base",
         "resource_id_arg": "knowledge_base_id",
         "exclusive": False,
+        "require_lease": True,  # 删除不可逆，要求持有租约
     },
-    "DeleteEnvVar": {"resource_type": "env_id", "resource_id_arg": "name", "exclusive": False},
+    "DeleteEnvVar": {
+        "resource_type": "env_id",
+        "resource_id_arg": "name",
+        "exclusive": False,
+        "require_lease": False,
+    },
 }
 
 
@@ -387,17 +418,51 @@ class TeamStore:
 
                 if m.kind == "build":
                     candidates = [
-                        (other.id, other.scope)
+                        (other.id, other.scope, other.lease)
                         for other in state.missions
                         if other.kind == "build" and other.status != "merged"
-                    ] + [(n.id, n.scope) for n in new_missions if n.kind == "build"]
-                    for other_id, other_scope in candidates:
+                    ] + [(n.id, n.scope, n.lease) for n in new_missions if n.kind == "build"]
+
+                    # scope 互斥（文件路径）
+                    for other_id, other_scope, _other_lease in candidates:
                         for s1 in m.scope:
                             for s2 in other_scope:
                                 if _scopes_overlap(s1, s2):
                                     raise TeamError(
                                         f"任务 {m.id} 的 scope「{s1}」与 {other_id} 的「{s2}」重叠——"
                                         f"build 类任务的 scope 必须两两不互斥，请重新划分。"
+                                    )
+
+                    # 资源 ID 互斥（lease 中声明的非文件资源）
+                    # 与 scope 互斥同构：同一资源标识同时出现在两个 build 任务的 lease 中即冲突。
+                    # 这防止「文件 scope 不重叠但操作同一 graph_id/table_id」的漏洞。
+                    _LEASE_RESOURCE_KEYS = {
+                        "datasets",
+                        "connections",
+                        "env_id",
+                        "kernel",
+                        "memory",
+                        "notebook",
+                    }
+                    for other_id, _other_scope, other_lease in candidates:
+                        if not m.lease or not other_lease:
+                            continue
+                        for res_type, res_ids in m.lease.items():
+                            if res_type == "files" or res_type not in _LEASE_RESOURCE_KEYS:
+                                continue
+                            if not isinstance(res_ids, list):
+                                continue
+                            other_res_ids = other_lease.get(res_type, [])
+                            if not isinstance(other_res_ids, list):
+                                continue
+                            for rid in res_ids:
+                                if rid and str(rid).strip() in [
+                                    str(r).strip() for r in other_res_ids if r
+                                ]:
+                                    raise TeamError(
+                                        f"任务 {m.id} 的 lease 中资源「{res_type}:{rid}」"
+                                        f"与 {other_id} 的同一资源冲突——"
+                                        f"build 类任务的 lease 资源标识必须两两不互斥，请重新划分。"
                                     )
 
                 new_missions.append(m)
@@ -560,28 +625,23 @@ class TeamStore:
     # ------------------------------------------------------------------
 
     async def teardown(self, force: bool = False) -> dict[str, list[str]]:
-        """收尾：标记关闭 + 清理工作间 + 释放所有资源租约。"""
+        """收尾：标记关闭 + 清理工作间 + 释放所有资源租约。
+
+        在同一个 lock 内完成释放租约与标记 closed_at，消除两次 load 之间的竞态窗口。
+        """
         async with self._lock:
-            # 释放所有活跃租约
+            # 一次性 load，避免两次 load 之间的竞态
             state = await self._load()
+
+            # 释放所有 mission 的活跃租约
             for mission in state.missions:
                 self._release_all_mission_leases_in_state(state, mission.id)
 
-            if self._state_file.exists():
-                if state.closed_at is not None:
-                    state.resource_leases = {}
-                    self._runtime_lease_table.clear()
-                    await self._save(state)
-                    return {"removed": [], "kept": []}
-
-            try:
-                state = await self._load()
-                state.closed_at = _iso_now()
-                state.resource_leases = {}
-                self._runtime_lease_table.clear()
-                await self._save(state)
-            except TeamError:
-                pass
+            # 标记关闭（防止中途出错后 resume 复活）
+            state.closed_at = _iso_now()
+            state.resource_leases = {}
+            self._runtime_lease_table.clear()
+            await self._save(state)
 
             removed: list[str] = []
             kept: list[str] = []
@@ -834,6 +894,17 @@ _RESOURCE_LEASE_ARG: dict[str, str] = {
     if cfg.get("resource_id_arg")
 }
 
+# 要求持有租约的工具名 → 参数中表示目标资源 ID 的参数名
+# 删除类工具：必须该资源已在本 mission 的租约内才能操作（require_lease=True）
+# 「要求持有租约」≠「独占租约」：前者是「你得先声明这个资源归你管」，
+# 后者是「同时只能一个人持有」。设计文档已定租约收窄为仅 notebook/kernel 独占，
+# 删除类工具仅要求声明归属，不阻止多个 mission 同时声明同一资源。
+_REQUIRE_LEASE_ARG: dict[str, str] = {
+    tool_name: cfg["resource_id_arg"]
+    for tool_name, cfg in _RESOURCE_LEASE_MAP.items()
+    if cfg.get("require_lease") and cfg.get("resource_id_arg")
+}
+
 
 def _resolve_path_for_guard(raw: str) -> str:
     """将原始路径字符串规范化为绝对路径。"""
@@ -901,20 +972,39 @@ def check_write_guard(
         错误消息字符串表示被拒绝；None 表示允许。
     """
     # 无任何限制配置 → 直接放行
-    if not write_allow_root and not resource_lease_keys:
+    # write_allow_root=None 表示非 team 场景（不限制路径）
+    # resource_lease_keys=None 表示非 team 场景（不限制资源）
+    # 两者都是 None 时才真正无限制放行
+    if write_allow_root is None and resource_lease_keys is None:
         return None
 
-    # --- 第二步扩展：资源租约检查（非文件资源）---
-    lease_arg = _RESOURCE_LEASE_ARG.get(tool_name)
-    if lease_arg is not None and resource_lease_keys:
-        raw_resource_id = arguments.get(lease_arg)
+    # --- 要求持有租约的检查（删除类工具）---
+    # 删除不可逆，必须该资源已在本 mission 的租约内才能操作。
+    # 「要求持有租约」≠「独占租约」：前者是声明归属，后者是阻止多人同时持有。
+    # resource_lease_keys=None 表示非 team 场景（不限制），空列表 [] 表示
+    # team 场景但 mission 未声明该资源（应拒绝）。
+    require_lease_arg = _REQUIRE_LEASE_ARG.get(tool_name)
+    if require_lease_arg is not None and resource_lease_keys is not None:
+        raw_resource_id = arguments.get(require_lease_arg)
         if raw_resource_id and str(raw_resource_id).strip():
             lease_cfg = _RESOURCE_LEASE_MAP.get(tool_name, {})
             resource_type = lease_cfg.get("resource_type", "")
             lease_key_full = _normalize_lease_key(resource_type, str(raw_resource_id).strip())
             lease_denial = _check_lease_allowed(lease_key_full, resource_lease_keys)
             if lease_denial:
-                return lease_denial
+                return (
+                    f"资源租约守卫拒绝（删除类工具要求持有租约）：工具「{tool_name}」"
+                    f"试图操作资源「{lease_key_full}」，但当前 mission 的租约列表为："
+                    f"{resource_lease_keys}。请先在 mission.lease 中声明该资源。"
+                )
+        else:
+            return f"资源租约守卫：工具「{tool_name}」缺少资源标识参数「{require_lease_arg}」。"
+
+    # --- 第二步扩展：资源租约检查（非文件资源，非删除类）---
+    # 只检查那些「需要租约但不需要强制声明」的工具。
+    # 实际上：delete 类已在 require_lease 检查中处理；
+    # 非 delete 类（CreateDataTable 等）不检查 lease，直接放行。
+    # 保留此块结构以备后续扩展。
 
     # --- 第一步：文件路径检查（保留原有逻辑）---
     # write_allow_root=None 表示不限制路径（非 team 场景），跳过路径检查

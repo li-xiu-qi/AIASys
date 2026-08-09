@@ -43,9 +43,11 @@ from app.services.agent.runtime_backends.aiasys.team.tools import (
 
 def _make_async_gen(*items: Any):
     """把同步 items 包装成 async generator。"""
+
     async def _gen():
         for item in items:
             yield item
+
     return _gen()
 
 
@@ -58,9 +60,12 @@ class TestCheckWriteGuardUnit:
     """直接测试 check_write_guard() 函数的行为。"""
 
     def test_no_allow_root_always_passes(self):
-        """write_allow_root=None 或空列表时，任何写操作都放行。"""
+        """write_allow_root=None 时放行；空列表 [] 表示 team 场景无允许路径，应拒绝。"""
         assert check_write_guard(None, "WriteFile", {"path": "/anywhere/file.txt"}) is None
-        assert check_write_guard([], "WriteFile", {"path": "/anywhere/file.txt"}) is None
+        # 空列表表示 team 场景但无允许路径，应拒绝
+        result = check_write_guard([], "WriteFile", {"path": "/anywhere/file.txt"})
+        assert result is not None
+        assert "硬拒绝" in result
 
     def test_write_within_scope_allowed(self, tmp_path: Path):
         """在允许范围内的写操作被放行（使用真实路径）。"""
@@ -255,6 +260,7 @@ class TestTeamSpawnWriteAllowRoot:
             assert not plan_result.is_error, f"plan failed: {plan_result.content}"
 
             import re
+
             match = re.search(r"M\d+", plan_result.content or "")
             assert match, f"Could not find mission id in: {plan_result.content}"
             mission_id = match.group(0)
@@ -274,19 +280,37 @@ class TestTeamSpawnWriteAllowRoot:
 
             # _setup_subagent 返回 26 个值的 tuple（与真实签名匹配）
             fake_setup_return = (
-                "test_user", "test_session",
-                Path(str(tmp_path)), Path(str(tmp_path)),
-                {}, MagicMock(),  # host_agent_config, host_llm_config
+                "test_user",
+                "test_session",
+                Path(str(tmp_path)),
+                Path(str(tmp_path)),
+                {},
+                MagicMock(),  # host_agent_config, host_llm_config
                 {"name": "coder", "tool_policy": "inherit", "mcp_policy": "none"},
-                "agent_1", MagicMock(), None, False, 1,
-                MagicMock(), "cid", "test-model", None,
-                MagicMock(), "inherit", None,
-                Path(tmp_path / ".tmp"), None, None,
-                MagicMock(), MagicMock(), MagicMock(),
+                "agent_1",
+                MagicMock(),
+                None,
+                False,
+                1,
+                MagicMock(),
+                "cid",
+                "test-model",
+                None,
+                MagicMock(),
+                "inherit",
+                None,
+                Path(tmp_path / ".tmp"),
+                None,
+                None,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
             )
 
             with patch.object(TaskTool, "invoke_stream", fake_invoke_stream):
-                with patch.object(TaskTool, "_setup_subagent", new_callable=AsyncMock) as mock_setup:
+                with patch.object(
+                    TaskTool, "_setup_subagent", new_callable=AsyncMock
+                ) as mock_setup:
                     mock_setup.return_value = fake_setup_return
                     spawn_result = await spawn_tool.invoke(
                         ctx,
@@ -335,6 +359,7 @@ class TestTeamSpawnWriteAllowRoot:
             assert not plan_result.is_error
 
             import re
+
             match = re.search(r"M\d+", plan_result.content or "")
             mission_id = match.group(0)
 
@@ -350,20 +375,38 @@ class TestTeamSpawnWriteAllowRoot:
             from app.services.agent.runtime_backends.aiasys.tools.task_tool import TaskTool
 
             fake_setup_return = (
-                "test_user", "test_session",
-                Path(str(tmp_path)), Path(str(tmp_path)),
-                {}, MagicMock(),
+                "test_user",
+                "test_session",
+                Path(str(tmp_path)),
+                Path(str(tmp_path)),
+                {},
+                MagicMock(),
                 {"name": "researcher", "tool_policy": "inherit", "mcp_policy": "none"},
-                "agent_2", MagicMock(), None, False, 1,
-                MagicMock(), "cid2", "test-model", None,
-                MagicMock(), "inherit", None,
-                Path(tmp_path / ".tmp"), None, None,
-                MagicMock(), MagicMock(), MagicMock(),
+                "agent_2",
+                MagicMock(),
+                None,
+                False,
+                1,
+                MagicMock(),
+                "cid2",
+                "test-model",
+                None,
+                MagicMock(),
+                "inherit",
+                None,
+                Path(tmp_path / ".tmp"),
+                None,
+                None,
+                MagicMock(),
+                MagicMock(),
+                MagicMock(),
             )
 
             spawn_tool = TeamSpawnTool()
             with patch.object(TaskTool, "invoke_stream", fake_invoke_stream):
-                with patch.object(TaskTool, "_setup_subagent", new_callable=AsyncMock) as mock_setup:
+                with patch.object(
+                    TaskTool, "_setup_subagent", new_callable=AsyncMock
+                ) as mock_setup:
                     mock_setup.return_value = fake_setup_return
                     spawn_result = await spawn_tool.invoke(
                         ctx,
@@ -379,7 +422,9 @@ class TestTeamSpawnWriteAllowRoot:
             clear_store_cache()
 
     @pytest.mark.asyncio
-    async def test_build_with_empty_scope_rejected_by_plan(self, tmp_path: Path, tmp_state_dir: str):
+    async def test_build_with_empty_scope_rejected_by_plan(
+        self, tmp_path: Path, tmp_state_dir: str
+    ):
         """build 任务 scope 为空时，store.plan 拒绝（write_allow_root 不进入派生路径）。"""
         clear_store_cache()
         set_team_state_dir_override(tmp_state_dir)
@@ -496,12 +541,8 @@ class TestExecuteWriteToolGuard:
         mixin = _make_mixin(write_allow_root=None)
 
         tool_result = ToolResult(content="written", is_error=False)
-        mixin._tool_registry.invoke_stream = MagicMock(
-            return_value=_make_async_gen(tool_result)
-        )
-        mixin._finish_tool_execution = MagicMock(
-            return_value=_make_async_gen()
-        )
+        mixin._tool_registry.invoke_stream = MagicMock(return_value=_make_async_gen(tool_result))
+        mixin._finish_tool_execution = MagicMock(return_value=_make_async_gen())
 
         # 格式与 prompt() 中构建的 exec_info["item"] 一致：
         # arguments 在 item 顶层（非 function 内），已由 _authorize_single_tool 解析
@@ -571,12 +612,8 @@ class TestExecuteWriteToolGuard:
         mixin = _make_mixin(write_allow_root=[str(allowed)])
 
         tool_result = ToolResult(content="written", is_error=False)
-        mixin._tool_registry.invoke_stream = MagicMock(
-            return_value=_make_async_gen(tool_result)
-        )
-        mixin._finish_tool_execution = MagicMock(
-            return_value=_make_async_gen()
-        )
+        mixin._tool_registry.invoke_stream = MagicMock(return_value=_make_async_gen(tool_result))
+        mixin._finish_tool_execution = MagicMock(return_value=_make_async_gen())
 
         write_info = {
             "item": {

@@ -6,8 +6,8 @@ from .store import (
     TeamMission,
     TeamState,
     TeamStore,
-    _scopes_overlap,
     _scope_covers_path,
+    _scopes_overlap,
 )
 
 __all__ = [

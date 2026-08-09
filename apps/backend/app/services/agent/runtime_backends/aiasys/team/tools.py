@@ -28,6 +28,7 @@ from app.services.agent.runtime_backends.aiasys.team.store import (
     TeamState,
     _dataclass_default,
     _iso_now,
+    _normalize_scope,
     _resolve_real_path,
 )
 
@@ -862,11 +863,12 @@ class TeamTeardownTool(AiasysTool):
 # Feature flag: write guard readiness
 # ---------------------------------------------------------------------------
 
-# 写范围守卫（Per-Agent Write Allow Root）尚未实现。
-# 在此 flag 为 False 时，team_spawn 拒绝派生 kind=="build" 的任务，
-# 只允许派生 kind=="survey" 的只读任务。
-# 下一步实现写范围守卫后，将此常量改为 True 即可开放 build 派生。
-TEAM_SPAWN_WRITE_GUARD_READY: bool = False
+# 写范围守卫（Per-Agent Write Allow Root）已实现并通过测试。
+# 设为 True 后，team_spawn 可派生 kind=="build" 的写类任务。
+# 守卫在 session_stream._execute_write_tool 中拦截：worker 写入超出 scope
+# 范围的文件会被硬拒绝（不进审批流、不问用户）。
+# 已知缺口：Shell 工具的命令级路径无法被守卫覆盖（应用层限制）。
+TEAM_SPAWN_WRITE_GUARD_READY: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -965,6 +967,22 @@ class TeamSpawnTool(AiasysTool):
                 is_error=True,
             )
 
+        # 2a. 计算 write_allow_root（仅 build 类任务需要）
+        # 将 mission.scope 中的相对路径拼接为 repo_root 下的绝对路径。
+        # 路径已通过 os.path.realpath() 解析，避免符号链接绕过。
+        write_allow_root: list[str] | None = None
+        if mission.kind == "build" and mission.scope:
+            write_allow_root = []
+            for scope_entry in mission.scope:
+                scope_norm = _normalize_scope(scope_entry)
+                # 拼接 repo_root + scope，再规范化为绝对路径
+                combined = os.path.join(state.repo_root, scope_norm)
+                try:
+                    resolved = os.path.realpath(combined)
+                except (OSError, ValueError):
+                    resolved = os.path.abspath(combined)
+                write_allow_root.append(resolved)
+
         # 3. 依赖门控：依赖未全部 merged 拒绝启动
         # （store.set_status("active") 内部已实现该门控，这里直接调用）
         try:
@@ -1008,6 +1026,7 @@ class TeamSpawnTool(AiasysTool):
                 description=f"Team task {mission_id}: {updated_mission.title}",
                 prompt=prompt,
                 background=True,
+                write_allow_root=write_allow_root,
             ):
                 task_results.append(result)
 

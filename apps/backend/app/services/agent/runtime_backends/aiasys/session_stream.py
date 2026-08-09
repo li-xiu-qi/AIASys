@@ -45,6 +45,9 @@ from .session_utils import (
     read_config_value,
 )
 
+# Per-Agent Write Allow Root 守卫（team_spawn build 类任务）
+from app.services.agent.runtime_backends.aiasys.team.store import check_write_guard
+
 logger = logging.getLogger(__name__)
 
 
@@ -497,11 +500,43 @@ class SessionStreamMixin:
         self,
         info: dict[str, Any],
     ) -> AsyncGenerator[AgentRuntimeEvent, None]:
-        """串行执行单个有副作用工具。"""
-        events, tool_result = await self._execute_tool_stream(info["item"], info["item_ctx"])
+        """串行执行单个有副作用工具（含写范围守卫检查）。"""
+        item = info["item"]
+        item_ctx = info["item_ctx"]
+
+        # Per-Agent Write Allow Root 守卫：在工具执行前校验目标路径
+        write_allow_root = item_ctx.get("write_allow_root")
+        if write_allow_root:
+            tool_name = item["function"]["name"]
+            arguments = item.get("arguments") or {}
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except (json.JSONDecodeError, TypeError):
+                    arguments = {}
+            denial = check_write_guard(write_allow_root, tool_name, arguments)
+            if denial:
+                tool_result = ToolResult(content=denial, is_error=True)
+                yield AgentRuntimeEvent(
+                    kind="tool_result",
+                    tool_call_id=item.get("id"),
+                    tool_name=tool_name,
+                    content=denial,
+                    is_error=True,
+                )
+                self._append_message(
+                    {
+                        "role": "tool",
+                        "tool_call_id": item.get("id"),
+                        "content": denial,
+                    }
+                )
+                return
+
+        events, tool_result = await self._execute_tool_stream(item, item_ctx)
         for event in events:
             yield event
-        async for event in self._finish_tool_execution(info["item"], tool_result):
+        async for event in self._finish_tool_execution(item, tool_result):
             yield event
 
     async def prompt(

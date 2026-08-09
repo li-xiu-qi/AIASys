@@ -342,6 +342,7 @@ class TaskTool(AiasysTool):
         description = str(kwargs.get("description") or "").strip()
         prompt = str(kwargs.get("prompt") or "").strip()
         background = bool(kwargs.get("background", False))
+        write_allow_root: list[str] | None = kwargs.get("write_allow_root")
 
         if not prompt:
             yield ToolResult(content="缺少 prompt 参数", is_error=True)
@@ -357,6 +358,7 @@ class TaskTool(AiasysTool):
                 subagent_name=subagent_name,
                 description=description,
                 prompt=prompt,
+                write_allow_root=write_allow_root,
             )
         except ValueError as exc:
             # _setup_subagent 中的预检查失败（manifest 未找到/深度超限/并发超限等）
@@ -499,6 +501,7 @@ class TaskTool(AiasysTool):
         subagent_name: str,
         description: str,
         prompt: str,
+        write_allow_root: list[str] | None = None,
     ) -> tuple[
         str,  # user_id
         str,  # host_session_id
@@ -716,6 +719,7 @@ class TaskTool(AiasysTool):
             collaboration_policy=collaboration_policy,
             budget=host_budget,
             memory_enabled=False,
+            write_allow_root=write_allow_root,
         )
 
         # 6. 创建子 Agent session
@@ -767,6 +771,7 @@ class TaskTool(AiasysTool):
             "mcp_configs": child_mcp_configs,
             "tool_policy": tool_policy,
             "agent_path": str(child_path),
+            "write_allow_root": write_allow_root,
         }
         storage.update_launch_spec(full_launch_spec)
         await registry.aset_launch_spec(agent_id, full_launch_spec)

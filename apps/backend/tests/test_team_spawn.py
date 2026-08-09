@@ -453,12 +453,16 @@ class TestTeamSpawnDepGate:
 # ---------------------------------------------------------------------------
 
 
-class TestTeamSpawnFailClosed:
-    """fail-closed: build 类任务在写范围守卫未就绪时被拒。"""
+class TestTeamSpawnWriteGuard:
+    """team_spawn 写范围守卫：守卫就绪时放行 build 类任务。"""
 
     @pytest.mark.asyncio
-    async def test_build_rejected_when_guard_not_ready(self, initialized_ctx, tmp_state_dir):
-        """kind=build + TEAM_SPAWN_WRITE_GUARD_READY=False → 拒绝。"""
+    async def test_build_passes_guard_when_ready(self, initialized_ctx, tmp_state_dir):
+        """kind=build + TEAM_SPAWN_WRITE_GUARD_READY=True → 不在此处被拒，进入派生流程。
+
+        由于未 mock TaskTool，后续会因 session 创建失败而报错——这是预期行为，
+        证明守卫已放行（不再在 feature flag 处拦截）。
+        """
         from app.services.agent.runtime_backends.aiasys.team.tools import (
             TeamPlanTool,
         )
@@ -483,9 +487,19 @@ class TestTeamSpawnFailClosed:
             prompt="do build",
         )
 
-        assert result.is_error
-        assert "写范围守卫" in result.content
-        assert "TEAM_SPAWN_WRITE_GUARD_READY" in result.content
+        # 不再在 feature flag 处拒绝（那是旧行为）
+        assert "TEAM_SPAWN_WRITE_GUARD_READY" not in (result.content or ""), (
+            "守卫已就绪，不应再返回 feature flag 拒绝消息"
+        )
+        # 后续失败是因为 TaskTool 未 mock，不是守卫问题
+        # 验证 mission 已切到 active（守卫通过后，状态门已执行）
+        state_dir = _resolve_team_state_dir(initialized_ctx)
+        store = await _get_store(state_dir)
+        state = await store.load()
+        mission = next((m for m in state.missions if m.id == "M1"), None)
+        assert mission is not None
+        # mission 被设为 active（后续 TaskTool 失败会回滚，但这里预期 active）
+        assert mission.status == "active"
 
     @pytest.mark.asyncio
     async def test_survey_allowed_when_guard_not_ready(self, initialized_ctx, tmp_state_dir):
@@ -642,9 +656,9 @@ class TestTeamSpawnMissionActive:
 class TestWriteGuardFeatureFlag:
     """TEAM_SPAWN_WRITE_GUARD_READY 常量控制 build 派生。"""
 
-    def test_default_is_false(self):
-        """默认值为 False（安全中间态）。"""
-        assert TEAM_SPAWN_WRITE_GUARD_READY is False
+    def test_default_is_true(self):
+        """默认值为 True（写范围守卫已实现并通过测试）。"""
+        assert TEAM_SPAWN_WRITE_GUARD_READY is True
 
     def test_module_constant_exists(self):
         """常量存在于 team.tools 模块中。"""

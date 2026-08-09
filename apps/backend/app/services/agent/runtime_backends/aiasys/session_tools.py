@@ -65,6 +65,9 @@ class SessionToolsMixin:
             "budget": self.budget,
             "authorization_mode": self._spec.authorization_mode,
             "yolo": self._spec.yolo,
+            # Per-Agent Write Allow Root：仅 team_spawn 的 build 类任务设置，
+            # 其余场景为 None（不限制）。_execute_write_tool 会读取此字段做范围守卫。
+            "write_allow_root": self._spec.write_allow_root,
         }
 
     def _get_plan_state(self) -> SessionPlanState | None:

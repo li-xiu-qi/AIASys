@@ -577,3 +577,89 @@ def _find_scope_conflicts(
         and m.id != merged.id
         and any(_scope_covers_path(s, p) for s in merged.scope for p in changed_paths if p)
     ]
+
+
+# ---------------------------------------------------------------------------
+# Per-Agent Write Allow Root 守卫
+# ---------------------------------------------------------------------------
+# 已知缺口（不在此步修复，代码注释中标注）：
+# 1. Shell 工具：worker 可 `cd` 到别处再写文件，路径校验管不住命令级路径。
+#    Windows 上无 Landlock/Seatbelt 等价物，应用层守卫是当前唯一可行方案。
+# 2. 部分写工具（Canvas、DataTable、GraphRAG、KnowledgeBase 等）尚未标注
+#    write_path_arg，这些工具的写操作在守卫启用时会被拒绝（fail-closed）。
+
+# 写工具名 → 参数中表示目标文件路径的参数名
+_WRITE_PATH_ARG: dict[str, str] = {
+    "WriteFile": "path",
+    "StrReplaceFile": "path",
+    "CreateFile": "path",
+    # Shell：命令级路径无法可靠提取，守卫激活时整工具拒绝（见下方逻辑）
+    "Shell": "__command__",
+}
+
+
+def _resolve_path_for_guard(raw: str) -> str:
+    """将原始路径字符串规范化为绝对路径（符号链接解析 + 不存在时用 abspath 回退）。"""
+    try:
+        return os.path.realpath(raw)
+    except (OSError, ValueError):
+        return os.path.abspath(raw)
+
+
+def check_write_guard(
+    write_allow_root: list[str] | None,
+    tool_name: str,
+    arguments: dict[str, Any],
+) -> str | None:
+    """检查写操作是否被允许。
+
+    Args:
+        write_allow_root: 允许写入的绝对路径前缀列表；None 表示不限制。
+            调用方应保证列表中的路径是已规范化的绝对路径。
+        tool_name: 被调用的工具名称。
+        arguments: 工具参数（已解析为 dict）。
+
+    Returns:
+        错误消息字符串表示被拒绝；None 表示允许。
+    """
+    # 无限制配置 → 直接放行
+    if not write_allow_root:
+        return None
+
+    path_arg = _WRITE_PATH_ARG.get(tool_name)
+    if path_arg is None:
+        # 工具未在映射中：保守拒绝（fail-closed）
+        return (
+            f"写范围守卫：工具「{tool_name}」的写路径参数未注册，"
+            f"无法校验写入范围。请向 _WRITE_PATH_ARG 注册该工具。"
+        )
+
+    # Shell 工具：无法可靠提取命令级目标路径 → 整工具拒绝
+    if path_arg == "__command__":
+        return (
+            "写范围守卫：Shell 工具的命令级路径无法应用范围守卫（已知缺口）。"
+            "请使用专用的文件工具（WriteFile / StrReplaceFile / CreateFile）"
+            "在允许范围内执行写操作，或让主控代理执行跨范围写。"
+        )
+
+    raw_path = arguments.get(path_arg)
+    if not raw_path or not str(raw_path).strip():
+        return f"写范围守卫：工具「{tool_name}」缺少目标路径参数「{path_arg}」。"
+
+    target = _resolve_path_for_guard(str(raw_path).strip())
+
+    for root in write_allow_root:
+        # 双方都做路径分量前缀比对，避免裸字符串误匹配
+        root_norm = _normalize_scope(root)
+        target_norm = _normalize_scope(target)
+        if root_norm == target_norm:
+            return None
+        root_slash = root_norm if root_norm.endswith("/") else root_norm + "/"
+        if target_norm.startswith(root_slash):
+            return None
+
+    return (
+        f"写范围守卫硬拒绝：工具「{tool_name}」试图写入「{target}」，"
+        f"但当前 agent 仅允许写入以下范围：{write_allow_root}。"
+        "请检查任务 scope 设置，或让主控代理重新规划任务范围。"
+    )

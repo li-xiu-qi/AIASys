@@ -760,7 +760,18 @@ class SessionStreamMixin:
                     kind="system_warning",
                     text=THINKING_LOOP_NUDGE,
                 )
-                self._append_message({"role": "user", "content": THINKING_LOOP_NUDGE})
+                # 保留 role=user（诱导跳出要让模型当成新指令来响应，且 Anthropic 协议
+                # 不允许 system 出现在 messages 中间），但必须标 origin：
+                # 不标的话恢复时会按 role 反推成 origin="user"，这条系统注入就与真人
+                # 输入无法区分了——压缩保真、显示过滤、审计回溯三处都会误判。
+                # 参考实现（step-code runTurn.ts:321）此处标的是 kind:'user'，是其缺陷，不照搬。
+                self._append_message(
+                    {
+                        "role": "user",
+                        "origin": "system_notice",
+                        "content": THINKING_LOOP_NUDGE,
+                    }
+                )
                 continue
 
             # 流中断恢复：重试用尽后，若已收集到部分内容则作为 fallback

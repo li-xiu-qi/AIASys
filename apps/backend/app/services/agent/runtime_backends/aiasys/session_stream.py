@@ -25,6 +25,9 @@ from app.services.agent.message_content import (
     extract_message_text,
     hydrate_message_images,
 )
+
+# Per-Agent Write Allow Root 守卫（team_spawn build 类任务）
+from app.services.agent.runtime_backends.aiasys.team.store import check_write_guard
 from app.services.history.session_history_projection import unwrap_user_prompt
 
 from ..base import AgentRuntimeEvent
@@ -44,9 +47,6 @@ from .session_utils import (
     normalize_capabilities,
     read_config_value,
 )
-
-# Per-Agent Write Allow Root 守卫（team_spawn build 类任务）
-from app.services.agent.runtime_backends.aiasys.team.store import check_write_guard
 
 logger = logging.getLogger(__name__)
 

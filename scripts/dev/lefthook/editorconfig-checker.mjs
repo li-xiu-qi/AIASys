@@ -37,6 +37,24 @@
  *
  * 注意参数必须放在文件名之前。实测放到文件名之后，Go 二进制会把它当成待检查文件并
  * panic（open -disable-end-of-line: The system cannot find the file specified）。
+ *
+ * ── 为什么只对 Python 额外禁用 indent-size ──────────────────────────────
+ *
+ * indent-size 检查只看行首空格数是否为 indent_size 的整数倍，它不理解字符串字面量，
+ * 于是 Python 的 docstring 示意图与括号续行对齐必然误报。2026-08-09 实测：
+ * apps/backend/app/ 下前 150 个 py 文件里就有 25 处被判 "want multiple of 4"，
+ * test_hermes_env_race.py 那段用 6 空格画的并发时序说明也在其中——那是文档内容，
+ * PEP 8 不管，ruff format 也不动。
+ *
+ * 这类存量违规平时不出声，只在文件恰好进入 staged 集合时才拦人，属于随机摩擦。而
+ * Python 缩进本来就有权威：ruff format 保证 PEP 8 的 4 空格，两个工具同时管必然打架，
+ * 且 ruff 更准。所以 py 侧禁掉 indent-size，把判定权交给 ruff。
+ *
+ * 但不能全局禁用。实测 apps/web 既没有 prettier 配置也没有 eslint indent 规则，
+ * editorconfig 的 indent-size 是前端缩进的唯一守护，一起禁掉就是真的放宽标准。
+ * 因此按扩展名分两批调用：.py 批加 -disable-indent-size，其余批保持严格。
+ * 注意 py 侧仍然检查 indent_style（tab/空格混用）、尾随空格、字符集与行长，
+ * 只是不再数空格个数。
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -51,6 +69,8 @@ const excludePattern = "\\.git|node_modules|\\.venv|dist|\\.pytest_cache|\\.ruff
 
 // 见上方说明：行尾与末尾换行由 git 的 text=auto 保证，这里不重复检查。
 const DISABLED_CHECKS = ["-disable-end-of-line", "-disable-insert-final-newline"];
+// 仅 Python：缩进宽度由 ruff format 负责，见上方说明。
+const PY_DISABLED_CHECKS = [...DISABLED_CHECKS, "-disable-indent-size"];
 
 const files = process.argv.slice(2).filter(Boolean);
 
@@ -71,15 +91,29 @@ if (!existsSync(ENTRY)) {
   process.exit(1);
 }
 
-const result = spawnSync(
-  process.execPath,
-  [ENTRY, "-exclude", excludePattern, ...DISABLED_CHECKS, ...files],
-  { stdio: "inherit", windowsHide: true, cwd: REPO_ROOT },
-);
-
-if (result.error) {
-  console.error("[editorconfig] 无法执行检查工具：" + result.error.message);
-  process.exit(1);
+/** 跑一批文件，返回退出码；空批直接算通过。 */
+function check(batch, disabledChecks) {
+  if (batch.length === 0) {
+    return 0;
+  }
+  const result = spawnSync(
+    process.execPath,
+    [ENTRY, "-exclude", excludePattern, ...disabledChecks, ...batch],
+    { stdio: "inherit", windowsHide: true, cwd: REPO_ROOT },
+  );
+  if (result.error) {
+    console.error("[editorconfig] 无法执行检查工具：" + result.error.message);
+    return 1;
+  }
+  return result.status ?? 1;
 }
 
-process.exit(result.status ?? 1);
+const pyFiles = files.filter((f) => f.toLowerCase().endsWith(".py"));
+const otherFiles = files.filter((f) => !f.toLowerCase().endsWith(".py"));
+
+// 两批都要跑完再决定退出码，不能短路——否则前一批失败时后一批的问题被藏起来，
+// 提交者修完第一批才看到第二批，等于把一次反馈拆成两轮。
+const pyStatus = check(pyFiles, PY_DISABLED_CHECKS);
+const otherStatus = check(otherFiles, DISABLED_CHECKS);
+
+process.exit(pyStatus || otherStatus);

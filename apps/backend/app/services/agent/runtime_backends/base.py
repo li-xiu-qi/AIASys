@@ -133,6 +133,10 @@ class RuntimeSessionCreateSpec:
     collaboration_policy: dict[str, Any] | None = None
     budget: Any | None = None
     memory_enabled: bool = True  # memory 功能开关，从 config.toml 读取
+    # 写范围守卫：team_spawn 为 build 类任务设置的允许写入根目录列表。
+    # None = 不做限制（非 team 场景 / 未设置 scope）。
+    # 路径已按 os.path.realpath() 解析，用于 session_stream 的 _execute_write_tool 拦截。
+    write_allow_root: list[str] | None = None
 
 
 ToolStreamEventKind = Literal["event", "result"]

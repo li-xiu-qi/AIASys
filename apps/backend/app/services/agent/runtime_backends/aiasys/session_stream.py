@@ -32,6 +32,7 @@ from app.services.history.session_history_projection import unwrap_user_prompt
 
 from ..base import AgentRuntimeEvent
 from .llm_clients.error_classifier import classify_api_error
+from .llm_clients.message_protocol import DisplayHint
 from .llm_clients.retry_utils import jittered_backoff
 from .loop_detection import (
     THINKING_LOOP_NUDGE,
@@ -86,8 +87,10 @@ def _serialize_tool_content_for_event(content: str | list[dict[str, Any]]) -> st
 class SessionStreamMixin:
     """提供 prompt() ReAct 流式循环，作为 mixin 混入 AiasysRuntimeSession。"""
 
-    # 显示流分层：直接实例化 SessionStreamMixin 的测试桩需要此缺省值
-    _current_display_hint: str = "visible"
+    # 显示流分层：直接实例化 SessionStreamMixin 的测试桩需要此缺省值。
+    # 用 DisplayHint 而非 str，理由同 session.py 的实例属性声明：str 会让下游
+    # 所有 AgentRuntimeEvent(display_hint=...) 失去 Literal 校验。
+    _current_display_hint: DisplayHint = "visible"
 
     def _prepare_messages_for_current_model(self) -> list[dict[str, Any]]:
         # Tier 1: 每次 LLM 调用前执行零成本 tool 结果清理

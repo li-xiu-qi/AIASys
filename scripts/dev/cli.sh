@@ -8,6 +8,41 @@ BACKEND_PORT="${AIASYS_BACKEND_PORT:-13001}"
 BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
 FRONTEND_URL="http://127.0.0.1:${FRONTEND_PORT}"
 
+# 实际生效端口的落盘位置。
+#
+# 为什么需要它：start 分支会在端口被占用时自动切换（13001 → 13002），但那个新端口
+# 只活在 start 那次进程的内存里。`dev.sh status` 是全新进程，第 7 行把 BACKEND_PORT
+# 重新算回默认的 13001，于是只要端口切换过，status 就永远报 backend down。
+#
+# 后果是把前面所有端口修复都抵消掉：run_lifecycle_playwright.sh 用 status 判就绪，
+# 服务明明起来了它也认不出，一路等满 240 秒再报「等待开发服务就绪超时」——错误信息
+# 还会把人误导向「启动太慢」，而真实原因是「查错了端口」。
+#
+# .tmp/ 已在 .gitignore 内，不用新增忽略规则。
+DEV_PORTS_FILE="${PROJECT_ROOT}/.tmp/dev-ports.env"
+
+write_dev_ports() {
+  mkdir -p "$(dirname "${DEV_PORTS_FILE}")"
+  cat >"${DEV_PORTS_FILE}" <<EOF
+# 由 scripts/dev/cli.sh 在启动时写入，退出时删除。手改无效。
+BACKEND_PORT=${BACKEND_PORT}
+FRONTEND_PORT=${FRONTEND_PORT}
+BACKEND_URL=${BACKEND_URL}
+FRONTEND_URL=${FRONTEND_URL}
+EOF
+}
+
+# 读取实际端口。文件可能是上次异常退出留下的陈旧记录，所以调用方拿到端口后仍要自己
+# 探活——本函数只负责「换个更可能对的端口去问」，不承诺服务活着。
+load_dev_ports() {
+  if [[ -f "${DEV_PORTS_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${DEV_PORTS_FILE}"
+    return 0
+  fi
+  return 1
+}
+
 command_name="${1:-start}"
 if [[ "$#" -gt 0 ]]; then
   shift
@@ -205,6 +240,12 @@ find_available_port() {
 status_command() {
   local frontend_status="down"
   local backend_status="down"
+  # 先记下默认端口算出的 URL，load_dev_ports 会覆盖同名变量
+  local default_backend_url="${BACKEND_URL}"
+  local default_frontend_url="${FRONTEND_URL}"
+
+  # 优先按实际生效端口查询（理由见文件头 DEV_PORTS_FILE 的注释）
+  load_dev_ports || true
 
   if check_url_ready "${FRONTEND_URL}/"; then
     frontend_status="up"
@@ -212,6 +253,21 @@ status_command() {
 
   if check_url_ready "${BACKEND_URL}/health"; then
     backend_status="up"
+  fi
+
+  # 端口文件可能是上次异常退出留下的陈旧记录，也可能服务是用 AIASYS_*_PORT 固定端口
+  # 另行起的。两种情况下回落到默认端口再问一次，避免「服务活着却报 down」。
+  if [[ "${backend_status}" == "down" && "${BACKEND_URL}" != "${default_backend_url}" ]]; then
+    if check_url_ready "${default_backend_url}/health"; then
+      backend_status="up"
+      BACKEND_URL="${default_backend_url}"
+    fi
+  fi
+  if [[ "${frontend_status}" == "down" && "${FRONTEND_URL}" != "${default_frontend_url}" ]]; then
+    if check_url_ready "${default_frontend_url}/"; then
+      frontend_status="up"
+      FRONTEND_URL="${default_frontend_url}"
+    fi
   fi
 
   echo "frontend ${FRONTEND_URL}: ${frontend_status}"
@@ -270,6 +326,10 @@ start_frontend() {
 cleanup_children() {
   local exit_code=$?
 
+  # 先删端口文件：避免进程都没了还留着一份「服务在 13002」的陈旧记录，
+  # 让下一次 status 去问一个空端口
+  rm -f "${DEV_PORTS_FILE}"
+
   if [[ -n "${FRONTEND_PID:-}" ]]; then
     kill "${FRONTEND_PID}" >/dev/null 2>&1 || true
   fi
@@ -326,6 +386,9 @@ case "${command_name}" in
       FRONTEND_PORT="${NEW_FRONTEND_PORT}"
       FRONTEND_URL="http://127.0.0.1:${FRONTEND_PORT}"
     fi
+
+    # 端口至此已最终确定（含自动切换的结果），落盘供 status 与 e2e 脚本读取
+    write_dev_ports
 
     start_backend
     start_frontend

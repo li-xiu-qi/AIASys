@@ -1,56 +1,224 @@
 #!/usr/bin/env bash
-
+#
+# 跑 lifecycle e2e（30 个 spec）。负责服务的启停，playwright 只负责跑测试。
+#
+# 为什么不让 playwright 自己管 webServer：它在 Windows 上 kill 不掉 dev.sh 的进程树。
+# 实测 playwright 退出后，上一次的后端仍在监听：
+#
+#   0.0.0.0:13002  PID=13056  python   ← playwright 已退出，它却还活着
+#
+# 残留进程会占住端口，让下一次启动被迫换端口，甚至连环失败。所以这里改成显式管理：
+# 自己起、自己等、自己收，收尾按 PID 树强杀并逐端口兜底。
+#
+# 2026-08-10 重写前，这个脚本在 Windows 上从未成功跑完过。四道障碍逐个修掉后才通：
+#   1. cli.sh 写死 .venv/bin/uvicorn（Unix 布局），Windows 上后端起不来
+#   2. 端口探测用连接语义，对「bind 了但没 listen」的占用（Docker）误判为空闲
+#   3. playwright 的 webServer.command 是 "./dev.sh"，Windows 由 cmd.exe 执行，不认
+#   4. dev.sh status 用默认端口查询，端口一旦自动切换就永远报 down，等满 240 秒超时
+#
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEB_ROOT="${PROJECT_ROOT}/apps/web"
-DEV_LOG_FILE="$(mktemp -t aiasys-playwright-dev-XXXX.log)"
-STARTED_DEV_STACK=0
+DEV_PORTS_FILE="${PROJECT_ROOT}/.tmp/dev-ports.env"
+DEV_LOG_FILE="$(mktemp -t aiasys-e2e-dev-XXXXXX.log)"
+
+# 端口扫描范围。dev.sh 的自动切换从 13000/13001 起步，正常最多挪几个；给到 13020
+# 足够覆盖，又不会扫到无关服务上去。
+PORT_SCAN_START=13000
+PORT_SCAN_END=13020
+
+MAX_START_ATTEMPTS=3
+READY_TIMEOUT_SECONDS=150
+
 DEV_STACK_PID=""
+PRE_EXISTING_PIDS=""
+STARTED_BY_US=0
+
+is_windows() {
+  case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# 列出扫描范围内处于 LISTEN 的进程 PID，每行一个
+listening_pids() {
+  if is_windows; then
+    powershell -NoProfile -Command "
+      Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Where-Object { \$_.LocalPort -ge ${PORT_SCAN_START} -and \$_.LocalPort -le ${PORT_SCAN_END} } |
+        Select-Object -ExpandProperty OwningProcess -Unique
+    " 2>/dev/null | tr -d '\r' | grep -E '^[0-9]+$' || true
+  else
+    lsof -ti:"${PORT_SCAN_START}-${PORT_SCAN_END}" -sTCP:LISTEN 2>/dev/null || true
+  fi
+}
+
+kill_tree() {
+  local pid="$1"
+  [[ -z "$pid" ]] && return 0
+  if is_windows; then
+    # /T 连子进程一起杀。dev.sh 下面挂着 uv → python 与 npm → node 两条链，
+    # 只杀父进程会留下孤儿继续占端口。
+    taskkill //PID "$pid" //T //F >/dev/null 2>&1 || true
+  else
+    pkill -TERM -P "$pid" >/dev/null 2>&1 || true
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+    sleep 1
+    pkill -KILL -P "$pid" >/dev/null 2>&1 || true
+    kill -KILL "$pid" >/dev/null 2>&1 || true
+  fi
+}
+
+# 只杀「我们启动之后才出现」的进程。
+#
+# 不能无条件清空端口范围：开发者可能自己开着一套服务在调试，把它杀掉属于误伤。
+# 用启动前的 PID 快照做差集，是这里唯一安全的判据。
+stop_dev_stack() {
+  [[ "${STARTED_BY_US}" -eq 0 ]] && return 0
+
+  if [[ -n "${DEV_STACK_PID}" ]]; then
+    kill_tree "${DEV_STACK_PID}"
+  fi
+
+  local pid
+  for pid in $(listening_pids); do
+    if ! printf '%s\n' "${PRE_EXISTING_PIDS}" | grep -qx "${pid}"; then
+      echo "  收尾：清理残留进程 PID=${pid}" >&2
+      kill_tree "${pid}"
+    fi
+  done
+
+  rm -f "${DEV_PORTS_FILE}"
+}
 
 cleanup() {
   local exit_code=$?
-
-  if [[ "${STARTED_DEV_STACK}" -eq 1 && -n "${DEV_STACK_PID}" ]]; then
-    kill "${DEV_STACK_PID}" >/dev/null 2>&1 || true
-    wait "${DEV_STACK_PID}" >/dev/null 2>&1 || true
-  fi
-
+  stop_dev_stack
   rm -f "${DEV_LOG_FILE}"
   exit "${exit_code}"
 }
 
+# 返回值区分三种情况，因为处置方式不同：
+#   0 就绪  1 超时  2 进程已退出  3 端口在探测与绑定之间被抢占（唯一值得重试的）
 wait_for_stack_ready() {
-  local deadline=$((SECONDS + 240))
+  local deadline=$((SECONDS + READY_TIMEOUT_SECONDS))
+  local backend_url="" frontend_url=""
 
-  until "${PROJECT_ROOT}/dev.sh" status >/dev/null 2>&1; do
+  while ((SECONDS < deadline)); do
     if [[ -n "${DEV_STACK_PID}" ]] && ! kill -0 "${DEV_STACK_PID}" >/dev/null 2>&1; then
-      echo "开发服务提前退出，日志如下：" >&2
-      cat "${DEV_LOG_FILE}" >&2
-      return 1
+      # 进程没了也要先看是不是 bind 冲突导致的，否则会把可重试的情况误判成硬失败
+      if grep -qE "attempting to bind|Address already in use|10048" "${DEV_LOG_FILE}" 2>/dev/null; then
+        return 3
+      fi
+      return 2
     fi
 
-    if (( SECONDS >= deadline )); then
-      echo "等待开发服务就绪超时，日志如下：" >&2
-      cat "${DEV_LOG_FILE}" >&2
-      return 1
+    # bind 冲突：probe 判定端口可用，到 uvicorn 真正 bind 之间有几秒窗口，动态端口
+    # 范围（Windows 实测 10000-65000）内的端口可能在这期间被别的程序抢走。这是
+    # check-then-use 的固有竞态，靠重试解决，不必也无法靠更准的探测消除。
+    if grep -qE "attempting to bind|Address already in use|10048" "${DEV_LOG_FILE}" 2>/dev/null; then
+      return 3
+    fi
+
+    if [[ -f "${DEV_PORTS_FILE}" ]]; then
+      # shellcheck disable=SC1090
+      source "${DEV_PORTS_FILE}"
+      backend_url="${BACKEND_URL:-}"
+      frontend_url="${FRONTEND_URL:-}"
+      if [[ -n "${backend_url}" && -n "${frontend_url}" ]] \
+        && curl -fsS -m 3 -o /dev/null "${frontend_url}/" 2>/dev/null \
+        && curl -fsS -m 3 -o /dev/null "${backend_url}/health" 2>/dev/null; then
+        return 0
+      fi
     fi
 
     sleep 1
   done
+
+  return 1
 }
 
-trap cleanup EXIT INT TERM
-
-if ! "${PROJECT_ROOT}/dev.sh" status >/dev/null 2>&1; then
-  STARTED_DEV_STACK=1
+start_dev_stack() {
+  STARTED_BY_US=1
+  rm -f "${DEV_PORTS_FILE}"
+  : >"${DEV_LOG_FILE}"
   (
     cd "${PROJECT_ROOT}"
     exec ./dev.sh
   ) >"${DEV_LOG_FILE}" 2>&1 &
   DEV_STACK_PID=$!
-  wait_for_stack_ready
+}
+
+trap cleanup EXIT INT TERM
+
+PRE_EXISTING_PIDS="$(listening_pids)"
+if [[ -n "${PRE_EXISTING_PIDS}" ]]; then
+  echo "启动前 ${PORT_SCAN_START}-${PORT_SCAN_END} 已有进程（收尾时不会动它们）：" >&2
+  printf '  PID %s\n' ${PRE_EXISTING_PIDS} >&2
 fi
 
+if "${PROJECT_ROOT}/dev.sh" status >/dev/null 2>&1; then
+  echo "检测到开发服务已在运行，直接复用。" >&2
+  if [[ -f "${DEV_PORTS_FILE}" ]]; then
+    # shellcheck disable=SC1090
+    source "${DEV_PORTS_FILE}"
+  fi
+else
+  ready_rc=1
+  for attempt in $(seq 1 "${MAX_START_ATTEMPTS}"); do
+    echo "启动开发服务（第 ${attempt}/${MAX_START_ATTEMPTS} 次尝试）…" >&2
+    start_dev_stack
+    set +e
+    wait_for_stack_ready
+    ready_rc=$?
+    set -e
+
+    case "${ready_rc}" in
+      0)
+        echo "开发服务已就绪：frontend=${FRONTEND_URL} backend=${BACKEND_URL}" >&2
+        break
+        ;;
+      3)
+        echo "端口在探测与绑定之间被抢占，清理后重试。" >&2
+        grep -E "attempting to bind|10048" "${DEV_LOG_FILE}" 2>/dev/null | head -2 >&2 || true
+        stop_dev_stack
+        STARTED_BY_US=1  # stop_dev_stack 不重置它，这里显式保持，供下次收尾
+        sleep 2
+        ;;
+      2)
+        echo "开发服务提前退出，日志如下：" >&2
+        cat "${DEV_LOG_FILE}" >&2
+        exit 1
+        ;;
+      *)
+        echo "等待开发服务就绪超时（${READY_TIMEOUT_SECONDS}s），日志如下：" >&2
+        tail -40 "${DEV_LOG_FILE}" >&2
+        exit 1
+        ;;
+    esac
+  done
+
+  if [[ "${ready_rc}" -ne 0 ]]; then
+    echo "连续 ${MAX_START_ATTEMPTS} 次启动均因端口被抢占失败。" >&2
+    echo "根因是默认端口 13000/13001 落在 Windows 动态端口范围内（10000-65000），" >&2
+    echo "可用 AIASYS_BACKEND_PORT / AIASYS_FRONTEND_PORT 指定该范围外的端口规避。" >&2
+    exit 1
+  fi
+fi
+
+# 把实际端口交给 playwright。配置里 baseURL 取 PLAYWRIGHT_BASE_URL，不设的话它会用
+# 硬编码的 13000——前端端口一旦自动切换，测试就会全部打到一个空端口上。
+export PLAYWRIGHT_BASE_URL="${FRONTEND_URL:-http://localhost:13000}"
+echo "PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}" >&2
+
 cd "${WEB_ROOT}"
+set +e
 npx playwright test -c playwright.lifecycle.config.ts "$@"
+PLAYWRIGHT_EXIT=$?
+set -e
+
+# 显式退出并带上 playwright 的退出码。trap 里的 cleanup 会用 $? 继承它，
+# 不这样写的话最后一条清理命令的退出码会把测试结果覆盖成 0。
+exit "${PLAYWRIGHT_EXIT}"

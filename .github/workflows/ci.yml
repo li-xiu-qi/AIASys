@@ -40,20 +40,67 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # --max-warnings 是棘轮。eslint 的 warning 默认不影响退出码：2026-08-09 实测
+      # `eslint .` 报 "4 problems (0 errors, 4 warnings)" 而退出码仍是 0，等于这一步
+      # 在 CI 里永远通过。锁住当前数量，只许减不许增。
+      #
+      # 现存 4 个，修掉后请把这里的阈值一起降下来：
+      #   - src/components/ui/dropdown-menu.tsx:68,69  no-explicit-any
+      #     （shadcn 生成组件的类型转发，改动有连带风险，优先级低）
+      #   - e2e/chat-deep-audit.spec.ts:13  no-explicit-any
+      #   - src/pages/WorkspacePage/hooks/useWorkspaceRuntimeControls.ts:490
+      #     react-hooks/exhaustive-deps（多余依赖，这个改起来最安全）
+      #
+      # 已知覆盖缺口：eslint.config.js 只声明 files: ["**/*.{ts,tsx}"]，.mjs / .js 完全
+      # 不在检查范围——实测点名一个含 debugger + 未使用变量的 .mjs，eslint 同样返回 0。
+      # 于是 scripts/committed/*.mjs 与 src/**/__tests__/*.test.mjs 都没有 lint 覆盖。
+      # 扩大范围会引出一批新问题，不在本次范围内，先记录在此。
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --max-warnings=4
 
-      - name: Unit tests
-        run: npm run test:unit
-
+      # 用 npm run type-check（脚本内是 `tsc -b --noEmit`），不要直接写 `npx tsc --noEmit`。
+      # apps/web/tsconfig.json 是 project references 结构（files: []），不带 -b 时
+      # tsc 不检查任何源文件，会静默通过——2026-08-09 实测：`tsc --noEmit` 退出码 0、
+      # 零输出，而 `tsc -b --noEmit` 在同一 commit 上报 4 条错误。
+      # 放在测试之前，让类型错误尽早失败。
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run type-check
+
+      # `npm test` 串起两套测试，缺一不可：
+      #   test:unit   → scripts/committed/run-unit-tests.mjs，跑 src/ 下递归发现的
+      #                 .test.mjs 自执行断言脚本（存量 4 个文件、23 个断言）
+      #   test:vitest → vitest run，跑 .test.ts / .test.tsx（组件与 hook 测试）
+      #
+      # 不要退回只跑其中一个。两处历史缺口都是「范围写死」导致的：
+      # 原先 test:unit 是 `node ... src/utils/__tests__/*.test.mjs`，glob 在 Windows
+      # cmd 下不展开、且 node 收到多文件参数只执行第一个；范围又固定在 utils 一个
+      # 目录，于是 components/ 与 hooks/ 下另外两个测试文件（21 个断言）从上线起
+      # 从未被执行过——手动跑它们其实是通过的，纯粹是没人跑。
+      - name: Unit tests
+        run: npm test
 
       - name: Build
         run: npm run build
 
   backend:
-    runs-on: ubuntu-latest
+    strategy:
+      # 一个平台失败不掩盖另一个平台的结果：跨平台问题往往只在单侧出现。
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    # Windows 观察期：这是第一次把 Windows 纳入 CI。主力开发在 Windows，但此前 CI 只跑
+    # ubuntu，Windows 特有问题（路径分隔符、glob 不展开、shell 差异、文件锁）全靠人肉发现。
+    # 已知案例：test_file_utils 的路径失真、test:unit 的 glob 在 Windows 不展开、
+    # test_powershell_prompt_section 偶发失败。
+    #
+    # 观察期内 Windows 侧失败不阻塞合并（继续报红但 workflow 整体不失败），先收集真实
+    # 失败清单；逐个修完后删掉这一行，windows-latest 即正式进入门禁。
+    #
+    # 这一条是本文件里唯一有意保留的 continue-on-error，作用范围严格限定在「新纳入的
+    # 平台」而非「某项检查」——它不会让任何检查在 ubuntu 上失效。不要把它当成处理
+    # 失败的通用手段扩散到别处。
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     defaults:
       run:
         working-directory: apps/backend
@@ -70,17 +117,87 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      # ── 以下静态检查只在 ubuntu 跑一次 ──────────────────────────────────
+      # 理由：格式与 lint 结果跨平台一致，跑两遍纯属浪费；而 pylint 评分与 mypy
+      # 错误数在不同平台可能有细微差异（平台相关的 stub 与条件分支），棘轮阈值
+      # 若同时在两个平台校验会出现无意义的红。
+
+      # ruff check 此前完全不在 CI 里（只有 format --check），导致 lint 规则形同虚设：
+      # 2026-08-09 实测 dev 基线上 `ruff check app/ tests/` 有 40 个 error（未使用导入、
+      # import 未排序、未定义名称等，其中 8 个 F821 是真实缺陷）。已在本分支清零。
+      - name: Ruff lint
+        if: matrix.os == 'ubuntu-latest'
+        run: uv run ruff check app/ tests/
+
+      # 范围必须含 tests/。原先只查 app/，于是 tests/ 下积压了 10 个未格式化文件
+      # （含上游 79206e9 新增的两个测试文件），而 app/ 侧 431 个文件全部合格。
       - name: Ruff format check
-        run: uv run ruff format --check app/
+        if: matrix.os == 'ubuntu-latest'
+        run: uv run ruff format --check app/ tests/
 
-      - name: Pylint check
-        run: uv run pylint --disable=R,C --exit-zero app/
+      # 棘轮，不是归零。原先是 `--exit-zero`，等于永远通过；实测评分 8.58/10。
+      # 分数提高后请上调这里的阈值，把收益锁住。
+      - name: Pylint (ratchet, 分数不得低于基线)
+        if: matrix.os == 'ubuntu-latest'
+        run: uv run pylint --disable=R,C --fail-under=8.5 app/
 
-      - name: Type check (mypy)
-        run: uv run mypy app/ || true
+      # 棘轮，同上。原先是 `mypy app/ || true`，等于永远通过；实测 1526 errors / 199 files。
+      # 基线与说明都在 apps/backend/.mypy-baseline（含 ubuntu 与 Windows 数字可能不一致的
+      # 处理办法，首次在 CI 上跑请先读它）。
+      - name: Mypy (ratchet, 错误数不得超过基线)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          # 基线文件里允许写注释，取最后一个非注释非空行作为数字。
+          BASE=$(grep -vE '^[[:space:]]*(#|$)' .mypy-baseline | tail -1 | tr -d '[:space:]')
+          case "$BASE" in
+            ''|*[!0-9]*)
+              echo "::error::.mypy-baseline 里没解析出有效数字，读到的是 [$BASE]"
+              exit 1
+              ;;
+          esac
 
+          # 只跑一次 mypy，输出复用到后面的解析与报错展示。
+          # 这里的 `|| true` 是必要的而非假绿：mypy 有错误时退出码非 0，若不吞掉，
+          # 步骤会在拿到输出前就中断，棘轮比对根本没机会执行。真正的判定是下面的
+          # COUNT 与 BASE 比较，它会真的 exit 1。
+          OUT=$(uv run mypy app/ 2>&1 || true)
+          COUNT=$(printf '%s\n' "$OUT" | sed -n 's/^Found \([0-9]\{1,\}\) error.*/\1/p' | tail -1)
+
+          if [ -z "$COUNT" ]; then
+            # mypy 全绿时不输出 "Found N errors"，而是 "Success: no issues found"。
+            # 这里要区分「真的 0 错」与「mypy 自己崩了」——后者也没有 Found 行，
+            # 若不区分就会把崩溃当成通过，正是本次要消灭的那类假绿。
+            if printf '%s\n' "$OUT" | grep -q "Success: no issues found"; then
+              COUNT=0
+            else
+              echo "::error::无法从 mypy 输出解析错误数（既无 'Found N errors' 也无 Success 行），可能是 mypy 崩溃或输出格式变化"
+              printf '%s\n' "$OUT" | tail -20
+              exit 1
+            fi
+          fi
+
+          echo "mypy 错误数：$COUNT（基线 $BASE）"
+          if [ "$COUNT" -gt "$BASE" ]; then
+            echo "::error::mypy 错误数从 $BASE 增加到 $COUNT，不允许变差。请修掉新增的类型错误。"
+            printf '%s\n' "$OUT" | tail -30
+            exit 1
+          fi
+          if [ "$COUNT" -lt "$BASE" ]; then
+            echo "::notice::mypy 错误数降到 $COUNT，请把 apps/backend/.mypy-baseline 更新为该值以锁定收益。"
+          fi
+
+      # ── 测试：两个平台都跑 ──────────────────────────────────────────────
+      # 三处改动，均有实测依据：
+      # 1. 移除原先 9 个 --ignore（test_auto_tasks_routes / test_compaction /
+      #    test_folder_import_routes / test_font_helper / test_global_workspace_file_routes /
+      #    test_runtime_execution / test_session_execution_journal /
+      #    test_session_runtime_state / test_sqlite_kb_service）。
+      #    2026-08-09 实测这 9 个文件在 dev 基线上 124 passed 全通过，忽略清单已过期；
+      #    其中 test_compaction.py 正是上游 79206e9 改动的文件，却从不在 CI 中运行。
+      # 2. 去掉 `if: github.event_name == 'pull_request'`：原先 push 到 main/dev 不跑测试，
+      #    直接推送的改动完全没有测试覆盖。
+      # 3. 把 `-x`（首败即停）换成 `--maxfail=5`：首败即停会掩盖同批的其它失败，
+      #    每轮 CI 只能暴露一个问题；给 5 个额度，既能看到问题面又不会跑满全程。
       - name: Run tests
-        if: github.event_name == 'pull_request'
-        run: uv run pytest -v -x --ignore=tests/test_auto_tasks_routes.py --ignore=tests/test_compaction.py --ignore=tests/test_folder_import_routes.py --ignore=tests/test_font_helper.py --ignore=tests/test_global_workspace_file_routes.py --ignore=tests/test_runtime_execution.py --ignore=tests/test_session_execution_journal.py --ignore=tests/test_session_runtime_state.py --ignore=tests/test_sqlite_kb_service.py
-
-
+        run: uv run pytest -q --maxfail=5

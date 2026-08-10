@@ -3,14 +3,18 @@
 #
 # 安装：cd apps/web && npx lefthook install
 # 手动运行：npx lefthook run pre-commit
+# 验证有效性：bash scripts/dev/lefthook/verify-hooks.sh   ← 改完本文件务必跑
 #
-# ── 本文件的四条纪律，都来自实际踩坑，改动前先读 ──────────────────────────
+# ── 本文件的五条纪律，都来自实际踩坑，改动前先读 ──────────────────────────
 #
-# 1. glob 不写 brace 扩展（`{ts,tsx}`、`{app,tests}`）。lefthook 的 glob 实现不认它，
-#    整个 hook 会被静默跳过，日志只留一行 "(skip) no matching staged files"。
-#    2026-08-09 实测：一个含真实类型错误的 .ts 和一个格式全坏的 .py，分别都通过了
-#    frontend-type-check 和 backend-ruff，直接进了提交。
-#    正确写法是宽 glob + 命令内 grep -E 精确过滤，本文件三个 hook 都按此改造。
+# 1. 前后端检查不写 glob，改由命令内的 grep -E 判定范围。
+#    lefthook 的 glob 有两个坑，都会让整个 hook 被静默跳过（日志只留一行
+#    "(skip) no matching staged files"），而提交照常通过：
+#      a. 不认 brace 扩展。写 `{ts,tsx}`、`{app,tests}` 一律不匹配。
+#      b. `src/**/*` 不匹配直接位于 src/ 根层的文件，只匹配子目录里的。
+#    2026-08-09 实测 b：同一个含类型错误的文件，放 src/utils/ 下被 tsc 拦住
+#    （exit status 2），放 src/ 根层则完全跳过——而 App.tsx、main.tsx 正在根层。
+#    grep -E 的行为可预期、跨平台一致，不必再猜 glob 实现的边界。
 #
 # 2. 检查命令末尾不挂 `|| true`。挂了等于该 hook 永远成功，表面绿灯、实际零约束。
 #    包装脚本里也不要无条件 `process.exit(0)`，那是同一件事的 JS 版写法。
@@ -21,18 +25,20 @@
 #    脚本，不经过 shell 的 test 判断，不受影响。
 #
 # 4. 改完本文件必须用探针实测，不能只看 `lefthook run pre-commit` 是否绿。
-#    方法：造一个必然违规的文件 → git add → git commit → 看 HEAD 有没有移动。
-#    判据用 HEAD 而不是 `$?`：命令接了管道（如 `| tail`）时 `$?` 是管道尾的退出码，
-#    会把被阻塞的提交误报成成功。
+#    跑 scripts/dev/lefthook/verify-hooks.sh，它同时做正向（违规必须拦下）和反向
+#    （合规必须放过）验证。只做正向会产生假 PASS：本次 editorconfig 因 spawn .cmd
+#    报 EINVAL 而恒定 exit 1，四个正向探针曾全部「通过」，掩盖了两个前端 hook 压根
+#    没在工作的事实。
 #
-# 验证脚本：bash scripts/dev/lefthook/verify-hooks.sh
+# 5. 改 hook 自身的脚本后，先 git add 再测。lefthook 会把 partially staged 文件的
+#    unstaged 部分临时 stash 掉，让检查只看到 staged 版本——所以工作区改了、没 add，
+#    实际跑的仍是旧版脚本。本次为此白排查了一轮。
 
 pre-commit:
   parallel: true
   commands:
     # --- Frontend ---
     frontend-lint:
-      glob: "apps/web/src/**/*"
       # 一次把所有文件传给 eslint，不再逐文件循环。原先的写法
       #   for f in $files; do [ -f "$f" ] && npx eslint "$f" || rc=$?; done; exit $rc || true
       # 有两个毛病：末尾 `|| true` 违反纪律 2（虽然 exit 先执行使它侥幸无害），
@@ -44,7 +50,6 @@ pre-commit:
         npx eslint $files
 
     frontend-type-check:
-      glob: "apps/web/src/**/*"
       # 必须用 -b（build mode），因为 apps/web/tsconfig.json 是 project references 结构，
       # 直接 --noEmit 会因 files: [] 而不检查任何源文件（实测：不带 -b 退出码 0 且零输出，
       # 带 -b 在同一 commit 上报 4 条错误）。
@@ -70,11 +75,10 @@ pre-commit:
     # $files 有意不加引号（需要 word splitting 把多个文件传给 ruff）；前提是 Python
     # 文件名不含空格，这是本仓约定。
     backend-ruff:
-      glob: "apps/backend/**/*.py"
       run: |
-        cd apps/backend
         files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/backend/(app|tests)/.*[.]py$' | sed 's|^apps/backend/||')
         if [ -z "$files" ]; then exit 0; fi
+        cd apps/backend
         uv run ruff check $files
         uv run ruff format --check $files
 
@@ -84,6 +88,8 @@ pre-commit:
       run: bash scripts/dev/lefthook/author-check.sh
 
     # --- EditorConfig ---
+    # glob 保持 "*"：这个检查本就该覆盖所有类型的文件，且它把参数交给 node 脚本处理，
+    # 不受纪律 1 里那两个 glob 坑的影响（"*" 是平铺匹配，不涉及 ** 语义）。
     editorconfig:
       glob: "*"
       run: node scripts/dev/lefthook/editorconfig-checker.mjs {staged_files}

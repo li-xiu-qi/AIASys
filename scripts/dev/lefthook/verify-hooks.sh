@@ -90,6 +90,13 @@ P3="apps/web/src/__hook_probe_lint.ts"
 printf 'export function probe(): number {\n  debugger;\n  return 1;\n}\n' > "$P3"
 expect_blocked "frontend-lint" "$P3"
 
+# 位置很重要：上面两个探针在 src/ 根层，下面这个在子目录。
+# 2026-08-09 实测，glob `src/**/*` 只匹配子目录、漏掉根层，两种位置结果不同——
+# 而 App.tsx / main.tsx 正在根层。所以两个位置都要测，缺一个就会漏掉这类偏差。
+P5="apps/web/src/utils/__hook_probe_deep.ts"
+printf 'export const probeDeep: number = "字符串不是数字";\n' > "$P5"
+expect_blocked "type-check(子目录)" "$P5"
+
 P4="apps/backend/tests/__hook_probe_ec.txt"
 printf 'trailing spaces here   \nno final newline' > "$P4"
 expect_blocked "editorconfig" "$P4"

@@ -11,6 +11,9 @@ permissions:
 jobs:
   auto-review:
     runs-on: ubuntu-latest
+    # 硬上限：没有它时挂起的 job 会跑到 GitHub 默认的 6 小时上限。
+    # 挂起比失败更糟——看不到结论、烧配额、还阻塞队列。uv sync + ruff/pylint + 发评论。
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +40,12 @@ jobs:
           FORMAT_FAILED="false"
           CHECK_FAILED=""
           FIX_CMDS=""
+          # 追加命令时的换行用 $'\n' 表示，不要在字符串里直接敲回车。
+          # 直接敲回车会让续行顶格到 column 1，脱离 run: | 的 block scalar 缩进，
+          # 整个 workflow 被 GitHub 判为 Invalid workflow file 而静默不跑。
+          # 2026-08-10 实测：本文件此前正是这样坏掉的，且已经坏了很久没人发现——
+          # workflow 语法错误不会阻止合并、也不会在别处报错，只是那道检查从此不存在。
+          NL=$'\n'
           
           if ! uv run ruff format --check app/ > /dev/null 2>&1; then
             FORMAT_FAILED="true"
@@ -45,8 +54,7 @@ jobs:
           
           if ! uv run ruff check app/ > /dev/null 2>&1; then
             CHECK_FAILED="ruff check"
-            FIX_CMDS="${FIX_CMDS:+${FIX_CMDS}
-}cd apps/backend && uv run ruff check --fix app/"
+            FIX_CMDS="${FIX_CMDS:+${FIX_CMDS}${NL}}cd apps/backend && uv run ruff check --fix app/"
           fi
           
           if ! uv run pylint --disable=R,C --exit-zero app/ > /dev/null 2>&1; then

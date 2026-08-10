@@ -97,6 +97,13 @@ P5="apps/web/src/utils/__hook_probe_deep.ts"
 printf 'export const probeDeep: number = "字符串不是数字";\n' > "$P5"
 expect_blocked "type-check(子目录)" "$P5"
 
+# desktop 探针：语法坏掉的 .cjs 必须被 desktop-unit 拦下。
+# 这个探针的由来是一次真实漏网——改 vendor 下载脚本时留下多余的右花括号，
+# 当时五个 hook 没有一条覆盖 apps/desktop，语法错误顺利进了工作区。
+# 放在 scripts/ 下而不是 src/ 下：构建脚本是实际出事的位置。
+P6="apps/desktop/scripts/__hook_probe_broken.cjs"
+printf 'const broken = {;\n' > "$P6"
+expect_blocked "desktop-unit" "$P6"
 P4="apps/backend/tests/__hook_probe_ec.txt"
 printf 'trailing spaces here   \nno final newline' > "$P4"
 expect_blocked "editorconfig" "$P4"

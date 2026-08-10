@@ -66,12 +66,18 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      # test:unit 的实现是 scripts/committed/run-unit-tests.mjs，不要退回 glob 写法。
-      # 原先是 `node --experimental-strip-types src/utils/__tests__/*.test.mjs`，两处失效：
-      # glob 在 Windows cmd 下不展开；即便展开，node 收到多个文件参数也只执行第一个。
-      # 结果是两个测试文件里始终只有一个真正跑过。
+      # `npm test` 串起两套测试，缺一不可：
+      #   test:unit   → scripts/committed/run-unit-tests.mjs，跑 src/ 下递归发现的
+      #                 .test.mjs 自执行断言脚本（存量 4 个文件、23 个断言）
+      #   test:vitest → vitest run，跑 .test.ts / .test.tsx（组件与 hook 测试）
+      #
+      # 不要退回只跑其中一个。两处历史缺口都是「范围写死」导致的：
+      # 原先 test:unit 是 `node ... src/utils/__tests__/*.test.mjs`，glob 在 Windows
+      # cmd 下不展开、且 node 收到多文件参数只执行第一个；范围又固定在 utils 一个
+      # 目录，于是 components/ 与 hooks/ 下另外两个测试文件（21 个断言）从上线起
+      # 从未被执行过——手动跑它们其实是通过的，纯粹是没人跑。
       - name: Unit tests
-        run: npm run test:unit
+        run: npm test
 
       - name: Build
         run: npm run build

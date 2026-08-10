@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.api.routes import workspaces_resources_snapshots as snapshots_route
@@ -377,6 +379,7 @@ class TestWorkspaceSnapshotHTTPRoutes:
         _patch_roots(monkeypatch, tmp_path, service)
 
         from fastapi.testclient import TestClient
+
         from app.main import app
 
         client = TestClient(app)
@@ -406,6 +409,7 @@ class TestWorkspaceSnapshotHTTPRoutes:
         _patch_roots(monkeypatch, tmp_path, service)
 
         from fastapi.testclient import TestClient
+
         from app.main import app
 
         client = TestClient(app)

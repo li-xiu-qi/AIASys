@@ -20,7 +20,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.core.subprocess_utils import subprocess_kwargs
+# 必须在导入 app.* 之前自举 sys.path。
+#
+# 本脚本由 app/core/vendor_binaries.py 以 `subprocess.run([sys.executable, script],
+# cwd=<仓库根>)` 拉起。那两个路径都不含 app 包：cwd 是仓库根（app 在
+# apps/backend/ 下），而 sys.path[0] 是脚本自己所在的 scripts/ 目录。于是顶层
+# `from app.core...` 必然 ModuleNotFoundError。
+#
+# 实测后果不是「偶尔失败」而是「从未成功过」：每次后端启动都留下一条
+#
+#   vendor 二进制自动下载失败 (exit 1): ModuleNotFoundError: No module named 'app'
+#
+# 也就是 uv / fnm / sqlite-vec 缺失时的自动补齐能力一直是空的，开发者只能手工装。
+# 这条报错混在启动日志里且级别只有 WARNING，启动照常继续，所以长期没人追。
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.core.subprocess_utils import subprocess_kwargs  # noqa: E402
 
 
 def get_platform_slug() -> str:

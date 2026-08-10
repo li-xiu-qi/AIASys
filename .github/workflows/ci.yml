@@ -55,7 +55,9 @@ jobs:
       # 现存 4 个，修掉后请把这里的阈值一起降下来：
       #   - src/components/ui/dropdown-menu.tsx:68,69  no-explicit-any
       #     （shadcn 生成组件的类型转发，改动有连带风险，优先级低）
-      #   - e2e/chat-deep-audit.spec.ts:13  no-explicit-any
+      #   - e2e/manual/chat-deep-audit.spec.ts:13  no-explicit-any
+      #     （2026-08-11 从 e2e/ 根层移入 e2e/manual/，那批零断言的人工审查脚本
+      #     统一挪进去了，路径随之变化；warning 数量不变，仍是 4）
       #   - src/pages/WorkspacePage/hooks/useWorkspaceRuntimeControls.ts:490
       #     react-hooks/exhaustive-deps（多余依赖，这个改起来最安全）
       #

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 
-const OUT_DIR = "/home/ke/projects/AIASys/design-draft/archive/artifacts/ux-audit-20250608";
+const OUT_DIR = "test-results/manual-artifacts/ux-audit-20250608";
 
 test.use({
   video: "on",

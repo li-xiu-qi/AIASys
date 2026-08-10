@@ -2,7 +2,7 @@ import { test } from "@playwright/test";
 import fs from "fs";
 import path from "path";
 
-const OUT_DIR = "/home/ke/projects/AIASys/design-draft/archive/artifacts/ux-audit-20250608";
+const OUT_DIR = "test-results/manual-artifacts/ux-audit-20250608";
 
 test("probe page structure", async ({ page }) => {
   await page.goto("http://localhost:13000/", { waitUntil: "domcontentloaded" });

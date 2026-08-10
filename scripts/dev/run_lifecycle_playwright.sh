@@ -215,7 +215,22 @@ echo "PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}" >&2
 
 cd "${WEB_ROOT}"
 set +e
-npx playwright test -c playwright.lifecycle.config.ts "$@"
+# 配置可通过环境变量覆盖，默认跑 lifecycle 回归套件。
+#
+# e2e/manual/ 下那批以截图为输出的人工审查脚本用的是 playwright.manual.config.ts，
+# 它们同样需要一个起好的全栈环境，没道理再复制一遍这份服务启停逻辑（端口扫描、
+# 就绪等待、按 PID 树收尾在 Windows 上都是踩过坑才写对的）。所以这里只把配置文件
+# 参数化，跑法变成：
+#   PLAYWRIGHT_CONFIG=playwright.manual.config.ts bash scripts/dev/run_lifecycle_playwright.sh e2e/manual/xxx.spec.ts
+PLAYWRIGHT_CONFIG="${PLAYWRIGHT_CONFIG:-playwright.lifecycle.config.ts}"
+if [[ ! -f "${PLAYWRIGHT_CONFIG}" ]]; then
+  # 早失败并说清原因。配置名拼错时 playwright 自己的报错是「no tests found」，
+  # 方向完全指错，会让人去查测试文件而不是查配置名。
+  echo "找不到 playwright 配置: ${WEB_ROOT}/${PLAYWRIGHT_CONFIG}" >&2
+  exit 2
+fi
+echo "PLAYWRIGHT_CONFIG=${PLAYWRIGHT_CONFIG}" >&2
+npx playwright test -c "${PLAYWRIGHT_CONFIG}" "$@"
 PLAYWRIGHT_EXIT=$?
 set -e
 

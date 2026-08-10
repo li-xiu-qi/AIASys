@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 
-const OUT_DIR = "/home/ke/projects/AIASys/design-draft/archive/artifacts/chat-deep-audit";
+const OUT_DIR = "test-results/manual-artifacts/chat-deep-audit";
 
 if (!fs.existsSync(OUT_DIR)) {
   fs.mkdirSync(OUT_DIR, { recursive: true });

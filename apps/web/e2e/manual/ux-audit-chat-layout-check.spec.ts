@@ -84,7 +84,7 @@ test.describe("Code Block Check", () => {
     }
 
     await page.screenshot({
-      path: "/home/ke/projects/AIASys/design-draft/archive/artifacts/ux-audit-chat-layout/code-block-check.png",
+      path: "test-results/manual-artifacts/ux-audit-chat-layout/code-block-check.png",
       fullPage: false,
     });
 

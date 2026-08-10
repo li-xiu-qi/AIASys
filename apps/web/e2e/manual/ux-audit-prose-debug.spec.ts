@@ -64,7 +64,7 @@ test.describe("Prose Debug", () => {
     }
 
     await page.screenshot({
-      path: "design-draft/archive/artifacts/ux-audit-chat-layout/prose-debug.png",
+      path: "test-results/manual-artifacts/ux-audit-chat-layout/prose-debug.png",
       fullPage: false,
     });
   });

@@ -23,6 +23,10 @@ concurrency:
 jobs:
   web-check:
     runs-on: ubuntu-latest
+    # 硬上限。没有它时，任何挂起（卡住不返回，既不失败也不通过）会一直占用 runner 到
+    # GitHub 的默认上限 6 小时。挂起比失败更糟：看不到结论、烧配额、还会阻塞后续队列。
+    # 30 分钟对本 job 是宽松的——实测 npm ci + lint + tsc + test + build 合计约 4 分钟。
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: apps/web
@@ -89,6 +93,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    # 硬上限，理由同 web-check。这个 job 更需要它：2026-08-09 实测过一次真实挂起——
+    # 用反向探针把 check_write_guard 改成无条件放行后，test_team_write_guard.py 的
+    # test_write_outside_scope_blocked 卡住不返回（同批 lease 测试则是 3 秒内正常失败）。
+    # 原因是这类测试断言的正是「底层工具不被调用」，一旦守卫失效，被拦的调用就真的发生
+    # 了。没有超时保护时，这种失败形态在 CI 上表现为 job 跑到 runner 上限，看不出任何
+    # 结论。全量 pytest 实测 193-206 秒，25 分钟留了足够余量。
+    timeout-minutes: 25
     # Windows 观察期：这是第一次把 Windows 纳入 CI。主力开发在 Windows，但此前 CI 只跑
     # ubuntu，Windows 特有问题（路径分隔符、glob 不展开、shell 差异、文件锁）全靠人肉发现。
     # 已知案例：test_file_utils 的路径失真、test:unit 的 glob 在 Windows 不展开、

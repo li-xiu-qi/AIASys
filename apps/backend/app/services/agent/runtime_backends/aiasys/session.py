@@ -26,7 +26,7 @@ from app.utils.path_utils import as_system_path, atomic_write_text
 
 from ..base import RuntimeSessionCreateSpec
 from .capability_confirmation import CapabilityConfirmationManager
-from .llm_clients.message_protocol import InternalMessage
+from .llm_clients.message_protocol import InternalMessage, compute_display_hint
 from .loop_detection import ContinuationState, ThinkingLoopDetector
 from .session_budget import SessionBudgetMixin
 from .session_compaction import SessionCompactionMixin
@@ -115,6 +115,9 @@ class AiasysRuntimeSession(
         # thinking 循环诱导跳出在一次 run 内只注入一次：注入后若仍循环，
         # 让它自然走到 max_tokens 或结束，不反复打断（反复注入本身会变成新的循环）。
         self._thinking_loop_nudge_sent = False
+        # 显示流分层：当前正在处理的 message 的 display_hint（供 SSE 序列化使用）
+        # 缺省 "visible"，确保老代码路径也有合理值
+        self._current_display_hint: str = "visible"
 
         # 从 metadata.json 恢复上次 LLM 返回的精确 context_tokens。
         # 顶层 context_tokens 与 budget 独立，确保 budget 关闭后仍能恢复精确值。
@@ -566,6 +569,9 @@ class AiasysRuntimeSession(
                 message["origin"] = "assistant"
             elif role == "tool":
                 message["origin"] = "tool"
+
+        # 同步更新当前 display_hint，供 SSE 序列化层读取
+        self._current_display_hint = compute_display_hint(message.get("origin"))
 
         if self._current_turn_n is not None and message.get("role") in ("assistant", "tool"):
             message["turn_n"] = self._current_turn_n

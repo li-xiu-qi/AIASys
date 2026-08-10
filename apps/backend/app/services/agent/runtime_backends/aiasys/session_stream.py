@@ -86,6 +86,9 @@ def _serialize_tool_content_for_event(content: str | list[dict[str, Any]]) -> st
 class SessionStreamMixin:
     """提供 prompt() ReAct 流式循环，作为 mixin 混入 AiasysRuntimeSession。"""
 
+    # 显示流分层：直接实例化 SessionStreamMixin 的测试桩需要此缺省值
+    _current_display_hint: str = "visible"
+
     def _prepare_messages_for_current_model(self) -> list[dict[str, Any]]:
         # Tier 1: 每次 LLM 调用前执行零成本 tool 结果清理
         self._run_pre_turn_clearing()
@@ -397,6 +400,7 @@ class SessionStreamMixin:
                 )
 
         yield AgentRuntimeEvent(
+            display_hint=self._current_display_hint,
             kind="tool_result",
             tool_call_id=item["id"],
             tool_name=item["function"]["name"],
@@ -519,6 +523,7 @@ class SessionStreamMixin:
             if denial:
                 tool_result = ToolResult(content=denial, is_error=True)
                 yield AgentRuntimeEvent(
+                    display_hint=self._current_display_hint,
                     kind="tool_result",
                     tool_call_id=item.get("id"),
                     tool_name=tool_name,
@@ -553,6 +558,7 @@ class SessionStreamMixin:
             yield AgentRuntimeEvent(
                 kind="budget_limited",
                 text=self._session_budget_limited_text(),
+                display_hint="visible",
             )
             yield AgentRuntimeEvent(
                 kind="budget_updated",
@@ -568,6 +574,7 @@ class SessionStreamMixin:
                     },
                     ensure_ascii=False,
                 ),
+                display_hint="visible",
             )
             return
 
@@ -678,6 +685,7 @@ class SessionStreamMixin:
                         if delta.content:
                             assistant_parts.append(delta.content)
                             yield AgentRuntimeEvent(
+                                display_hint=self._current_display_hint,
                                 kind="content",
                                 content_type="text",
                                 text=delta.content,
@@ -689,6 +697,7 @@ class SessionStreamMixin:
                                 delta.reasoning_content,
                             )
                             yield AgentRuntimeEvent(
+                                display_hint=self._current_display_hint,
                                 kind="content",
                                 content_type="think",
                                 think=delta.reasoning_content,
@@ -793,6 +802,7 @@ class SessionStreamMixin:
                 # 半截的思考流没有对应的完整响应，写进历史反而给模型
                 # 「我已经答过了」的假象。前端已收到的 think 事件仍会展示，那是展示层的事。
                 yield AgentRuntimeEvent(
+                    display_hint=self._current_display_hint,
                     kind="system_warning",
                     text=THINKING_LOOP_NUDGE,
                 )
@@ -831,6 +841,7 @@ class SessionStreamMixin:
                         fallback_message["reasoning_redacted_data"] = assistant_reasoning_redacted
                     self._append_message(fallback_message)
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=(
                             "<system>\n"
@@ -1011,6 +1022,7 @@ class SessionStreamMixin:
                 if nudge:
                     self._auto_nudge_sent_for_current_turn = True
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=nudge,
                     )
@@ -1033,6 +1045,7 @@ class SessionStreamMixin:
                 if nudge:
                     self._post_list_nudge_sent_for_current_turn = True
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=nudge,
                     )
@@ -1071,6 +1084,7 @@ class SessionStreamMixin:
                         len(chunk),
                     )
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=describe_continuation_stop(verdict),
                     )
@@ -1149,6 +1163,7 @@ class SessionStreamMixin:
 
         if total_input_tokens or total_output_tokens:
             yield AgentRuntimeEvent(
+                display_hint=self._current_display_hint,
                 kind="token_usage",
                 input_tokens=total_input_tokens,
                 output_tokens=total_output_tokens,
@@ -1159,6 +1174,7 @@ class SessionStreamMixin:
         # Budget Mode: 推送最终 session budget 状态
         if self.budget is not None:
             yield AgentRuntimeEvent(
+                display_hint=self._current_display_hint,
                 kind="budget_updated",
                 text=json.dumps(
                     {

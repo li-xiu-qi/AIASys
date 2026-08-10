@@ -12,7 +12,8 @@
  * 3. 支持流式更新和历史恢复
  */
 import { memo, useMemo } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, ChevronRight } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 import type { ChatSegment, WorkerRecord } from "@/pages/WorkspacePage/types";
 import type { PreviewFile } from "@/components/layout/WorkspaceSidebar/preview";
@@ -128,6 +129,28 @@ function useSegmentData(segments?: ChatSegment[]) {
 
     return { thoughts, tools, texts, thinks, monitors, turns };
   }, [segments]);
+}
+
+/** 获取 collapsed  segment 的折叠标题 */
+function getCollapsedLabel(seg: ChatSegment): string {
+  switch (seg.type) {
+    case "text":
+      return "背景上下文";
+    case "think":
+      return "推理过程（背景上下文）";
+    case "thought":
+      return "思考过程（背景上下文）";
+    case "turn":
+      return `Turn ${seg.turnN ?? "?"}（背景上下文）`;
+    case "tool_call":
+      return `工具调用：${seg.toolName ?? "未知"}（背景上下文）`;
+    case "tool_output":
+      return `工具结果：${seg.toolName ?? "未知"}（背景上下文）`;
+    case "monitor":
+      return `Monitor ${seg.monitorCommand ?? ""}（后台运行）`.trim();
+    default:
+      return "内容（背景上下文）";
+  }
 }
 
 // Provider 组件
@@ -268,6 +291,215 @@ export const AiMessageContent = memo(function AiMessageContent({
 
     // 按顺序渲染合并后的 segments
     return mergedSegments.map((seg, idx) => {
+      // hidden：不进 DOM
+      if (seg.display_hint === "hidden") {
+        return null;
+      }
+
+      // collapsed：用 Collapsible 包裹，默认收起，标题带语义描述
+      const collapsedContent = (() => {
+        if (seg.type === "think") {
+          return (
+            <StreamingThoughtBlock
+              initialContent={seg.content}
+              isStreaming={isStreaming && !seg.isComplete}
+              defaultOpen={false}
+              onOpenInMainCanvas={onOpenWorkspaceArtifact}
+              onOpenInBrowserTab={onOpenInBrowserTab}
+            />
+          );
+        }
+
+        if (seg.type === "text") {
+          const processedContent = seg.content
+            .replace(
+              /<img[^>]+src=["']([^"']+)["'][^>]*alt=["']([^"']*)["'][^>]*\/?>/gi,
+              (_match, src, alt) => `![${alt}](${src})`,
+            )
+            .replace(
+              /<img[^>]+alt=["']([^"']*)["'][^>]*src=["']([^"']+)["'][^>]*\/?>/gi,
+              (_match, alt, src) => `![${alt}](${src})`,
+            );
+          return (
+            <div
+              className={`prose prose-sm max-w-none min-w-0 break-all ${seg.isError ? "rounded-md border border-red-200 bg-red-50/50 px-3 py-2" : ""}`}
+            >
+              <ChartAwareMarkdown
+                content={processedContent}
+                token={undefined}
+                sessionId={sessionId}
+                onOpenInMainCanvas={onOpenWorkspaceArtifact}
+                onOpenInBrowserTab={onOpenInBrowserTab}
+              />
+            </div>
+          );
+        }
+
+        if (seg.type === "tool_call") {
+          return (
+            <button
+              onClick={(e) => {
+                const rect = (
+                  e.currentTarget as HTMLButtonElement
+                ).getBoundingClientRect();
+                onViewToolDetails?.(
+                  seg.toolCallId || seg.toolName || `tool-${idx}`,
+                  taskId,
+                  rect,
+                );
+              }}
+              className="mb-2 group/tool flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-muted/50 hover:bg-accent/70 transition-all duration-200 hover:shadow-sm"
+            >
+              <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary flex-shrink-0">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+              </div>
+              <div className="flex flex-col items-start gap-0.5 min-w-0">
+                <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
+                  {seg.toolName}
+                </span>
+                <span className="text-[10px] text-muted-foreground group-hover/tool:text-foreground/70 transition-colors">
+                  点击查看详情 →
+                </span>
+              </div>
+            </button>
+          );
+        }
+
+        if (seg.type === "tool_output") {
+          const toolParams = seg.toolCallId
+            ? toolParamsByCallId.get(seg.toolCallId)
+            : undefined;
+          const filePath = extractFilePathFromToolParams(
+            seg.toolName,
+            toolParams,
+          );
+          const showFileNotice = filePath && !seg.isError;
+
+          return (
+            <div>
+              {showFileNotice && (
+                <FileOperationNotice
+                  toolName={seg.toolName || ""}
+                  filePath={filePath}
+                />
+              )}
+              {showToolOutputs && (
+                <ToolBlock
+                  title={`${seg.toolName || "工具"} ${seg.isError ? "错误" : "执行结果"}`}
+                  content={
+                    seg.content && seg.content.trim().length > 0
+                      ? seg.content
+                      : "（无输出）"
+                  }
+                  defaultOpen={seg.isError || false}
+                  isError={seg.isError}
+                />
+              )}
+            </div>
+          );
+        }
+
+        if (seg.type === "monitor") {
+          const isRunning = seg.monitorStatus === "running";
+          const statusColor = seg.isError
+            ? "border-red-200 bg-red-50"
+            : seg.isComplete
+              ? "border-green-200 bg-green-50"
+              : "border-amber-200 bg-amber-50";
+          const statusText = seg.isError
+            ? "失败"
+            : seg.isComplete
+              ? "完成"
+              : "运行中";
+          return (
+            <div
+              className={`my-2 mx-3 rounded-lg border ${statusColor} overflow-hidden`}
+            >
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-black/5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={isRunning ? "animate-pulse text-amber-600" : seg.isError ? "text-red-600" : "text-green-600"}
+                >
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                <span className="text-[11px] font-medium text-foreground/80 truncate">
+                  Monitor {seg.monitorCommand}
+                </span>
+                <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded ${seg.isError ? "bg-red-100 text-red-700" : seg.isComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                  {statusText}{seg.monitorExitCode !== null && seg.monitorExitCode !== undefined ? ` (${seg.monitorExitCode})` : ""}
+                </span>
+              </div>
+              {seg.content && (
+                <pre className="px-3 py-2 text-[11px] font-mono text-muted-foreground max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                  {seg.content}
+                </pre>
+              )}
+              {isRunning && (
+                <div className="px-3 py-1.5 border-t border-black/5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-[10px] text-muted-foreground">后台运行中...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        if (seg.type === "turn") {
+          return (
+            <div
+              className="flex w-full items-center gap-3 my-4"
+            >
+              <div className="h-px flex-1 bg-border/70" />
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+                Turn {seg.turnN ?? "?"}
+              </span>
+              <div className="h-px flex-1 bg-border/70" />
+            </div>
+          );
+        }
+
+        return null;
+      })();
+
+      if (seg.display_hint === "collapsed") {
+        return (
+          <Collapsible key={`seg-${seg.type}-${idx}`} defaultOpen={false}>
+            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-1 select-none">
+              <ChevronRight className="h-3 w-3 transition-transform duration-200" />
+              {getCollapsedLabel(seg)}
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {collapsedContent}
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      }
+
+      // visible：原有渲染
       if (seg.type === "think") {
         return (
           <StreamingThoughtBlock

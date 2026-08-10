@@ -149,7 +149,7 @@ class SessionCompactionMixin:
                             compaction_client = self._client
 
         # 通知前端压缩开始
-        yield AgentRuntimeEvent(kind="compaction", phase="begin")
+        yield AgentRuntimeEvent(display_hint="visible", kind="compaction", phase="begin")
 
         result: CompactionResult | None = None
         try:
@@ -327,6 +327,7 @@ class SessionCompactionMixin:
 
             # 通知前端压缩完成
             yield AgentRuntimeEvent(
+                display_hint="visible",
                 kind="compaction",
                 phase="done",
                 tokens_before=before_tokens,
@@ -359,6 +360,7 @@ class SessionCompactionMixin:
 
             # 即使没有实际压缩，也通知前端结束 loading
             yield AgentRuntimeEvent(
+                display_hint="visible",
                 kind="compaction",
                 phase="done",
                 tokens_before=before_tokens,

@@ -29,9 +29,14 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2] / "apps" / "backend"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = REPO_ROOT / "apps" / "backend"
+WEB_ROOT = REPO_ROOT / "apps" / "web"
 
-_MESSAGE_PROTOCOL = "app/services/agent/runtime_backends/aiasys/llm_clients/message_protocol.py"
+_MESSAGE_PROTOCOL = (
+    "apps/backend/app/services/agent/runtime_backends/aiasys/llm_clients/message_protocol.py"
+)
+_AI_MESSAGE_CONTENT = "apps/web/src/components/chat/AiMessageContent/index.tsx"
 
 
 @dataclass(frozen=True)
@@ -39,11 +44,13 @@ class Probe:
     """一个探针：往 target 里把 find 换成 replace，期望 tests 失败。
 
     name        探针标识，用于 -k 过滤与报告。
-    target      相对 apps/backend 的源码路径。
+    target      相对**仓库根**的源码路径（前后端统一口径）。
     find        要被替换的原文片段，必须在文件中**唯一**出现。
     replace     注入后的片段（即人为制造的缺陷）。
-    tests       pytest 选择器，注入后这些测试必须至少有一个失败。
+    tests       测试选择器：pytest 用相对 apps/backend 的路径，
+                vitest 用相对 apps/web 的路径或目录前缀。
     rationale   这个缺陷对应什么真实风险，即「为什么值得为它写断言」。
+    runner      "pytest"（后端）或 "vitest"（前端）。
     """
 
     name: str
@@ -53,9 +60,11 @@ class Probe:
     tests: tuple[str, ...]
     rationale: str
     extra_args: tuple[str, ...] = field(default_factory=tuple)
+    runner: str = "pytest"
 
 
 _PROJECTION_TESTS = ("tests/test_message_protocol_projection.py",)
+_DISPLAY_HINT_TESTS = ("src/components/chat/AiMessageContent",)
 
 PROBES: tuple[Probe, ...] = (
     Probe(
@@ -194,6 +203,33 @@ PROBES: tuple[Probe, ...] = (
         ),
         rationale="伪造空签名会被 Claude 校验拒绝，是历史上真实踩过的坑",
     ),
+    # ---- 前端（vitest）----
+    # 这一层与后端那十个探针是互补关系，不是重复：后端管「哪些消息该给用户看」的
+    # 判定，前端管这个判定有没有被真正落实到 DOM 上。后端映射对了、前端渲染写错，
+    # 用户照样会看到注入内容。
+    Probe(
+        name="display-hint-not-in-merge-condition",
+        target=_AI_MESSAGE_CONTENT,
+        find="        MERGEABLE_TYPES.has(seg.type) &&\n"
+        '        (lastSeg.display_hint ?? "visible") === (seg.display_hint ?? "visible")',
+        replace="        MERGEABLE_TYPES.has(seg.type)",
+        tests=_DISPLAY_HINT_TESTS,
+        rationale=(
+            "2026-08-10 实测的真缺陷：合并只比 type 时，[visible, hidden] 会渲染成 "
+            "FIRST_VISIBLEMIDDLE_HIDDENLAST_VISIBLE，system/compaction_summary 的注入内容"
+            "直接显示在界面上；反向则让正常回答整段消失"
+        ),
+        runner="vitest",
+    ),
+    Probe(
+        name="hidden-segment-still-rendered",
+        target=_AI_MESSAGE_CONTENT,
+        find='      if (seg.display_hint === "hidden") {',
+        replace='      if (seg.display_hint === "__never_matches__") {',
+        tests=_DISPLAY_HINT_TESTS,
+        rationale="hidden 判断失效等于 display_hint 机制整体失效，隐藏内容全部进 DOM",
+        runner="vitest",
+    ),
 )
 
 
@@ -208,6 +244,31 @@ def _run_pytest(tests: tuple[str, ...], extra_args: tuple[str, ...]) -> tuple[in
         errors="replace",
     )
     return completed.returncode, (completed.stdout or "") + (completed.stderr or "")
+
+
+def _run_vitest(tests: tuple[str, ...], extra_args: tuple[str, ...]) -> tuple[int, str]:
+    """跑前端 vitest。
+
+    用 shell=True 是因为 Windows 下 npx 是 .cmd，直接 exec 会 FileNotFoundError。
+    vitest 没有 --no-header，也不接受 pytest 的 -q，因此参数表与 pytest 分开维护。
+    """
+    cmd = "npx vitest run " + " ".join([*tests, *extra_args])
+    completed = subprocess.run(
+        cmd,
+        cwd=WEB_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        shell=True,
+    )
+    return completed.returncode, (completed.stdout or "") + (completed.stderr or "")
+
+
+def _run_tests(probe: Probe) -> tuple[int, str]:
+    if probe.runner == "vitest":
+        return _run_vitest(probe.tests, probe.extra_args)
+    return _run_pytest(probe.tests, probe.extra_args)
 
 
 def _digest(path: Path) -> str:
@@ -239,7 +300,7 @@ def _execute_probe(probe: Probe) -> tuple[str, str]:
     main 与 --self-test 共用本函数，保证自证检验的是真正在用的判定逻辑，
     而不是一份平行实现。
     """
-    path = BACKEND_ROOT / probe.target
+    path = REPO_ROOT / probe.target
     original = path.read_text(encoding="utf-8")
 
     occurrences = original.count(probe.find)
@@ -250,7 +311,7 @@ def _execute_probe(probe: Probe) -> tuple[str, str]:
 
     try:
         path.write_text(original.replace(probe.find, probe.replace), encoding="utf-8")
-        code, output = _run_pytest(probe.tests, probe.extra_args)
+        code, output = _run_tests(probe)
         ran = _selected_count(output)
     finally:
         path.write_text(original, encoding="utf-8")
@@ -262,7 +323,53 @@ def _execute_probe(probe: Probe) -> tuple[str, str]:
     return "false-green", "注入后仍然通过 → 假测试！"
 
 
-def _self_test() -> int:
+def _self_test_vitest() -> int:
+    """前端侧自证，逻辑与 pytest 侧完全相同，只换目标文件与 runner。
+
+    单独一个函数而不是在 _self_test 里加分支，是为了不给原有两个 Probe 定义
+    加一层缩进——那种改法会让 diff 里全是缩进噪音，真正的改动反而看不见。
+    """
+    harmless = Probe(
+        name="self-test-harmless-comment",
+        target=_AI_MESSAGE_CONTENT,
+        find="    // 合并连续的同类型 segments",
+        replace="    // merge consecutive same-type segments (self-test)",
+        tests=_DISPLAY_HINT_TESTS,
+        rationale="改注释不改行为，测试必须仍然通过",
+        runner="vitest",
+    )
+    bogus_anchor = Probe(
+        name="self-test-bogus-anchor",
+        target=_AI_MESSAGE_CONTENT,
+        find="function aFunctionThatDoesNotExistAnywhere() {",
+        replace="noop",
+        tests=_DISPLAY_HINT_TESTS,
+        rationale="锚点不存在，探针不可用",
+        runner="vitest",
+    )
+    return _report_self_test("vitest", harmless, bogus_anchor)
+
+
+def _report_self_test(runner: str, harmless: Probe, bogus_anchor: Probe) -> int:
+    """跑两个反向案例并汇报。两侧自证共用，避免判定标准出现两份。"""
+    print(f"自证（{runner}）：验证判定逻辑能识别假绿与坏探针\n")
+    ok = True
+
+    verdict, note = _execute_probe(harmless)
+    passed = verdict == "false-green"
+    ok &= passed
+    print(f"  {'✓' if passed else '✗'} 无害改动 → 期望 false-green，实得 {verdict}（{note}）")
+
+    verdict, note = _execute_probe(bogus_anchor)
+    passed = verdict == "broken"
+    ok &= passed
+    print(f"  {'✓' if passed else '✗'} 坏锚点   → 期望 broken，实得 {verdict}（{note}）")
+
+    print("\n自证" + ("通过：判定逻辑有效" if ok else "失败：判定逻辑不可信，探针结果无意义"))
+    return 0 if ok else 1
+
+
+def _self_test(runner: str = "pytest") -> int:
     """自证本脚本的判定逻辑没坏。
 
     两个反向案例，都必须被正确识别：
@@ -270,8 +377,14 @@ def _self_test() -> int:
       2. 不存在的锚点 → 必须判为 broken。
 
     若这两个案例被判成 effective，说明判定逻辑恒真——那本脚本给出的
-    「10 个探针全部有效」就是一句空话。自证失败时返回非零。
+    「N 个探针全部有效」就是一句空话。自证失败时返回非零。
+
+    runner 决定用哪一侧的目标：CI 的两个 job 各自只有一半运行环境
+    （backend job 没有 node_modules，web job 没有 python venv），
+    自证必须能跟着 --runner 走，否则等于要求每个 job 都装全套依赖。
     """
+    if runner == "vitest":
+        return _self_test_vitest()
     harmless = Probe(
         name="self-test-harmless-comment",
         target=_MESSAGE_PROTOCOL,
@@ -293,23 +406,7 @@ def _self_test() -> int:
         rationale="锚点不存在，探针不可用",
     )
 
-    print("自证：验证判定逻辑能识别假绿与坏探针\n")
-    ok = True
-
-    verdict, note = _execute_probe(harmless)
-    expected = "false-green"
-    passed = verdict == expected
-    ok &= passed
-    print(f"  {'✓' if passed else '✗'} 无害改动 → 期望 {expected}，实得 {verdict}（{note}）")
-
-    verdict, note = _execute_probe(bogus_anchor)
-    expected = "broken"
-    passed = verdict == expected
-    ok &= passed
-    print(f"  {'✓' if passed else '✗'} 坏锚点   → 期望 {expected}，实得 {verdict}（{note}）")
-
-    print("\n自证" + ("通过：判定逻辑有效" if ok else "失败：判定逻辑不可信，探针结果无意义"))
-    return 0 if ok else 1
+    return _report_self_test("pytest", harmless, bogus_anchor)
 
 
 def main() -> int:
@@ -321,12 +418,23 @@ def main() -> int:
         action="store_true",
         help="自证：注入一个测试本不该抓住的无害改动，本脚本必须报出「假测试」",
     )
+    parser.add_argument(
+        "--runner",
+        choices=("pytest", "vitest", "all"),
+        default="all",
+        help=(
+            "只跑指定 runner 的探针。CI 里必须分开跑：backend job 不装 apps/web 的 "
+            "node_modules，vitest 探针在那里必然失败；web-check job 反之。"
+        ),
+    )
     args = parser.parse_args()
 
     if args.self_test:
         return _self_test()
 
     probes = [p for p in PROBES if not args.filter or args.filter in p.name]
+    if args.runner != "all":
+        probes = [p for p in probes if p.runner == args.runner]
 
     if args.list:
         for probe in probes:
@@ -337,7 +445,7 @@ def main() -> int:
         print(f"没有匹配 -k {args.filter!r} 的探针", file=sys.stderr)
         return 2
 
-    baseline = {probe.target: _digest(BACKEND_ROOT / probe.target) for probe in probes}
+    baseline = {probe.target: _digest(REPO_ROOT / probe.target) for probe in probes}
 
     print(f"探针验证：{len(probes)} 个（注入缺陷后测试必须失败）\n")
     effective: list[str] = []
@@ -359,7 +467,7 @@ def main() -> int:
 
     print("\n=== 恢复校验 ===")
     tampered = [
-        target for target, digest in baseline.items() if _digest(BACKEND_ROOT / target) != digest
+        target for target, digest in baseline.items() if _digest(REPO_ROOT / target) != digest
     ]
     if tampered:
         print("  !! 以下文件未恢复原状，请立即 git checkout：", file=sys.stderr)

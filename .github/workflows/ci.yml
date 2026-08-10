@@ -87,6 +87,21 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # 前端侧的测试有效性门，与 backend job 里那步是同一个脚本、同一套判定，
+      # 只是分 runner 跑：本 job 有 node_modules 但没有 python venv，
+      # backend job 反之。脚本只用 Python 标准库，runner 自带的 python3 够用。
+      #
+      # 覆盖的两个探针都对着 AiMessageContent 的可见性判断：
+      #   display-hint-not-in-merge-condition —— 合并条件漏掉 display_hint 时，
+      #     [visible, hidden] 会把 hidden 段的内容拼进可见文本（2026-08-10 实测的真缺陷）；
+      #   hidden-segment-still-rendered —— hidden 判断失效时隐藏内容全部进 DOM。
+      # 这两条守的是「后端说了不该显示的内容，前端真的没显示」，属于用户可见的
+      # 隐私/正确性边界，不能只靠人眼看界面确认。
+      - name: Test-effectiveness probes (frontend)
+        run: |
+          python3 ../../scripts/dev/verify_test_probes.py --self-test --runner vitest
+          python3 ../../scripts/dev/verify_test_probes.py --runner vitest
+
       - name: Build
         run: npm run build
 
@@ -247,10 +262,13 @@ jobs:
       #
       # 脚本会临时改写源文件并在 finally 中恢复，退出前校验哈希一致；
       # CI 是一次性容器，即便恢复失败也不影响后续运行。
+      #
+      # --runner pytest 是必需的：本 job 不装 apps/web 的 node_modules，
+      # 前端那两个 vitest 探针在这里必然失败。它们由 web-check job 负责。
       - name: Test-effectiveness probes
         run: |
-          uv run python ../../scripts/dev/verify_test_probes.py --self-test
-          uv run python ../../scripts/dev/verify_test_probes.py
+          uv run python ../../scripts/dev/verify_test_probes.py --self-test --runner pytest
+          uv run python ../../scripts/dev/verify_test_probes.py --runner pytest
 
   # apps/desktop 的轻量单测门。
   #

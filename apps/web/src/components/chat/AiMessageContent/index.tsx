@@ -266,6 +266,17 @@ export const AiMessageContent = memo(function AiMessageContent({
 
     // 合并连续的同类型 segments
     // 仅合并 text / think，tool_call / tool_output / monitor / turn 保持独立
+    //
+    // display_hint 必须参与合并条件，否则相邻但可见性不同的两段会被拼成一段，
+    // 而下面只按合并后那段的 hint 决定渲染，于是两个方向都出错：
+    //   [visible, hidden] → 合并后按 visible 渲染，hidden 段的内容被显示出来；
+    //   [hidden, visible] → 合并后按 hidden 渲染，visible 段的内容整段消失。
+    // 前者是注入内容（system / compaction_summary / contextual_user）泄露到界面，
+    // 后者是正常回答丢失。think 也在可合并类型里，所以这条同样是 think 内容
+    // 泄露的一条路径。
+    //
+    // 缺省值归一到 "visible" 再比较：undefined 与 "visible" 语义相同，
+    // 直接比原值会让老后端（不发该字段）的连续段落无法合并，白白退化成多段渲染。
     const MERGEABLE_TYPES = new Set<string>(["text", "think"]);
     const mergedSegments: ChatSegment[] = [];
     for (const seg of segments) {
@@ -273,7 +284,8 @@ export const AiMessageContent = memo(function AiMessageContent({
       if (
         lastSeg &&
         lastSeg.type === seg.type &&
-        MERGEABLE_TYPES.has(seg.type)
+        MERGEABLE_TYPES.has(seg.type) &&
+        (lastSeg.display_hint ?? "visible") === (seg.display_hint ?? "visible")
       ) {
         lastSeg.content += seg.content;
       } else {

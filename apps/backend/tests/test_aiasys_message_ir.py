@@ -225,7 +225,9 @@ async def test_responses_completed_with_tool_call_maps_to_tool_calls() -> None:
     events = [
         SimpleNamespace(
             type="response.output_item.added",
-            item=SimpleNamespace(type="function_call", call_id="call_1", name="ReadFile", arguments="{}"),
+            item=SimpleNamespace(
+                type="function_call", call_id="call_1", name="ReadFile", arguments="{}"
+            ),
         ),
         SimpleNamespace(
             type="response.completed",

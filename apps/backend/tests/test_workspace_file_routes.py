@@ -1467,7 +1467,9 @@ async def test_upload_preserves_path_traversal_and_reserved_checks(
 
 
 @pytest.mark.asyncio
-async def test_global_upload_first_time_uses_original_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_first_time_uses_original_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """首次上传使用原文件名（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1498,7 +1500,9 @@ async def test_global_upload_first_time_uses_original_name(tmp_path: Path, monke
 
 
 @pytest.mark.asyncio
-async def test_global_upload_duplicate_gets_numbered(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_duplicate_gets_numbered(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """第二次上传同名文件生成 (1)，原文件内容不变（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1539,7 +1543,9 @@ async def test_global_upload_duplicate_gets_numbered(tmp_path: Path, monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_global_upload_multiple_times_generates_sequential_numbers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_multiple_times_generates_sequential_numbers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """连续上传生成 (1), (2)，无偏移错误（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1572,7 +1578,9 @@ async def test_global_upload_multiple_times_generates_sequential_numbers(tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_global_upload_numbered_filename_increments_existing_suffix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_numbered_filename_increments_existing_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """上传文件名本身已带编号时，继续递增（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1605,7 +1613,9 @@ async def test_global_upload_numbered_filename_increments_existing_suffix(tmp_pa
 
 
 @pytest.mark.asyncio
-async def test_global_upload_increments_past_occupied_numbers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_increments_past_occupied_numbers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """递增试探：从 (1) 起逐个尝试，跳过已占用编号（全局工作区）
 
     实现不扫描目录找空缺，而是从候选名开始逐个递增：
@@ -1646,7 +1656,9 @@ async def test_global_upload_increments_past_occupied_numbers(tmp_path: Path, mo
 
 
 @pytest.mark.asyncio
-async def test_global_upload_no_extension_adds_bracket_number(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_no_extension_adds_bracket_number(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """无扩展名文件：README → README (1)（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1679,7 +1691,9 @@ async def test_global_upload_no_extension_adds_bracket_number(tmp_path: Path, mo
 
 
 @pytest.mark.asyncio
-async def test_global_upload_dotfile_gets_numbered_without_leading_space(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_dotfile_gets_numbered_without_leading_space(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """点文件：.env → .env (1)（不是  (1).env，全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1718,7 +1732,9 @@ async def test_global_upload_dotfile_gets_numbered_without_leading_space(tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_global_upload_multiple_extensions_inserts_before_last_dot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_multiple_extensions_inserts_before_last_dot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """多扩展名：file.tar.gz → file.tar (1).gz（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1757,7 +1773,9 @@ async def test_global_upload_multiple_extensions_inserts_before_last_dot(tmp_pat
 
 
 @pytest.mark.asyncio
-async def test_global_upload_rejects_path_traversal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_rejects_path_traversal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """全局工作区只允许上传到根目录，拒绝或净化路径"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1803,7 +1821,9 @@ async def test_global_upload_rejects_path_traversal(tmp_path: Path, monkeypatch:
 
 
 @pytest.mark.asyncio
-async def test_global_upload_concurrent_generates_unique_filenames(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_concurrent_generates_unique_filenames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """并发上传：所有响应路径唯一，内容不互相覆盖（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1854,7 +1874,9 @@ async def test_global_upload_concurrent_generates_unique_filenames(tmp_path: Pat
 
 
 @pytest.mark.asyncio
-async def test_global_upload_write_failure_cleans_up_half_written_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_write_failure_cleans_up_half_written_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """写入失败后清理半写入文件，不删除原文件（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1897,7 +1919,9 @@ async def test_global_upload_write_failure_cleans_up_half_written_file(tmp_path:
 
 
 @pytest.mark.asyncio
-async def test_global_upload_returns_actual_saved_filename(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_returns_actual_saved_filename(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """API 返回实际保存的 filename 和 path（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)
@@ -1932,7 +1956,9 @@ async def test_global_upload_returns_actual_saved_filename(tmp_path: Path, monke
 
 
 @pytest.mark.asyncio
-async def test_global_upload_preserves_path_traversal_and_reserved_checks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_global_upload_preserves_path_traversal_and_reserved_checks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """路径穿越、保留文件名校验行为不变（全局工作区）"""
     service = _build_workspace_service(tmp_path)
     _patch_file_route_workspace(monkeypatch, tmp_path, service)

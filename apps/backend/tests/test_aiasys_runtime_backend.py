@@ -213,9 +213,7 @@ class _ConcurrentToolsClient:
         self.calls: list[list[dict]] = []
         self.usages: list[dict[str, int]] = []
 
-    async def chat_stream(
-        self, messages, tools, temperature, max_tokens, request_options=None
-    ):
+    async def chat_stream(self, messages, tools, temperature, max_tokens, request_options=None):
         del tools, temperature, max_tokens, request_options
         self.calls.append([dict(message) for message in messages])
         if len(self.calls) == 1:
@@ -712,9 +710,7 @@ async def test_concurrent_readonly_tools_and_serial_write_tools(tmp_path):
     events = [event async for event in session.prompt("并发读取")]
     elapsed = time.perf_counter() - start
 
-    public_events = [
-        event for event in events if getattr(event, "kind", None) != "turn_begin"
-    ]
+    public_events = [event for event in events if getattr(event, "kind", None) != "turn_begin"]
     assert [event.kind for event in public_events] == [
         "content",
         "tool_call",
@@ -1087,7 +1083,9 @@ async def test_aiasys_runtime_session_hides_reasoning_when_thinking_disabled(tmp
     assert client.request_options[0] is not None
     assert client.request_options[0].thinking_disabled is True
 
-    assistant_messages = [message for message in session.messages if message.get("role") == "assistant"]
+    assistant_messages = [
+        message for message in session.messages if message.get("role") == "assistant"
+    ]
     assert assistant_messages[-1]["content"] == "visible answer"
     assert "reasoning_content" not in assistant_messages[-1]
 
@@ -1643,12 +1641,18 @@ class _TwoReadToolsClient:
                         {
                             "index": 0,
                             "id": "call-ro-1",
-                            "function": {"name": "FailingFinishReadTool", "arguments": '{"name":"a"}'},
+                            "function": {
+                                "name": "FailingFinishReadTool",
+                                "arguments": '{"name":"a"}',
+                            },
                         },
                         {
                             "index": 1,
                             "id": "call-ro-2",
-                            "function": {"name": "FailingFinishReadTool", "arguments": '{"name":"b"}'},
+                            "function": {
+                                "name": "FailingFinishReadTool",
+                                "arguments": '{"name":"b"}',
+                            },
                         },
                     ],
                 ),
@@ -1731,9 +1735,7 @@ async def test_readonly_batch_exception_keeps_tool_call_sequence_closed(tmp_path
         if m.get("role") == "assistant" and m.get("tool_calls"):
             for tc in m["tool_calls"]:
                 declared_ids.add(tc["id"])
-    replied_ids = {
-        m.get("tool_call_id") for m in session.messages if m.get("role") == "tool"
-    }
+    replied_ids = {m.get("tool_call_id") for m in session.messages if m.get("role") == "tool"}
 
     missing = declared_ids - replied_ids
     assert not missing, (

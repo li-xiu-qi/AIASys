@@ -4,7 +4,11 @@ on:
   pull_request:
     branches: [main, dev]
   push:
-    branches: [main, dev]
+    # 含 integration/**：长期集成分支上此前一次 CI 都不跑。2026-08-10 实测，
+    # integration/v1 上累积的提交从未经过任何 CI 门——本地跑过不等于 CI 跑过
+    # （两者的 OS、依赖版本、是否有 vendor 二进制都不同）。集成分支正是最需要
+    # 提前发现跨平台问题的地方，等合进 dev 再暴露就晚了。
+    branches: [main, dev, 'integration/**']
     paths-ignore:
       - 'docs/**'
       - 'design-draft/**'
@@ -212,3 +216,44 @@ jobs:
       #    每轮 CI 只能暴露一个问题；给 5 个额度，既能看到问题面又不会跑满全程。
       - name: Run tests
         run: uv run pytest -q --maxfail=5
+
+  # apps/desktop 的轻量单测门。
+  #
+  # 为什么不复用 desktop-pr-check.yml：那个 workflow 只在 pull_request 触发，且要
+  # 完整构建 web dist + electron 包，一次十几分钟。push 到集成分支时它不跑，于是
+  # desktop 侧改动在合进 dev 之前没有任何自动检查——2026-08-10 就靠人眼才发现
+  # download-sqlite-vec-binary.cjs 被改出语法错误。
+  #
+  # 这个 job 只跑 npm ci + test:unit（本地实测 2.1 秒，含递归扫 scripts/ 下所有
+  # .cjs 过 node --check 的语法门），跟完整构建互补而不重复。
+  desktop-check:
+    runs-on: ubuntu-latest
+    # 硬上限，理由同上面两个 job：挂起比失败更糟，看不到结论还烧配额。
+    # 本 job 实测只有依赖安装是变量，15 分钟足够宽松。
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/desktop
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install dependencies
+        env:
+          # 单测不碰 electron 二进制（实测依赖只有 tar / iconv-lite，
+          # 且 ELECTRON_OVERRIDE_DIST_PATH 指向不存在的路径时 71 条测试照样全过），
+          # 跳过这 100+ MB 下载能省掉大半 job 时间和一个常见的网络失败源。
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: npm ci
+
+      - name: Unit tests
+        # test:unit 走 scripts/run-unit-tests.cjs 递归发现，不依赖 shell 展开 glob，
+        # 且发现不到测试时 exit 1——避免「一个测试都没跑」被伪装成绿灯。
+        run: npm run test:unit

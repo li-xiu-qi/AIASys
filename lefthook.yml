@@ -2,31 +2,81 @@
 # https://github.com/evilmartians/lefthook
 #
 # 安装：cd apps/web && npx lefthook install
-# 手动运行：cd apps/web && npx lefthook run pre-commit
+# 手动运行：npx lefthook run pre-commit
 #
-# 注意：{staged_files} 返回的是相对于仓库根目录的路径（如 apps/backend/app/foo.py），
-# 而后端命令需要在 apps/backend/ 下运行，所以需要去掉 "apps/backend/" 前缀。
+# ── 本文件的四条纪律，都来自实际踩坑，改动前先读 ──────────────────────────
+#
+# 1. glob 不写 brace 扩展（`{ts,tsx}`、`{app,tests}`）。lefthook 的 glob 实现不认它，
+#    整个 hook 会被静默跳过，日志只留一行 "(skip) no matching staged files"。
+#    2026-08-09 实测：一个含真实类型错误的 .ts 和一个格式全坏的 .py，分别都通过了
+#    frontend-type-check 和 backend-ruff，直接进了提交。
+#    正确写法是宽 glob + 命令内 grep -E 精确过滤，本文件三个 hook 都按此改造。
+#
+# 2. 检查命令末尾不挂 `|| true`。挂了等于该 hook 永远成功，表面绿灯、实际零约束。
+#    包装脚本里也不要无条件 `process.exit(0)`，那是同一件事的 JS 版写法。
+#
+# 3. 文件列表自己从 `git diff --cached` 取，不用 lefthook 的 {staged_files}。
+#    后者在 Windows 下展开数组时会附加多余字符，用它拼 `[ -n "$files" ]` 会报
+#    "[: too many arguments" 且被吞掉。例外是 editorconfig：它把参数直接交给 node
+#    脚本，不经过 shell 的 test 判断，不受影响。
+#
+# 4. 改完本文件必须用探针实测，不能只看 `lefthook run pre-commit` 是否绿。
+#    方法：造一个必然违规的文件 → git add → git commit → 看 HEAD 有没有移动。
+#    判据用 HEAD 而不是 `$?`：命令接了管道（如 `| tail`）时 `$?` 是管道尾的退出码，
+#    会把被阻塞的提交误报成成功。
+#
+# 验证脚本：bash scripts/dev/lefthook/verify-hooks.sh
 
 pre-commit:
   parallel: true
   commands:
     # --- Frontend ---
     frontend-lint:
-      glob: "apps/web/src/**/*.{ts,tsx,js,jsx}"
-      # 通过 git diff --cached 自行获取 staged files，并逐文件调用 eslint，避免 lefthook 在 Windows 下解析数组扩展时附加多余字符
-      run: cd apps/web && files=$(git diff --cached --name-only --diff-filter=ACM | grep '^apps/web/src/' | sed 's|apps/web/||g') && rc=0 && for f in $files; do [ -f "$f" ] && npx eslint "$f" || rc=$?; done; exit $rc || true
+      glob: "apps/web/src/**/*"
+      # 一次把所有文件传给 eslint，不再逐文件循环。原先的写法
+      #   for f in $files; do [ -f "$f" ] && npx eslint "$f" || rc=$?; done; exit $rc || true
+      # 有两个毛病：末尾 `|| true` 违反纪律 2（虽然 exit 先执行使它侥幸无害），
+      # 且文件不存在时 `[ -f ]` 判假会落到 `rc=$?` 把 rc 置成 1，反而误报失败。
+      run: |
+        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx|js|jsx)$' | sed 's|^apps/web/||')
+        if [ -z "$files" ]; then exit 0; fi
+        cd apps/web
+        npx eslint $files
 
     frontend-type-check:
-      glob: "apps/web/src/**/*.{ts,tsx}"
+      glob: "apps/web/src/**/*"
       # 必须用 -b（build mode），因为 apps/web/tsconfig.json 是 project references 结构，
-      # 直接 --noEmit 会因 files: [] 而不检查任何源文件。
-      run: cd apps/web && npx tsc -b --noEmit
+      # 直接 --noEmit 会因 files: [] 而不检查任何源文件（实测：不带 -b 退出码 0 且零输出，
+      # 带 -b 在同一 commit 上报 4 条错误）。
+      #
+      # tsc -b 是整项目增量检查、不针对单文件，所以这里只判断「有没有 ts/tsx 改动」，
+      # 有则整体跑一次。判空是为了避免改一个 .css 也触发 tsc。
+      #
+      # 若这一步报 TS2307 找不到模块（prismjs / @codemirror/language / @lezer/highlight 等），
+      # 先别怀疑代码：大概率是 dev 依赖没装全。本机 NODE_ENV=production 会让 npm 自动
+      # omit=dev，跳过 typescript 等 17 个 devDependencies。apps/web/.npmrc 的 include=dev
+      # 已压住这个行为，但若 node_modules 是在加 .npmrc 之前装的，需要重装一次：
+      #   cd apps/web && npm ci
+      run: |
+        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx)$')
+        if [ -z "$files" ]; then exit 0; fi
+        cd apps/web
+        npx tsc -b --noEmit
 
     # --- Backend ---
-    # 用 shell 参数替换去掉 apps/backend/ 前缀，因为命令在 apps/backend/ 下执行
+    # 范围含 tests/：原先只查 apps/backend/app/，tests/ 不在范围内，积压了 10 个未
+    # 格式化文件而无人发现（同期 app/ 侧 431 个文件全部合格，对比很明显）。
+    #
+    # $files 有意不加引号（需要 word splitting 把多个文件传给 ruff）；前提是 Python
+    # 文件名不含空格，这是本仓约定。
     backend-ruff:
-      glob: "apps/backend/app/**/*.py"
-      run: cd apps/backend && files=$(echo "{staged_files}" | sed 's|apps/backend/||g') && [ -n "$files" ] && uv run ruff check $files && uv run ruff format --check $files || true
+      glob: "apps/backend/**/*.py"
+      run: |
+        cd apps/backend
+        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/backend/(app|tests)/.*[.]py$' | sed 's|^apps/backend/||')
+        if [ -z "$files" ]; then exit 0; fi
+        uv run ruff check $files
+        uv run ruff format --check $files
 
     # --- Commit Author ---
     author-check:

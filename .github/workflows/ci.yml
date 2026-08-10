@@ -150,6 +150,22 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: uv run ruff format --check app/ tests/
 
+      # 仓库根 scripts/ 下的 9 个 Python 脚本此前没有任何 lint 覆盖：上面两步只查
+      # apps/backend 内部，而这些脚本恰恰是开发与发布链路的工具（vendor 下载、
+      # 发布、代码统计、测试重跑），坏掉的影响面不比应用代码小。
+      #
+      # 2026-08-10 首次纳入时实测 5 个问题：1 个 F401 未使用 import、4 个 import
+      # 未排序，另有 7 个文件从未格式化过。
+      #
+      # 配置走仓库根的 ruff.toml（line-length 100，与 backend 对齐）。在此之前
+      # scripts/ 向上找不到配置、静默套用 ruff 内置默认值（88），本地与 CI 只是
+      # 碰巧一致；ruff.toml 把这件事变成显式决定。
+      - name: Ruff lint & format (repo-root scripts)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          uv run ruff check ../../scripts/
+          uv run ruff format --check ../../scripts/
+
       # 棘轮，不是归零。原先是 `--exit-zero`，等于永远通过；实测评分 8.58/10。
       # 分数提高后请上调这里的阈值，把收益锁住。
       - name: Pylint (ratchet, 分数不得低于基线)
@@ -216,6 +232,25 @@ jobs:
       #    每轮 CI 只能暴露一个问题；给 5 个额度，既能看到问题面又不会跑满全程。
       - name: Run tests
         run: uv run pytest -q --maxfail=5
+
+      # 测试有效性门：往源码里注入缺陷，要求对应测试必须失败。
+      #
+      # 为什么需要它：上面那步全绿只证明「当前代码没触发这些断言」，不证明
+      # 「断言真的在约束什么」。断言写歪（比较两个常量、mock 掉被测逻辑本身）
+      # 时测试会永久绿着，而它守护的行为其实早已无人看管——一个从不失败的
+      # 检查与一个不存在的检查等价，但前者还额外提供了虚假的安全感。
+      #
+      # 先跑 --self-test 再跑正式探针，顺序不能反：自证用两个反向案例
+      # （无害改动必须被判为假绿、坏锚点必须被判为不可用）验证判定逻辑本身
+      # 没恒真。若判定逻辑坏了，后面「全部有效」的结论就是一句空话，
+      # 那时应当直接失败，而不是拿着一份不可信的报告继续。
+      #
+      # 脚本会临时改写源文件并在 finally 中恢复，退出前校验哈希一致；
+      # CI 是一次性容器，即便恢复失败也不影响后续运行。
+      - name: Test-effectiveness probes
+        run: |
+          uv run python ../../scripts/dev/verify_test_probes.py --self-test
+          uv run python ../../scripts/dev/verify_test_probes.py
 
   # apps/desktop 的轻量单测门。
   #

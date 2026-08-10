@@ -1,0 +1,382 @@
+#!/usr/bin/env python
+"""测试有效性探针：往源码里注入缺陷，验证测试真的会失败。
+
+存在理由：一个从不失败的检查与一个不存在的检查等价。测试全绿只证明
+「当前代码没触发这些断言」，不证明「断言真的在约束什么」。断言写歪
+（比较了两个常量、断言了必然成立的类型、mock 掉了被测逻辑本身）时，
+测试会永久绿着，而它守护的行为其实早已无人看管。
+
+做法是变异测试的定向版本：对每条关键断言，人工指定一个「本该被它抓住」
+的缺陷，注入源码后跑对应测试，要求**必须失败**。注入后仍然通过的，
+就是假测试，脚本以非零码退出并点名。
+
+用法：
+    python scripts/dev/verify_test_probes.py            # 跑全部探针
+    python scripts/dev/verify_test_probes.py -k origin  # 按名字过滤
+    python scripts/dev/verify_test_probes.py --list     # 只列出探针
+
+安全性：每个探针在注入前把目标文件原文读入内存，无论测试结果如何都在
+finally 中原样写回；脚本退出时会校验所有目标文件的内容与开跑前一致，
+不一致则显著报错（这种情况说明恢复逻辑本身出了问题，需要 git checkout）。
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2] / "apps" / "backend"
+
+_MESSAGE_PROTOCOL = "app/services/agent/runtime_backends/aiasys/llm_clients/message_protocol.py"
+
+
+@dataclass(frozen=True)
+class Probe:
+    """一个探针：往 target 里把 find 换成 replace，期望 tests 失败。
+
+    name        探针标识，用于 -k 过滤与报告。
+    target      相对 apps/backend 的源码路径。
+    find        要被替换的原文片段，必须在文件中**唯一**出现。
+    replace     注入后的片段（即人为制造的缺陷）。
+    tests       pytest 选择器，注入后这些测试必须至少有一个失败。
+    rationale   这个缺陷对应什么真实风险，即「为什么值得为它写断言」。
+    """
+
+    name: str
+    target: str
+    find: str
+    replace: str
+    tests: tuple[str, ...]
+    rationale: str
+    extra_args: tuple[str, ...] = field(default_factory=tuple)
+
+
+_PROJECTION_TESTS = ("tests/test_message_protocol_projection.py",)
+
+PROBES: tuple[Probe, ...] = (
+    Probe(
+        name="internal-field-leak-openai",
+        target=_MESSAGE_PROTOCOL,
+        find="        converted: dict[str, Any] = {\n"
+        '            "role": role,\n'
+        '            "content": message_content_to_openai_input(content),\n'
+        "        }",
+        replace="        converted: dict[str, Any] = {\n"
+        '            "role": role,\n'
+        '            "content": message_content_to_openai_input(content),\n'
+        '            "origin": message.get("origin"),\n'
+        "        }",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "internal_only_fields_never_reach_provider_payload",
+        ),
+        rationale="投影时顺手带上内部字段，是把 origin/turn_n 发给服务商的最常见写法",
+    ),
+    Probe(
+        name="unrecognized-origin-kept",
+        target=_MESSAGE_PROTOCOL,
+        find='    origin = message.get("origin")\n    if origin in (',
+        replace='    origin = message.get("origin")\n    if origin is not None or origin in (',
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "unrecognized_origin_is_dropped",
+        ),
+        rationale="放宽 origin 白名单后，拼错的 origin 会按 visible 兜底，把注入消息显示给用户",
+    ),
+    Probe(
+        name="role-not-coerced",
+        target=_MESSAGE_PROTOCOL,
+        find='    if raw_role in {"system", "assistant", "tool"}:\n'
+        "        return raw_role\n"
+        '    return "user"',
+        replace='    if raw_role in {"system", "assistant", "tool"}:\n'
+        "        return raw_role\n"
+        "    return raw_role  # type: ignore[no-any-return]",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "unknown_role_is_coerced_to_user",
+        ),
+        rationale="未知 role 透传会让请求带上服务商不认识的角色，整轮被拒",
+    ),
+    Probe(
+        name="anthropic-system-not-extracted",
+        target=_MESSAGE_PROTOCOL,
+        find='        if role == "system":\n            text = extract_message_text(content).strip()',
+        replace="        if False:  # probe\n            text = extract_message_text(content).strip()",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "anthropic_extracts_system or anthropic_joins_multiple_systems",
+        ),
+        rationale="system 残留在 messages 里会被 Anthropic 端点直接拒绝",
+    ),
+    Probe(
+        name="anthropic-thinking-order-reversed",
+        target=_MESSAGE_PROTOCOL,
+        find='            anthropic_messages.append({"role": "assistant", "content": content_blocks})',
+        replace="            content_blocks.reverse()  # probe\n"
+        '            anthropic_messages.append({"role": "assistant", "content": content_blocks})',
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "thinking_block_precedes_text",
+        ),
+        rationale="thinking 块必须先于 text，顺序错了 Anthropic 会拒绝该轮",
+    ),
+    Probe(
+        name="empty-tool-arguments-regression",
+        target=_MESSAGE_PROTOCOL,
+        find='        return raw_arguments if raw_arguments.strip() else "{}"',
+        replace="        return raw_arguments",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "empty_arguments_become_empty_json_object",
+        ),
+        rationale="空串不是合法 JSON；这正是本轮修掉的真缺陷，探针防它复发",
+    ),
+    Probe(
+        name="responses-empty-assistant-kept",
+        target=_MESSAGE_PROTOCOL,
+        find="            assistant_text = extract_message_text(content)\n"
+        "            if assistant_text:",
+        replace="            assistant_text = extract_message_text(content)\n"
+        "            if True:  # probe",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "responses_drops_tool_call_message_with_empty_content",
+        ),
+        rationale="Responses 协议不接受 content 为空的 assistant 消息",
+    ),
+    Probe(
+        name="blank-identifier-kept-as-empty",
+        target=_MESSAGE_PROTOCOL,
+        find='    tool_call_id = message.get("tool_call_id")\n'
+        "    if isinstance(tool_call_id, str) and tool_call_id.strip():",
+        replace='    tool_call_id = message.get("tool_call_id")\n'
+        "    if isinstance(tool_call_id, str):",
+        tests=_PROJECTION_TESTS,
+        extra_args=(
+            "-k",
+            "blank_identifiers_are_dropped",
+        ),
+        rationale="留空串会让下游 get(key, default) 拿到空串而非默认值，进入静默中间态",
+    ),
+    Probe(
+        name="display-hint-unknown-origin-hidden",
+        target=_MESSAGE_PROTOCOL,
+        find='    return _ORIGIN_TO_DISPLAY_HINT.get(origin, "visible")',
+        replace='    return _ORIGIN_TO_DISPLAY_HINT.get(origin, "hidden")',
+        tests=("tests/test_display_hint.py",),
+        extra_args=(
+            "-k",
+            "unknown_origin",
+        ),
+        rationale="未知 origin 兜底成 hidden 会静默吞掉内容，用户看不到也不知道丢了什么",
+    ),
+    Probe(
+        name="thinking-fake-empty-signature",
+        target=_MESSAGE_PROTOCOL,
+        find="        if isinstance(signature, str) and signature.strip():",
+        replace="        if True:  # probe",
+        tests=("tests/test_aiasys_message_ir.py",),
+        extra_args=(
+            "-k",
+            "signature or thinking",
+        ),
+        rationale="伪造空签名会被 Claude 校验拒绝，是历史上真实踩过的坑",
+    ),
+)
+
+
+def _run_pytest(tests: tuple[str, ...], extra_args: tuple[str, ...]) -> tuple[int, str]:
+    cmd = [sys.executable, "-m", "pytest", *tests, "-q", "--no-header", *extra_args]
+    completed = subprocess.run(
+        cmd,
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return completed.returncode, (completed.stdout or "") + (completed.stderr or "")
+
+
+def _digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _selected_count(output: str) -> int:
+    """从 pytest 输出里粗解析实际跑了多少条用例。
+
+    探针的前提是那些测试真的被选中跑了。若 -k 过滤写歪导致 0 selected，
+    pytest 会以「no tests ran」退出，不能算探针有效——那只是没测。
+    """
+    for line in reversed(output.splitlines()):
+        for marker in ("passed", "failed", "error"):
+            if marker in line:
+                return 1
+    return 0
+
+
+def _execute_probe(probe: Probe) -> tuple[str, str]:
+    """执行单个探针，返回 (结论, 说明)。
+
+    结论取三值：
+      "effective"   注入后测试失败 → 该测试真的在约束这个行为
+      "false-green" 注入后测试仍通过 → 假测试
+      "broken"      探针自身不可用（锚点失配 / 没有用例被选中）
+
+    注入与恢复都在本函数内闭环，异常路径也走 finally 恢复。
+    main 与 --self-test 共用本函数，保证自证检验的是真正在用的判定逻辑，
+    而不是一份平行实现。
+    """
+    path = BACKEND_ROOT / probe.target
+    original = path.read_text(encoding="utf-8")
+
+    occurrences = original.count(probe.find)
+    if occurrences != 1:
+        # 匹配不到或匹配多处时注入内容不可控，必须报错而不是跳过。
+        # 静默跳过会让探针「看起来跑过了」，正是本脚本要消灭的假绿。
+        return "broken", f"find 片段出现 {occurrences} 次，需唯一（源码可能已改动）"
+
+    try:
+        path.write_text(original.replace(probe.find, probe.replace), encoding="utf-8")
+        code, output = _run_pytest(probe.tests, probe.extra_args)
+        ran = _selected_count(output)
+    finally:
+        path.write_text(original, encoding="utf-8")
+
+    if ran == 0:
+        return "broken", "0 条用例被选中，-k 过滤可能写歪"
+    if code != 0:
+        return "effective", "注入后失败（测试有效）"
+    return "false-green", "注入后仍然通过 → 假测试！"
+
+
+def _self_test() -> int:
+    """自证本脚本的判定逻辑没坏。
+
+    两个反向案例，都必须被正确识别：
+      1. 无害改动（只改注释文字）→ 测试不该失败 → 必须判为 false-green；
+      2. 不存在的锚点 → 必须判为 broken。
+
+    若这两个案例被判成 effective，说明判定逻辑恒真——那本脚本给出的
+    「10 个探针全部有效」就是一句空话。自证失败时返回非零。
+    """
+    harmless = Probe(
+        name="self-test-harmless-comment",
+        target=_MESSAGE_PROTOCOL,
+        find="# origin → display_hint 映射表",
+        replace="# origin -> display_hint mapping table (self-test)",
+        tests=("tests/test_message_protocol_projection.py",),
+        extra_args=(
+            "-k",
+            "unrecognized_origin_is_dropped",
+        ),
+        rationale="改注释不改行为，测试必须仍然通过",
+    )
+    bogus_anchor = Probe(
+        name="self-test-bogus-anchor",
+        target=_MESSAGE_PROTOCOL,
+        find="def a_function_that_does_not_exist_anywhere():",
+        replace="pass",
+        tests=("tests/test_message_protocol_projection.py",),
+        rationale="锚点不存在，探针不可用",
+    )
+
+    print("自证：验证判定逻辑能识别假绿与坏探针\n")
+    ok = True
+
+    verdict, note = _execute_probe(harmless)
+    expected = "false-green"
+    passed = verdict == expected
+    ok &= passed
+    print(f"  {'✓' if passed else '✗'} 无害改动 → 期望 {expected}，实得 {verdict}（{note}）")
+
+    verdict, note = _execute_probe(bogus_anchor)
+    expected = "broken"
+    passed = verdict == expected
+    ok &= passed
+    print(f"  {'✓' if passed else '✗'} 坏锚点   → 期望 {expected}，实得 {verdict}（{note}）")
+
+    print("\n自证" + ("通过：判定逻辑有效" if ok else "失败：判定逻辑不可信，探针结果无意义"))
+    return 0 if ok else 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-k", dest="filter", default=None, help="按探针名字子串过滤")
+    parser.add_argument("--list", action="store_true", help="只列出探针，不执行")
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="自证：注入一个测试本不该抓住的无害改动，本脚本必须报出「假测试」",
+    )
+    args = parser.parse_args()
+
+    if args.self_test:
+        return _self_test()
+
+    probes = [p for p in PROBES if not args.filter or args.filter in p.name]
+
+    if args.list:
+        for probe in probes:
+            print(f"{probe.name:42s} {probe.rationale}")
+        return 0
+
+    if not probes:
+        print(f"没有匹配 -k {args.filter!r} 的探针", file=sys.stderr)
+        return 2
+
+    baseline = {probe.target: _digest(BACKEND_ROOT / probe.target) for probe in probes}
+
+    print(f"探针验证：{len(probes)} 个（注入缺陷后测试必须失败）\n")
+    effective: list[str] = []
+    false_green: list[str] = []
+    broken: list[str] = []
+
+    for probe in probes:
+        verdict, note = _execute_probe(probe)
+        if verdict == "effective":
+            effective.append(probe.name)
+            print(f"  ✓ {probe.name}: {note}")
+        elif verdict == "false-green":
+            false_green.append(probe.name)
+            print(f"  ✗ {probe.name}: {note}")
+            print(f"      风险: {probe.rationale}")
+        else:
+            broken.append(f"{probe.name}（{note}）")
+            print(f"  ✗ {probe.name}: {note}")
+
+    print("\n=== 恢复校验 ===")
+    tampered = [
+        target for target, digest in baseline.items() if _digest(BACKEND_ROOT / target) != digest
+    ]
+    if tampered:
+        print("  !! 以下文件未恢复原状，请立即 git checkout：", file=sys.stderr)
+        for target in tampered:
+            print(f"     {target}", file=sys.stderr)
+        return 3
+    print(f"  所有 {len(baseline)} 个目标文件已恢复原状（哈希一致）")
+
+    print(f"\n有效 {len(effective)} / 假测试 {len(false_green)} / 探针本身坏掉 {len(broken)}")
+    if false_green or broken:
+        for item in broken:
+            print(f"  需修探针: {item}", file=sys.stderr)
+        for item in false_green:
+            print(f"  需修测试: {item}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

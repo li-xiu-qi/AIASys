@@ -33,6 +33,29 @@
 # 5. 改 hook 自身的脚本后，先 git add 再测。lefthook 会把 partially staged 文件的
 #    unstaged 部分临时 stash 掉，让检查只看到 staged 版本——所以工作区改了、没 add，
 #    实际跑的仍是旧版脚本。本次为此白排查了一轮。
+#
+# 6. 下面各 hook 里的 `[ -z "$files" ]` 在多文件提交时会额外打印一行
+#      sh: line 2: [: app/services/.../message_protocol.py: binary operator expected
+#    这是**已知噪音，不要修**。三种取值的行为分支实测全部正确：
+#      空     → [ -z ] 判真     → exit 0 跳过检查      ✓
+#      单文件 → 判假            → 继续检查              ✓
+#      多文件 → `[` 报错返回非零 → if 判假 → 继续检查   ✓
+#    六个 hook 的正反向验证也一直全部 PASS，功能没有失效。
+#
+#    2026-08-10 试过改成 `case $files in "") exit 0 ;; esac`（case 的 word 部分按
+#    POSIX 不分词，本该免疫），结果四个 hook 全部报
+#      sh: -c: line 2: unexpected EOF while looking for matching `"'
+#    直接失效、提交被拒。已 revert。
+#
+#    两次报错无法用同一个机制解释：原写法的症状是引号成对消失（`[` 拿到了分词后的
+#    多个文件名），case 写法的症状却是引号剩下奇数个（sh 在找配对）。说明 lefthook
+#    在 Windows 下对 run 字符串的预处理不止「吃掉引号」这么简单，机制没查清。
+#    在机制不明而现写法功能正确的情况下，动它是净负收益——这行噪音的代价只是
+#    看起来碍眼，而改错的代价是四道门一起失效。
+#
+#    真正需要警惕的是：这行报错很像「hook 坏了」，容易诱发用 `|| true` 去「修」，
+#    那就正好违反纪律 2，把有效的门变成装饰。看到它，跑一次
+#    scripts/dev/lefthook/verify-hooks.sh 确认六个 hook 仍全 PASS 即可，不要动写法。
 
 pre-commit:
   parallel: true

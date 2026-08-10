@@ -486,11 +486,12 @@ class TeamStore:
             _assert_valid_transition(mission, new_status)
 
             if new_status == "active":
+                # 建索引再查，不要在推导式里对同一个 dep 调两次 next()：那样既是
+                # O(2n) 重复遍历，也让 `is None` 短路保护的对象与随后访问 .status
+                # 的对象成为两次独立调用的结果，mypy 无法确认非空（union-attr）。
+                by_id = {m.id: m for m in state.missions}
                 unmerged = [
-                    dep
-                    for dep in mission.deps
-                    if next((m for m in state.missions if m.id == dep), None) is None
-                    or next((m for m in state.missions if m.id == dep), None).status != "merged"
+                    dep for dep in mission.deps if dep not in by_id or by_id[dep].status != "merged"
                 ]
                 if unmerged:
                     raise TeamError(
@@ -524,11 +525,10 @@ class TeamStore:
                     f"任务 {mission.id} 状态是 {mission.status}，只有 completed 才能合并。"
                 )
 
+            # 同 set_status 的门：建索引再查，避免双次 next() 与 union-attr。
+            by_id = {m.id: m for m in state.missions}
             unmerged = [
-                dep
-                for dep in mission.deps
-                if next((m for m in state.missions if m.id == dep), None) is None
-                or next((m for m in state.missions if m.id == dep), None).status != "merged"
+                dep for dep in mission.deps if dep not in by_id or by_id[dep].status != "merged"
             ]
             if unmerged:
                 raise TeamError(f"门④：依赖 {unmerged} 尚未合并。")
@@ -743,7 +743,14 @@ class TeamStore:
         只读取内存中的运行时表，进程重启后需先 load()。
         """
         norm_key = _normalize_lease_key(resource_type, resource_id)
-        return self._runtime_lease_table.get(norm_key, {}).get("mission_id")
+        # _runtime_lease_table 是 dict[str, Any]，取两层都会退化成 Any，直接返回
+        # 等于把「声明 str | None」变成空头承诺。逐层收窄，顺带防住表结构异常
+        # （load() 从磁盘还原，字段类型不由本进程保证）。
+        entry = self._runtime_lease_table.get(norm_key)
+        if not isinstance(entry, dict):
+            return None
+        holder = entry.get("mission_id")
+        return holder if isinstance(holder, str) else None
 
     async def resolve_mission_resource_leases(self, mission: TeamMission) -> list[str]:
         """将 mission 的 lease 声明解析为运行时租约键列表，并校验冲突。

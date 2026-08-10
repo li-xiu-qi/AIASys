@@ -1066,7 +1066,13 @@ class TeamSpawnTool(AiasysTool):
                 # fallback: 从 content 解析
                 import re
 
-                match = re.search(r"task_id:\s*(\S+)", first_result.content or "")
+                # ToolResult.content 的类型是 str | list[dict[str, Any]]（多模态）。
+                # 原写法 `first_result.content or ""` 兜不住 list：非空 list 是
+                # truthy，`or` 不会替换它，re.search 直接收到 list 抛 TypeError。
+                # 底层工具一旦返回多模态结果，team_spawn 就会崩在这里。
+                raw_content = first_result.content
+                text_content = raw_content if isinstance(raw_content, str) else ""
+                match = re.search(r"task_id:\s*(\S+)", text_content)
                 task_id = match.group(1) if match else None
 
             if not task_id:

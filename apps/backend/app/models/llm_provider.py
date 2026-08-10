@@ -67,6 +67,13 @@ class LLMProviderConfig(BaseModel):
         default=None, description="厂商特有的 reasoning 格式控制。当前仅阶跃星辰(stepfun)支持。"
     )
 
+    reasoning_in_content_tag: Optional[str] = Field(
+        default=None,
+        description="推理内容直接写在 content 里时的包裹标签名（填 'think' 即剥离 "
+        "<think>…</think>）。适用于 GLM / DeepSeek-R1 / Qwen3 等在 vLLM、SGLang "
+        "下不返回独立 reasoning 字段的部署。默认 None 即不剥离。",
+    )
+
     # 用于前端显示的脱敏 API Key
     @computed_field
     @property
@@ -121,6 +128,8 @@ class LLMProviderConfig(BaseModel):
             config["reasoning_key"] = self.reasoning_key
         if self.reasoning_format is not None:
             config["reasoning_format"] = self.reasoning_format
+        if self.reasoning_in_content_tag is not None:
+            config["reasoning_in_content_tag"] = self.reasoning_in_content_tag
         return config
 
     def mask_api_key(self) -> str:
@@ -166,6 +175,12 @@ class LLMModelConfig(BaseModel):
         "用于兼容不同厂商对 reasoning 内容的不同字段命名。",
     )
 
+    reasoning_in_content_tag: Optional[str] = Field(
+        default=None,
+        description="模型级别的推理包裹标签名，覆盖服务商级别的同名配置。"
+        "同一自建服务上常同时挂着普通模型与 R1 系，需按模型单独开。",
+    )
+
     enabled: bool = Field(default=True, description="是否启用")
 
     is_default: bool = Field(default=False, description="是否为默认模型")
@@ -205,6 +220,8 @@ class LLMModelConfig(BaseModel):
             config["capabilities"] = list(self.capabilities)
         if self.reasoning_key is not None:
             config["reasoning_key"] = self.reasoning_key
+        if self.reasoning_in_content_tag is not None:
+            config["reasoning_in_content_tag"] = self.reasoning_in_content_tag
         return config
 
     def model_to_sdk_config(self) -> Dict[str, Any]:

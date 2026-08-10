@@ -37,6 +37,9 @@ _MESSAGE_PROTOCOL = (
     "apps/backend/app/services/agent/runtime_backends/aiasys/llm_clients/message_protocol.py"
 )
 _AI_MESSAGE_CONTENT = "apps/web/src/components/chat/AiMessageContent/index.tsx"
+_RUNTIME_LLM_CONFIG = "apps/backend/app/services/agent/models/llm_config.py"
+_USER_LLM_CONFIG = "apps/backend/app/models/llm_provider.py"
+_CLIENT_FACTORY = "apps/backend/app/services/agent/runtime_backends/aiasys/llm_clients/__init__.py"
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ class Probe:
 
 _PROJECTION_TESTS = ("tests/test_message_protocol_projection.py",)
 _DISPLAY_HINT_TESTS = ("src/components/chat/AiMessageContent",)
+_KNOB_REACHABILITY_TESTS = ("tests/test_llm_config_knob_reachability.py",)
 
 PROBES: tuple[Probe, ...] = (
     Probe(
@@ -229,6 +233,52 @@ PROBES: tuple[Probe, ...] = (
         tests=_DISPLAY_HINT_TESTS,
         rationale="hidden 判断失效等于 display_hint 机制整体失效，隐藏内容全部进 DOM",
         runner="vitest",
+    ),
+    # ---- 配置开关的可达性 ----
+    # 这三个探针守的是一类特殊缺陷：算法与单测都对，但开关无法被任何用户设上，
+    # 于是功能在生产里永久关闭，且完全静默（getattr 拿不到字段只会返回 None）。
+    # 2026-08-10 的 reasoning_in_content_tag 就是这样上线的——31 条 splitter 单测
+    # 全绿，而 <think> 剥离从未生效过一次。
+    Probe(
+        name="runtime-knob-field-missing",
+        target=_RUNTIME_LLM_CONFIG,
+        find="    reasoning_in_content_tag: str | None = Field(\n"
+        "        default=None,\n"
+        "        description=\"推理内容直接写在 content 里时的包裹标签名（如 'think'）。\"",
+        replace="    renamed_by_probe: str | None = Field(\n"
+        "        default=None,\n"
+        "        description=\"推理内容直接写在 content 里时的包裹标签名（如 'think'）。\"",
+        tests=_KNOB_REACHABILITY_TESTS,
+        rationale=(
+            "运行时模型少一个字段，_get_provider_attr 的 getattr(obj, key, None) 就永远返回 "
+            "None——功能关闭且无任何报错，正是那次事故的机制"
+        ),
+    ),
+    Probe(
+        name="knob-not-forwarded-by-serializer",
+        target=_USER_LLM_CONFIG,
+        find="        if self.reasoning_in_content_tag is not None:\n"
+        '            config["reasoning_in_content_tag"] = self.reasoning_in_content_tag\n'
+        "        return config\n"
+        "\n"
+        "    def mask_api_key",
+        replace="        return config\n\n    def mask_api_key",
+        tests=_KNOB_REACHABILITY_TESTS,
+        rationale=(
+            "缺陷是两段式的：字段声明了但序列化没转发，值一样到不了运行时。只守前一段会漏掉这一半"
+        ),
+    ),
+    Probe(
+        name="undeclared-knob-slips-through",
+        target=_CLIENT_FACTORY,
+        find='    reasoning_format = _get_provider_attr(provider, "reasoning_format")',
+        replace='    reasoning_format = _get_provider_attr(provider, "reasoning_format")\n'
+        '    _probe_knob = _get_provider_attr(provider, "probe_undeclared_knob")',
+        tests=_KNOB_REACHABILITY_TESTS,
+        rationale=(
+            "直接测那条可泛化守卫的用途：有人新增开关的读取却忘了声明字段时，必须在 CI "
+            "就红，而不是等用户发现「配了没反应」"
+        ),
     ),
 )
 

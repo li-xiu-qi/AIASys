@@ -522,6 +522,23 @@ def _make_mixin(write_allow_root: list[str] | None = None) -> Any:
     mixin = SessionStreamMixin()
     for k, v in mocks.items():
         setattr(mixin, k, v)
+
+    # 给两个会被 `async for` 消费的方法配上「立即结束」的默认返回值。
+    #
+    # 不配的话，裸 MagicMock 被 async for 迭代时 __anext__ 永远返回新的 Mock、从不抛
+    # StopAsyncIteration，于是无限循环并不停创建 Mock 对象——表现为测试卡死而不是失败。
+    # 2026-08-09 实测过一次：用反向探针把 check_write_guard 改成无条件放行，
+    # test_write_outside_scope_blocked 直接挂住，faulthandler 转储里满屏
+    # `unittest/mock.py line 335 in __new__`。
+    #
+    # 这三条断言「底层工具不被调用」的测试（write_outside_scope / str_replace_outside_scope
+    # / shell_denied）恰恰因为预期不调用，就都没配返回值，于是守卫一失效就从「断言失败」
+    # 退化成「永久挂起」。测试的前提被破坏时应当快速报错，而不是把 CI 拖到超时。
+    #
+    # 用 side_effect 而非 return_value：generator 实例只能消费一次，side_effect 每次调用
+    # 都新建一个，多次调用也不会拿到已耗尽的对象。显式配置过的测试会覆盖这里的默认值。
+    mixin._tool_registry.invoke_stream = MagicMock(side_effect=lambda *a, **kw: _make_async_gen())
+    mixin._finish_tool_execution = MagicMock(side_effect=lambda *a, **kw: _make_async_gen())
     return mixin
 
 

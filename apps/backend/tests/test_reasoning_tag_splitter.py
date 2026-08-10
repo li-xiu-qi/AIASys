@@ -125,6 +125,31 @@ def test_流末尾停在假前缀上也不吞内容():
     assert reasoning == ""
 
 
+def test_流末尾停在闭标签前缀上时残片归reasoning而非正文():
+    """标签内被截断，且残留的是 `</think>` 的部分前缀。
+
+    这条补的是 flush() 里 `inside` 分支的缺口。上面那条
+    test_闭标签缺失时残留归reasoning 看起来覆盖了截断场景，实际没有走到这个分支：
+    _drain 在 inside 状态下会把内容直接放行进 reasoning 并清空缓冲，等到 flush 时
+    tail 已经是空的，走的是 `if not tail` 那条早退。
+
+    只有当缓冲里剩下的恰好是闭标签的真前缀（`</thi` 之类）时，flush 才真的需要
+    判断归属。反向探针实测：把 flush 的 `("", tail) if self._inside` 改成无条件
+    `(tail, "")`，29 条测试全绿放行——也就是说「截断时残片泄露进正文」当时没有任何
+    测试拦得住，而这正是本模块要解决的那类问题。
+    """
+    content, reasoning = _run(["答案<think>推理</thi"])
+    assert content == "答案"
+    assert reasoning == "推理</thi"
+
+
+def test_逐块喂入且末块是闭标签前缀时不泄露到正文():
+    """同上，但拆成多块喂，确认跨 chunk 的缓冲残留同样归 reasoning。"""
+    content, reasoning = _run(["<think>", "推理", "</thin"])
+    assert content == ""
+    assert reasoning == "推理</thin"
+
+
 def test_相似但不匹配的标签不触发():
     content, reasoning = _run(["a<thinking>b</thinking>c"])
     assert content == "a<thinking>b</thinking>c"

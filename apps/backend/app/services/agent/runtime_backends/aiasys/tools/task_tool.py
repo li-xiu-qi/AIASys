@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import tomllib
 import uuid
 from collections.abc import AsyncGenerator
@@ -58,12 +59,12 @@ logger = logging.getLogger(__name__)
 #   - 等待任务完成（task.result()）
 # - 生命周期结束时由 lifecycle manager 自行清理，此处不干预。
 _background_tasks: dict[str, asyncio.Task] = {}
-_background_tasks_lock = asyncio.Lock()
+_background_tasks_lock = threading.Lock()
 
 
 async def get_background_task(task_id: str) -> asyncio.Task | None:
     """获取后台任务（不阻塞）。"""
-    async with _background_tasks_lock:
+    with _background_tasks_lock:
         return _background_tasks.get(task_id)
 
 
@@ -86,7 +87,7 @@ async def wait_background_task(task_id: str, timeout: float | None = None) -> An
 
 async def remove_background_task(task_id: str) -> None:
     """从注册表中移除（任务自行结束后调用）。"""
-    async with _background_tasks_lock:
+    with _background_tasks_lock:
         _background_tasks.pop(task_id, None)
 
 
@@ -457,7 +458,7 @@ class TaskTool(AiasysTool):
                 return final_result
 
             bg_task = asyncio.create_task(_run_in_background())
-            async with _background_tasks_lock:
+            with _background_tasks_lock:
                 _background_tasks[agent_id] = bg_task
 
             yield ToolResult(

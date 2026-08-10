@@ -9,11 +9,11 @@ Step 3 adds: team_spawn (background subagent spawn with fail-closed write guard)
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import re
 import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -68,7 +68,7 @@ def _make_tool_result(content: str, is_error: bool = False) -> ToolResult:
 
 # Module-level cache: state_dir -> TeamStore instance
 _store_cache: dict[str, TeamStore] = {}
-_store_cache_lock = asyncio.Lock()
+_store_cache_lock = threading.Lock()
 
 # Test override: set to a specific path to bypass _resolve_team_state_dir resolution
 _team_state_dir_override: str | None = None
@@ -86,13 +86,37 @@ def set_team_state_dir_override(path: str | None) -> None:
 
 
 async def _get_store(state_dir: str) -> TeamStore:
-    """Get or create a TeamStore for the given state directory."""
+    """Get or create a TeamStore for the given state directory.
+
+    双重检查加锁（double-checked locking）：快路径无锁读缓存，未命中才加锁并再查
+    一次。这里必须用上 _store_cache_lock —— TeamStore 的互斥靠实例级
+    `self._lock`，所以「同一 state_dir 只有一个实例」是租约互斥和 lost update
+    防护的前提。一旦并发下建出两个实例，就有两把互不相干的锁，两个 worker 会同时
+    认为自己独占了同一个 notebook，而且失效是静默的（不抛异常、不报错）。
+
+    2026-08-09 修复：此前这个函数完全没用锁，靠「if 判断与赋值之间没有 await
+    point、asyncio 单线程不抢占」侥幸原子（_store_cache_lock 声明了却零处引用）。
+    那样的安全是脆的：任何人在这两行之间插入一个 await（例如给 TeamStore 加异步
+    的目录初始化），就会立刻退化成双实例，而现有测试全都察觉不到。
+
+    锁类型是 threading.Lock 而非 asyncio.Lock，这一点是刻意的：_store_cache 是
+    模块级全局、跨事件循环存活，而 asyncio.Lock 会在首次真实 acquire 时绑定当时
+    的事件循环，之后换循环 acquire 就抛「attached to a different loop」。本临界区
+    是纯内存操作、不含 await，用 threading.Lock 语义正确、跨循环安全，还顺带防住
+    了从 to_thread 里调进来的真实多线程竞争。详见
+    tests/test_event_loop_affinity.py 的模块头注释。
+    不变式由 tests/test_team_concurrency.py::TestStoreCacheSingleton 钉住。
+    """
     cache_key = state_dir
     if cache_key in _store_cache:
         return _store_cache[cache_key]
-    store = TeamStore(state_dir)
-    _store_cache[cache_key] = store
-    return store
+    with _store_cache_lock:
+        # 二次检查：等锁期间可能已有别的协程/线程建好了实例
+        if cache_key in _store_cache:
+            return _store_cache[cache_key]
+        store = TeamStore(cache_key)
+        _store_cache[cache_key] = store
+        return store
 
 
 def _resolve_team_state_dir(ctx: dict[str, Any] | None) -> str:

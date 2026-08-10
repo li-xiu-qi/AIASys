@@ -45,6 +45,20 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
+  // 就绪门必须做成 setup project 而不是 globalSetup：webServer 只探测前端 13000，
+  // 后端慢约 3 秒，冷启动时首个用例必然 ECONNREFUSED（2026-08-11 实测）。
+  // 做成 project 依赖可保证它在 webServer 起来之后才执行，且失败信息明确指向就绪问题。
+  projects: [
+    {
+      name: "readiness",
+      testMatch: /readiness\.setup\.ts$/,
+    },
+    {
+      name: "lifecycle",
+      testIgnore: /readiness\.setup\.ts$/,
+      dependencies: ["readiness"],
+    },
+  ],
   webServer: {
     command: devServerCommand,
     cwd: repoRoot,

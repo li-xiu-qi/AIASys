@@ -13,30 +13,21 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.core.tool_result import ToolResult
-from app.services.agent.agent_path import AgentPath
-from app.services.agent.runtime_backends.aiasys.team.store import (
-    TeamError,
-    TeamMission,
-    TeamStore,
-)
 from app.services.agent.runtime_backends.aiasys.team.tools import (
     TEAM_SPAWN_WRITE_GUARD_READY,
     TeamSpawnTool,
     _get_store,
-    _make_tool_result,
     _require_controller,
     _resolve_team_state_dir,
     clear_store_cache,
     set_team_state_dir_override,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -309,8 +300,6 @@ class TestTaskToolBackgroundTrue:
         """background=True 时 asyncio task 确实在后台运行。"""
         from app.services.agent.runtime_backends.aiasys.tools.task_tool import (
             TaskTool,
-            get_background_task,
-            is_background_task_running,
         )
 
         tool = TaskTool()

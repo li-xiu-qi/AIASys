@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.agent.runtime_backends.base import AgentRuntimeEvent
-from app.services.agent.runtime_backends.aiasys.session_stream import _TurnBegin
 from app.services.agent.mixins.events import EventMixin
 from app.services.agent.runtime_backends.aiasys.llm_clients.message_protocol import (
     compute_display_hint,
     to_anthropic_messages,
 )
+from app.services.agent.runtime_backends.aiasys.session_stream import _TurnBegin
+from app.services.agent.runtime_backends.base import AgentRuntimeEvent
 
 
 class _FakeAgentService(EventMixin):

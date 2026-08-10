@@ -18,7 +18,6 @@ import pytest
 from app.services.claw import ClawService
 from app.vendors.hermes_agent.hermes_constants import get_hermes_home
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
@@ -23,7 +22,6 @@ import pytest
 
 from app.core.tool_result import ToolResult
 from app.services.agent.runtime_backends.aiasys.team.store import (
-    _normalize_scope,
     check_write_guard,
 )
 from app.services.agent.runtime_backends.aiasys.team.tools import (
@@ -34,7 +32,6 @@ from app.services.agent.runtime_backends.aiasys.team.tools import (
     clear_store_cache,
     set_team_state_dir_override,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -534,9 +531,6 @@ class TestExecuteWriteToolGuard:
     @pytest.mark.asyncio
     async def test_write_without_guard_calls_tool(self, tmp_path: Path):
         """write_allow_root=None 时，_execute_write_tool 正常调用底层工具。"""
-        from app.services.agent.runtime_backends.aiasys.session_stream import (
-            SessionStreamMixin,
-        )
 
         mixin = _make_mixin(write_allow_root=None)
 
@@ -566,9 +560,6 @@ class TestExecuteWriteToolGuard:
     @pytest.mark.asyncio
     async def test_write_outside_scope_blocked(self, tmp_path: Path):
         """写入范围外时，_execute_write_tool 直接返回错误，不调用底层工具。"""
-        from app.services.agent.runtime_backends.aiasys.session_stream import (
-            SessionStreamMixin,
-        )
 
         allowed = tmp_path / "allowed"
         forbidden = tmp_path / "forbidden"
@@ -601,9 +592,6 @@ class TestExecuteWriteToolGuard:
     @pytest.mark.asyncio
     async def test_write_within_scope_passes(self, tmp_path: Path):
         """写入范围内时，_execute_write_tool 正常调用底层工具。"""
-        from app.services.agent.runtime_backends.aiasys.session_stream import (
-            SessionStreamMixin,
-        )
 
         allowed = tmp_path / "allowed"
         allowed.mkdir()
@@ -635,9 +623,6 @@ class TestExecuteWriteToolGuard:
     @pytest.mark.asyncio
     async def test_str_replace_outside_scope_blocked(self, tmp_path: Path):
         """StrReplaceFile 越界被拦截。"""
-        from app.services.agent.runtime_backends.aiasys.session_stream import (
-            SessionStreamMixin,
-        )
 
         allowed = tmp_path / "allowed"
         forbidden = tmp_path / "forbidden"
@@ -673,9 +658,6 @@ class TestExecuteWriteToolGuard:
     @pytest.mark.asyncio
     async def test_shell_denied_with_active_guard(self):
         """Shell 工具在守卫激活时被拦截（已知缺口）。"""
-        from app.services.agent.runtime_backends.aiasys.session_stream import (
-            SessionStreamMixin,
-        )
 
         allowed = Path(tempfile.gettempdir()) / "aiasys_test_allowed_wg"
         allowed.mkdir(exist_ok=True)

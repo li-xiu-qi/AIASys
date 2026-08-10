@@ -14,21 +14,16 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from app.services.agent.runtime_backends.aiasys.team.store import (
-    VALID_TRANSITIONS,
     TeamError,
     TeamMission,
     TeamStore,
-    _scopes_overlap,
     _scope_covers_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

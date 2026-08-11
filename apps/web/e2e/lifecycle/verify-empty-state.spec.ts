@@ -1,8 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "crypto";
 
-const API_BASE = "http://localhost:13001";
-const FRONTEND_BASE = "http://localhost:13000";
+// 端口只维护一处：走前端的 /api 代理，不直连后端。
+// 原先写死 API_BASE = http://localhost:13001 有两个错：13001 是早已过时的后端端口
+// （现在是 13002，且 dev 脚本在端口被占时还会切换），localhost 又会先解析到 ::1
+// 而 vite 只绑 IPv4（见 playwright.lifecycle.config.ts 的注释）。
+const FRONTEND_BASE = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:13000";
+const API_BASE = FRONTEND_BASE;
 
 async function createWorkspace() {
   const res = await fetch(`${API_BASE}/api/workspaces`, {

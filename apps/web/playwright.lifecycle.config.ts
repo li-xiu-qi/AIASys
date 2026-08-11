@@ -5,7 +5,16 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../..");
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:13000";
+// baseURL 必须写 127.0.0.1，不能写 localhost。2026-08-11 实测：
+//   http://127.0.0.1:13000/ -> 200
+//   http://[::1]:13000/     -> 连接被拒
+// 因为 dev 脚本用 `vite --host 0.0.0.0`，而 0.0.0.0 是 IPv4 通配，**不绑 IPv6**
+// （netstat 只有一条 0.0.0.0:13000）。Windows 上 localhost 同时解析到 ::1 和
+// 127.0.0.1 且 ::1 通常在前，curl 会自己回退到 IPv4，但 playwright 的
+// APIRequestContext 不保证回退，于是随机爆出：
+//   apiRequestContext.get: connect ECONNREFUSED ::1:13000
+// 全量跑一次实测有 24 条失败是这个原因造成的级联，与被测功能无关。
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:13000";
 
 // Windows 上 playwright 通过 cmd.exe spawn webServer，而 cmd 既不认 shell 脚本也不
 // 认 ./ 前缀，实测直接失败：

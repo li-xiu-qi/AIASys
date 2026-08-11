@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../..");
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:13000";
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:13000";
 
 // e2e/manual/ 下那批脚本的专用配置。
 //

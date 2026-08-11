@@ -49,7 +49,7 @@ test.describe("lifecycle 就绪门", () => {
       .poll(
         async () => {
           try {
-            const response = await page.request.get(baseURL ?? "http://localhost:13000", {
+            const response = await page.request.get(baseURL ?? "http://127.0.0.1:13000", {
               timeout: 5_000,
             });
             return response.status();

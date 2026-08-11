@@ -37,9 +37,24 @@ const devServerCommand =
 
 export default defineConfig({
   testDir: "./e2e/lifecycle",
-  fullyParallel: false,
-  workers: 1,
-  timeout: 120_000,
+  // 并行是实测决策，不是照搬默认值。2026-08-11 同一台 16 核机器上对比：
+  //   workers=1（原配置）：61 用例 13.4 分钟
+  //   workers=4 --fully-parallel：6.7 分钟
+  // 失败集合比对（按测试标题，不按行号——行号会随编辑漂移）：并行只多出 2 条失败，
+  // 都是 Ctrl+滚轮缩放、Ctrl+S 保存这类交互时序敏感的用例，不是数据隔离问题；
+  // 没有任何一条因为「看见了别的用例的工作区」而失败。
+  //
+  // 为什么不给到 16：4 个 headless Chromium 加后端加 vite 已经在抢 CPU，
+  // 再加只会放大上面那种时序抖动。CI 上给 2，因为 runner 通常只有 2 到 4 核。
+  fullyParallel: true,
+  workers: process.env.CI ? 2 : 4,
+  // 交互时序类抖动用重试吸收，这是 playwright 官方 Best Practices 的做法。
+  // 本地保持 0：本地要看到真实的红，不要被重试掩盖。
+  retries: process.env.CI ? 1 : 0,
+  // 从 120s 降到 60s：实测最慢的**通过**用例约 19 秒，60s 有三倍余量。
+  // 而超时值直接决定失败的代价——并行下的总时长被最慢的那条失败用例托住，
+  // 120s 时单条失败要烧 2 到 3 分钟，正是当前 6.7 分钟里的地板。
+  timeout: 60_000,
   expect: {
     timeout: 15_000,
   },

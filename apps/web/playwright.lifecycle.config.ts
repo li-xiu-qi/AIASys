@@ -50,9 +50,13 @@ export default defineConfig({
   ],
   use: {
     baseURL,
-    trace: "retain-on-failure",
+    // retain-on-failure 的含义是「每条用例都录，通过了再删」——开销由 61 条全付，
+    // 不是只有失败的那些付。官方 Best Practices 推荐的值是 on-first-retry：
+    // 平时不记录，只有重试那一次才开，既省时间又保留了排查现场。
+    // 截图很便宜（失败时才截一张），保留。
+    trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
   },
   // 就绪门必须做成 setup project 而不是 globalSetup：webServer 只探测前端 13000，
   // 后端慢约 3 秒，冷启动时首个用例必然 ECONNREFUSED（2026-08-11 实测）。

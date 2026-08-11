@@ -179,7 +179,7 @@ test.describe("Workspace asset tree header and count", () => {
     page,
   }) => {
     const api = page.request;
-    const user = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
 
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-新建文件夹-${Date.now()}`,
@@ -284,7 +284,7 @@ test.describe("Workspace asset tree header and count", () => {
     page,
   }) => {
     const api = page.request;
-    await registerLifecycleUser(api);
+    const user = await registerLifecycleUser(api);
 
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-文件树空白菜单-${Date.now()}`,
@@ -415,7 +415,7 @@ test.describe("Workspace asset tree header and count", () => {
     page,
   }, testInfo) => {
     const api = page.request;
-    const user = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
 
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-全局资源头部-${Date.now()}`,

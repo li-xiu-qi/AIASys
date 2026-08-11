@@ -46,3 +46,19 @@ PLAYWRIGHT_CONFIG=playwright.manual.config.ts \
 
 如果一个脚本从「看截图」演化成了「有明确期望」，把期望写成 `expect` 并搬去
 `e2e/lifecycle/`——留在这里它永远不会失败，等于白写。
+
+## 2026-08-11 追加：db-preview-smoke.spec.ts
+
+从 `lifecycle/` 移过来的，原因是它是一条**假绿**：
+
+- 0 个 `expect()`，结论全靠 `console.log` 打印，人不看输出就等于没测；
+- 找不到「资源」按钮时直接 `return`，测试照样记为通过；
+- 全量跑的日志里它打印 `Panel check: { sql: false, schema: false }`——两个目标面板
+  都没找到，仍然计入 passed；
+- 截图路径写死 `/home/ke/projects/AIASys/artifacts/screenshots`，在 Windows 上被
+  解析成 `C:\home\ke\...`，实测在 C 盘根下造出了一个 568K 的野目录。
+
+**遗留缺口**：内置数据库预览目前没有任何自动化断言覆盖。要补一条真测试，需要先确定
+「资源 → 内置数据库 → SQL / 表结构」这条路径在当前 UI 里的准确入口（这条 spec 里三种
+兜底定位器全部失配，说明入口已经变过）。补的时候按 `lifecycle/` 的规矩来：断言可观察结果，
+不要用 `if (!visible) return` 兜底放过。

@@ -1,12 +1,15 @@
 import { expect, test } from "@playwright/test";
 import { createWorkspace, registerLifecycleUser } from "./support";
 
-const OUT_DIR = "/home/ke/projects/AIASys/artifacts/screenshots";
+// 原先写死 "/home/ke/projects/AIASys/artifacts/screenshots"：在 Windows 上被解析成
+// C:homeke... ，实测真的在 C 盘根下造出了一个 568K 的野目录。
+// 截图一律落到 playwright 的输出目录，跟着 test-results 一起被 gitignore。
+const OUT_DIR = "./test-results/manual-screenshots";
 
 test.describe("Database preview smoke", () => {
   test("workspace resources shows builtin database preview", async ({ page }) => {
     const api = page.request;
-    const { userId } = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const { workspaceId, currentSessionId } = await createWorkspace(api, {
       title: `db-preview-smoke-${Date.now()}`,
       mode: "analysis",

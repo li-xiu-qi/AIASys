@@ -1,4 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -23,12 +25,42 @@ export interface WorkspaceMeta {
   currentSessionId: string;
 }
 
+// 工作区根目录必须与运行中的后端一致，不能猜。
+//
+// 原先写的是 path.resolve(process.cwd(), "../backend/data/workspaces")，
+// 而后端 app/core/config.py 的实际解析是：
+//   WORKSPACE_DIR = AIASYS_RUNTIME_WORKSPACES_DIR 环境变量，否则 ~/AIASys/workspaces
+// 两者并不相同（2026-08-11 实测：dev 服务器实际用 C:\Users\ke\AIASys\workspaces，
+// 而 apps/backend/data/workspaces 里堆着 76MB、12 个用户目录的历史残留）。
+//
+// 猜错的后果是静默的：seedWorkspaceFile 把文件写进一个后端根本不读的目录，
+// 于是「文件已存在」的前提不成立，测试失败的表象却是断言不符，很难往路径上想。
+// 所以这里镜像后端的解析顺序，并在解析结果不存在时立刻给出可读的失败原因。
 const BACKEND_WORKSPACES_ROOT = path.resolve(
-  process.cwd(),
-  "../backend/data/workspaces",
+  process.env.AIASYS_RUNTIME_WORKSPACES_DIR ||
+    path.join(os.homedir(), "AIASys", "workspaces"),
 );
 
+let workspacesRootChecked = false;
+
+function assertWorkspacesRootExists(): void {
+  if (workspacesRootChecked) {
+    return;
+  }
+  workspacesRootChecked = true;
+  if (!existsSync(BACKEND_WORKSPACES_ROOT)) {
+    throw new Error(
+      [
+        `工作区根目录不存在：${BACKEND_WORKSPACES_ROOT}`,
+        "它必须与运行中的后端一致（后端取 AIASYS_RUNTIME_WORKSPACES_DIR，缺省 ~/AIASys/workspaces）。",
+        "若后端用了别的目录，请把同一个值通过 AIASYS_RUNTIME_WORKSPACES_DIR 传给测试进程。",
+      ].join("\n"),
+    );
+  }
+}
+
 export function getWorkspaceRoot(userId: string, workspaceId: string): string {
+  assertWorkspacesRootExists();
   return path.join(BACKEND_WORKSPACES_ROOT, userId, workspaceId);
 }
 

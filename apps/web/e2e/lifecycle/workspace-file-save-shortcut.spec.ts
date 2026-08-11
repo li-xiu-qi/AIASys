@@ -13,7 +13,7 @@ test.describe("文件保存快捷键", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     const api = page.request;
-    const user = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-保存快捷键-${Date.now()}`,
       mode: "analysis",
@@ -108,7 +108,7 @@ test.describe("文件保存快捷键", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     const api = page.request;
-    const user = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-Markdown保存快捷键-${Date.now()}`,
       mode: "analysis",

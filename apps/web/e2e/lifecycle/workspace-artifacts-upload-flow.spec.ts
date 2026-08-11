@@ -79,6 +79,10 @@ test.describe("Workspace artifacts upload flow", () => {
     );
 
     let executePayload: Record<string, unknown> | null = null;
+    // TS 的控制流分析看不见 page.route 回调里的赋值，会把 executePayload 收窄成 null，
+    // 于是 readExecutePayload()?.prompt 报 "Property does not exist on type never"。
+    // 通过函数读取即可绕过收窄，且不需要 as 断言。
+    const readExecutePayload = () => executePayload;
 
     try {
       await page.route("**/api/agent/execute/stream", async (route) => {
@@ -124,8 +128,8 @@ test.describe("Workspace artifacts upload flow", () => {
         .poll(() => executePayload, { timeout: 15_000 })
         .not.toBeNull();
 
-      expect(executePayload?.prompt).toBe("请确认你收到了刚上传的文件。");
-      expect(executePayload?.attachments).toEqual([
+      expect(readExecutePayload()?.prompt).toBe("请确认你收到了刚上传的文件。");
+      expect(readExecutePayload()?.attachments).toEqual([
         "/workspace/right-panel-upload.txt",
       ]);
 
@@ -153,6 +157,10 @@ test.describe("Workspace artifacts upload flow", () => {
     });
 
     let executePayload: Record<string, unknown> | null = null;
+    // TS 的控制流分析看不见 page.route 回调里的赋值，会把 executePayload 收窄成 null，
+    // 于是 readExecutePayload()?.prompt 报 "Property does not exist on type never"。
+    // 通过函数读取即可绕过收窄，且不需要 as 断言。
+    const readExecutePayload = () => executePayload;
 
     try {
       await page.route("**/api/agent/execute/stream", async (route) => {
@@ -212,8 +220,8 @@ test.describe("Workspace artifacts upload flow", () => {
         .poll(() => executePayload, { timeout: 15_000 })
         .not.toBeNull();
 
-      expect(executePayload?.prompt).toBe("请确认你收到了刚粘贴的文件。");
-      expect(executePayload?.attachments).toEqual([
+      expect(readExecutePayload()?.prompt).toBe("请确认你收到了刚粘贴的文件。");
+      expect(readExecutePayload()?.attachments).toEqual([
         "/workspace/right-panel-pasted.txt",
       ]);
 
@@ -239,6 +247,10 @@ test.describe("Workspace artifacts upload flow", () => {
     });
 
     let executePayload: Record<string, unknown> | null = null;
+    // TS 的控制流分析看不见 page.route 回调里的赋值，会把 executePayload 收窄成 null，
+    // 于是 readExecutePayload()?.prompt 报 "Property does not exist on type never"。
+    // 通过函数读取即可绕过收窄，且不需要 as 断言。
+    const readExecutePayload = () => executePayload;
 
     try {
       await page.route("**/api/agent/execute/stream", async (route) => {
@@ -324,8 +336,8 @@ test.describe("Workspace artifacts upload flow", () => {
         .poll(() => executePayload, { timeout: 15_000 })
         .not.toBeNull();
 
-      expect(executePayload?.prompt).toBe("请确认你收到了刚拖拽的文件。");
-      expect(executePayload?.attachments).toEqual([
+      expect(readExecutePayload()?.prompt).toBe("请确认你收到了刚拖拽的文件。");
+      expect(readExecutePayload()?.attachments).toEqual([
         "/workspace/right-panel-dragged.txt",
       ]);
 
@@ -351,6 +363,10 @@ test.describe("Workspace artifacts upload flow", () => {
     });
 
     let executePayload: Record<string, unknown> | null = null;
+    // TS 的控制流分析看不见 page.route 回调里的赋值，会把 executePayload 收窄成 null，
+    // 于是 readExecutePayload()?.prompt 报 "Property does not exist on type never"。
+    // 通过函数读取即可绕过收窄，且不需要 as 断言。
+    const readExecutePayload = () => executePayload;
 
     try {
       await page.route("**/api/agent/execute/stream", async (route) => {
@@ -408,8 +424,8 @@ test.describe("Workspace artifacts upload flow", () => {
         .poll(() => executePayload, { timeout: 15_000 })
         .not.toBeNull();
 
-      expect(executePayload?.prompt).toBe("请确认你收到了输入框里粘贴的文件。");
-      expect(executePayload?.attachments).toEqual([
+      expect(readExecutePayload()?.prompt).toBe("请确认你收到了输入框里粘贴的文件。");
+      expect(readExecutePayload()?.attachments).toEqual([
         "/workspace/composer-pasted.txt",
       ]);
 

@@ -15,7 +15,7 @@ test.describe("Workspace file read and edit modes", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     const api = page.request;
-    const user = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const workspace = await createWorkspace(api, {
       title: `浏览器回归-文件读写模式-${Date.now()}`,
       mode: "analysis",

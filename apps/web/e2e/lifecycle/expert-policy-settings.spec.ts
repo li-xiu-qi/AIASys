@@ -82,7 +82,7 @@ test.describe("Expert policy settings", () => {
     page,
   }) => {
     const api = page.request;
-    const { userId } = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const workspace = await createWorkspace(api, {
       title: `协作专家回归-${Date.now()}`,
       mode: "analysis",
@@ -243,7 +243,7 @@ test.describe("Expert policy settings", () => {
     page,
   }) => {
     const api = page.request;
-    const { userId } = await registerLifecycleUser(api);
+    await registerLifecycleUser(api);
     const workspace = await createWorkspace(api, {
       title: `协作专家可见性回归-${Date.now()}`,
       mode: "analysis",

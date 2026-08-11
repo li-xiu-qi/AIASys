@@ -64,6 +64,28 @@ export function getWorkspaceRoot(userId: string, workspaceId: string): string {
   return path.join(BACKEND_WORKSPACES_ROOT, userId, workspaceId);
 }
 
+/**
+ * 拼出工作区内某个相对路径的绝对路径，分隔符与后端返回的一致。
+ *
+ * 不要写 `${getWorkspaceRoot(...)}/${relativePath}`：getWorkspaceRoot 走 path.join，
+ * 在 Windows 上产出反斜杠，再用 `/` 拼接就得到
+ *   C:\Users\ke\AIASys\workspaces\local_default\<id>/browser-regression/x
+ * 这种混用形态，而后端 resources/tree 的 absolute_path 是纯反斜杠的
+ *   C:\Users\ke\AIASys\workspaces\local_default\<id>\browser-regression\x
+ * 于是「复制绝对路径」这类断言在 Windows 上必然失配（2026-08-11 实测）。
+ */
+export function getWorkspaceAbsolutePath(
+  userId: string,
+  workspaceId: string,
+  relativePath: string,
+): string {
+  const segments = relativePath
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(Boolean);
+  return path.join(getWorkspaceRoot(userId, workspaceId), ...segments);
+}
+
 export async function registerLifecycleUser(
   api: APIRequestContext,
 ): Promise<LifecycleUserMeta> {

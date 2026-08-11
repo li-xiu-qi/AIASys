@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import {
-  getWorkspaceRoot,
+  getWorkspaceAbsolutePath,
   createWorkspace,
   deleteWorkspace,
   registerLifecycleUser,
@@ -392,14 +392,14 @@ test.describe("Workspace asset tree header and count", () => {
       ).toBeVisible();
       await expect(
         folderMenu.getByText(
-          `${getWorkspaceRoot(user.userId, workspace.workspaceId)}/${folderPath}`,
+          getWorkspaceAbsolutePath(user.userId, workspace.workspaceId, folderPath),
           { exact: true },
         ),
       ).toBeVisible();
       await folderMenu.getByRole("menuitem", { name: "复制绝对路径" }).click();
       await expect
         .poll(() => page.evaluate(() => navigator.clipboard.readText()))
-        .toBe(`${getWorkspaceRoot(user.userId, workspace.workspaceId)}/${folderPath}`);
+        .toBe(getWorkspaceAbsolutePath(user.userId, workspace.workspaceId, folderPath));
 
       await panel.getByText(folderName, { exact: true }).click({ button: "right" });
       await page.getByRole("menu").getByRole("menuitem", { name: "复制资源路径" }).click();

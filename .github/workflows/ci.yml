@@ -183,6 +183,20 @@ jobs:
           uv run ruff check ../../scripts/
           uv run ruff format --check ../../scripts/
 
+      # 文档写错源码路径不会让任何检查变红，但会持续误导读它的人和 AI。
+      # 2026-08-10 实测一次事故：AI 拿到一条不存在的目录路径后，顺着错误前提
+      # 编出整份「目录清单 + 能力字段表 + 精确行号」的幻觉报告——错的不是模型，
+      # 是它读到的文档。同批核验在 318 份文档里查出 38 个失效路径引用，其中
+      # 一整族源于 DataAnalysisPage 重命名为 WorkspacePage 后架构文档没跟着改。
+      #
+      # 只对「描述当前状态」的文档报警；changelog 是历史快照，记录当时的路径，
+      # 重构后失效属正常，不纳入。--self-test 先自证检测器既能抓错也不恒红。
+      - name: Doc path check (文档引用的源码路径必须存在)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python3 ../../scripts/dev/check_doc_paths.py --self-test
+          python3 ../../scripts/dev/check_doc_paths.py
+
       # 棘轮，不是归零。原先是 `--exit-zero`，等于永远通过；实测评分 8.58/10。
       # 分数提高后请上调这里的阈值，把收益锁住。
       - name: Pylint (ratchet, 分数不得低于基线)

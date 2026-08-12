@@ -99,6 +99,12 @@ export function RoleVisibilityPopover({
           title={triggerTitle}
           aria-label={`${role.displayName} 协作专家启用策略`}
           data-testid={`role-visibility-trigger-${role.name}`}
+          onClick={(e) => {
+            // 本组件嵌在 RoleListItem 的整行 onClick=onPreview 区域内，
+            // 兄弟按钮全部 stopPropagation，唯独这里漏了——不拦截的话
+            // 开 popover 的同时会冒泡触发行预览，详情弹窗盖住 popover。
+            e.stopPropagation();
+          }}
         >
           <TriggerIcon className="h-3.5 w-3.5" />
         </Button>
@@ -108,6 +114,12 @@ export function RoleVisibilityPopover({
         side="left"
         className="w-80 space-y-4 p-4"
         data-testid={`role-visibility-popover-${role.name}`}
+        onClick={(e) => {
+          // Radix PopoverContent 走 portal，但 React 合成事件仍按组件树冒泡——
+          // 本组件在 React 树里嵌在 RoleListItem 的整行 onClick=onPreview 区域内，
+          // 不拦截的话 popover 里的每次点击（拨开关、点保存）都会触发详情弹窗。
+          e.stopPropagation();
+        }}
       >
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-3">

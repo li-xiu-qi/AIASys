@@ -280,9 +280,18 @@ test.describe("Workspace asset tree header and count", () => {
       );
 
       const panel = await openWorkspaceFilesPanel(page);
-      await panel
-        .getByTestId("workspace-artifacts-tree-surface")
-        .click({ button: "right", position: { x: 80, y: 220 } });
+      // 右键位置不能硬编码 y：文件树展开态会跨用例留在共享 e2e profile 里
+      // （browser-regression 目录展开后 y=220 命中的是文件行，弹出的是行菜单
+      // 而不是根菜单）。贴面板底部——本用例只 seed 两个条目，底部必然空白。
+      const surface = panel.getByTestId("workspace-artifacts-tree-surface");
+      const surfaceBox = await surface.boundingBox();
+      if (!surfaceBox) {
+        throw new Error("workspace-artifacts-tree-surface 不可见");
+      }
+      await surface.click({
+        button: "right",
+        position: { x: 80, y: Math.max(60, surfaceBox.height - 24) },
+      });
 
       const rootMenu = page.getByTestId("workspace-artifacts-root-menu");
       await expect(rootMenu).toBeVisible();

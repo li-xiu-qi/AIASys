@@ -110,7 +110,10 @@ test.describe("AutoTask run-now browser regression", () => {
             );
           },
           {
-            timeout: 45_000,
+            // 本机 e2e 会继承用户真实 LLM 配置；端点不可达时 openai SDK 的重试
+            // 风暴约 25s x 3 次尝试 ≈ 80s，last_run_at 在 finally 里才写入。
+            // CI 是全新环境（无 LLM 配置）会立即报错，走得很快。150s 覆盖两者。
+            timeout: 150_000,
             message: "立即运行后 last_run_at 应被写入（无论 LLM 执行成败）",
           },
         )
@@ -131,7 +134,7 @@ test.describe("AutoTask run-now browser regression", () => {
             return body.conversation_count ?? 0;
           },
           {
-            timeout: 45_000,
+            timeout: 150_000,
             message: "立即运行应新建一个自动任务会话",
           },
         )

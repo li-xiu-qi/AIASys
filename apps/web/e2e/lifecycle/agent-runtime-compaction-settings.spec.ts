@@ -86,12 +86,15 @@ test.describe("Agent runtime compaction settings", () => {
         .toBe("0.67|session_override|true");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.getByTestId("input-tool-config").click();
 
+      // 对话框的打开状态同步在 URL（openAgentConfigDialog ->
+      // replaceWorkspaceOverlay("agent_config")，useWorkspaceOverlayState.ts），
+      // reload 后 syncRouteOverlay 会自动重开对话框。旧版在这里再点一次
+      // input-tool-config，点击会被已打开的对话框遮罩拦截到超时。
       const reloadedDialog = page.getByRole("dialog").filter({
         hasText: "当前会话配置",
       });
-      await expect(reloadedDialog).toBeVisible();
+      await expect(reloadedDialog).toBeVisible({ timeout: 15_000 });
       await expect(
         reloadedDialog.getByTestId("agent-runtime-reserved-context-size"),
       ).toHaveValue("32000");

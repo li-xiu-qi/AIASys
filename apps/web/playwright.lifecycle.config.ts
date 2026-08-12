@@ -72,6 +72,11 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "off",
+    // 「复制绝对路径」这类用例要用 navigator.clipboard.readText() 核对复制结果，
+    // 而 Chromium 默认拒绝读剪贴板，报 NotAllowedError: Read permission denied。
+    // 这个错误会挡在断言之前，让人误以为是复制功能坏了——上一轮修那条用例的路径
+    // 分隔符时就被它挡住，改对了也没验证到。
+    permissions: ["clipboard-read", "clipboard-write"],
   },
   // 就绪门必须做成 setup project 而不是 globalSetup：webServer 只探测前端 13000，
   // 后端慢约 3 秒，冷启动时首个用例必然 ECONNREFUSED（2026-08-11 实测）。

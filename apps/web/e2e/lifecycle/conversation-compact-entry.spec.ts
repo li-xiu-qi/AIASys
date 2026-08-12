@@ -50,12 +50,21 @@ test.describe("Conversation compact entry browser regression", () => {
         },
       );
 
-      const compactButton = page.getByTestId("input-compact-conversation");
+      // compact 入口折叠在会话头部的「上下文与预算」下拉里（TokenUsageBar
+      // variant="dropdown"），先点开 Popover 才能看到压缩按钮。
+      const contextTrigger = page.getByRole("button", { name: "上下文与预算" });
       await expect(page.locator("textarea")).toBeVisible();
+      await contextTrigger.click();
+      const compactButton = page.getByRole("button", {
+        name: "压缩上下文",
+        exact: true,
+      });
       await expect(compactButton).toBeVisible();
       await expect(compactButton).toBeEnabled();
 
       await compactButton.click();
+      // 点击后 Popover 关闭、开始压缩，再点开才能看到「压缩中」态
+      await contextTrigger.click();
       await expect(compactButton).toBeDisabled();
       await expect(compactButton).toContainText("压缩中");
       await expect
@@ -64,6 +73,8 @@ test.describe("Conversation compact entry browser regression", () => {
       await expect(page.getByText("对话上下文已压缩")).toBeVisible({
         timeout: 10_000,
       });
+      // 压缩完成后 popover 已关闭，重新点开断言回到可用态
+      await contextTrigger.click();
       await expect(compactButton).toBeEnabled();
       await expect(compactButton).toContainText("压缩");
     } finally {
@@ -101,8 +112,13 @@ test.describe("Conversation compact entry browser regression", () => {
       );
 
       const input = page.locator("textarea");
-      const compactButton = page.getByTestId("input-compact-conversation");
+      const contextTrigger = page.getByRole("button", { name: "上下文与预算" });
       await expect(input).toBeVisible();
+      await contextTrigger.click();
+      const compactButton = page.getByRole("button", {
+        name: "压缩上下文",
+        exact: true,
+      });
       await expect(compactButton).toBeVisible();
       await expect(compactButton).toBeEnabled();
 
@@ -110,11 +126,18 @@ test.describe("Conversation compact entry browser regression", () => {
       await input.press("Enter");
 
       await expect(page.getByText(CHUNK_1, { exact: true })).toBeVisible();
+      // 运行中 popover 可能仍开或已关，确保打开后断言禁用
+      if (!(await compactButton.isVisible())) {
+        await contextTrigger.click();
+      }
       await expect(compactButton).toBeDisabled();
 
       await expect
         .poll(async () => await input.isEnabled(), { timeout: 10_000 })
         .toBe(true);
+      if (!(await compactButton.isVisible())) {
+        await contextTrigger.click();
+      }
       await expect(compactButton).toBeEnabled();
     } finally {
       await deleteWorkspace(api, workspace.workspaceId);

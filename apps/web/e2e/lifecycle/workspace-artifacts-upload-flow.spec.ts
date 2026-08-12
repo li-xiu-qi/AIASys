@@ -1,46 +1,16 @@
 import { writeFile } from "node:fs/promises";
 
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
-import { createWorkspace, deleteWorkspace, registerLifecycleUser } from "./support";
+import {
+  createWorkspace,
+  deleteWorkspace,
+  openGlobalResourcesPanel,
+  openWorkspaceFilesPanel,
+  registerLifecycleUser,
+} from "./support";
 
-async function openWorkspaceFilesPanel(page: Page) {
-  await expect(page.locator("textarea")).toBeVisible();
-  const panel = page.locator('[data-testid="workspace-artifacts-panel"]');
-  if (!(await panel.isVisible())) {
-    const fileTab = page.locator("button[aria-label='文件']");
-    if (await fileTab.isVisible()) {
-      await fileTab.click();
-    } else {
-      await page.getByRole("button", { name: "文件", exact: true }).click();
-    }
-  }
-  await expect(panel).toBeVisible();
-  await expect(panel.getByTestId("workspace-artifacts-tree-surface")).toBeVisible();
-  return panel;
-}
 
-async function openGlobalResourcesPanel(page: Page) {
-  await expect(page.locator("textarea")).toBeVisible();
-  const globalTab = page
-    .locator("button[aria-label='全局工作区'], button[aria-label='全局资源']")
-    .first();
-  if ((await globalTab.count()) > 0 && (await globalTab.isVisible())) {
-    await globalTab.click();
-  } else {
-    await page
-      .getByRole("button", { name: "全局工作区", exact: true })
-      .or(page.getByRole("button", { name: "全局资源", exact: true }))
-      .first()
-      .click();
-  }
-  const panel = page.locator('[data-testid="workspace-global-resources-panel"]');
-  await expect(panel).toBeVisible();
-  await expect(
-    panel.getByTestId("workspace-global-resources-tree-surface"),
-  ).toBeVisible();
-  return panel;
-}
 
 async function deleteGlobalFiles(
   api: APIRequestContext,

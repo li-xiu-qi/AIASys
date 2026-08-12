@@ -1,3 +1,9 @@
+// 已退役的临时探测脚本，不是产品回归测试。
+// 问题：第二条用例硬编码真实 workspace/session UUID；不注册生命周期用户也不走
+// support 的 createWorkspace；截图写到 /home/ke/projects/AIASys/.tmp/（该路径在
+// Windows 上不存在，正是 C:/home 野目录的来源之一）。它的两条用例已由
+// workspace-home / analysis-workspace-home 等真正的回归测试覆盖。移到 e2e/manual/ 存档，
+// 不再纳入 lifecycle CI。2026-08-11。
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "crypto";
 

@@ -1,42 +1,15 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   getWorkspaceAbsolutePath,
   createWorkspace,
   deleteWorkspace,
+  openGlobalResourcesPanel,
+  openWorkspaceFilesPanel,
   registerLifecycleUser,
 } from "./support";
 
-async function openWorkspaceFilesPanel(page: Page) {
-  await expect(page.locator("textarea")).toBeVisible();
-  const panel = page.locator('[data-testid="workspace-artifacts-panel"]');
-  if (!(await panel.isVisible())) {
-    const fileTab = page.locator("button[aria-label='文件']");
-    if (await fileTab.isVisible()) {
-      await fileTab.click();
-    } else {
-      await page.getByRole("button", { name: "文件", exact: true }).click();
-    }
-  }
-  await expect(panel).toBeVisible();
-  await expect(
-    panel.getByTestId("workspace-artifacts-tree-surface"),
-  ).toBeVisible();
-  return panel;
-}
 
-async function openGlobalResourcesPanel(page: Page) {
-  const globalTab = page.locator("button[aria-label='全局资源']");
-  if (await globalTab.isVisible()) {
-    await globalTab.click();
-  } else {
-    await page.getByRole("button", { name: "全局资源", exact: true }).click();
-  }
-  const panel = page.locator('[data-testid="workspace-global-resources-panel"]');
-  await expect(panel).toBeVisible();
-  await expect(panel.getByText("全局工作区", { exact: true })).toBeVisible();
-  return panel;
-}
 
 test.describe("Workspace asset tree header and count", () => {
   test("workspace artifacts shows compact header with correct file and directory counts", async ({
@@ -433,7 +406,7 @@ test.describe("Workspace asset tree header and count", () => {
 
       // 验证紧凑头部可见
       await expect(
-        panel.getByText("全局工作区", { exact: true }),
+        panel.getByText("全局工作区", { exact: true }).first(),
       ).toBeVisible();
 
       // 计数徽标可见（即使为 0）
@@ -446,7 +419,7 @@ test.describe("Workspace asset tree header and count", () => {
 
       // 刷新后头部仍然稳定
       await expect(
-        panel.getByText("全局工作区", { exact: true }),
+        panel.getByText("全局工作区", { exact: true }).first(),
       ).toBeVisible();
 
       await page.screenshot({

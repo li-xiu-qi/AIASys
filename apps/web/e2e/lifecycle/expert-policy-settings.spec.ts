@@ -124,7 +124,7 @@ test.describe("Expert policy settings", () => {
       );
       expect(initialPolicyResponse.ok()).toBeTruthy();
 
-      await page.getByRole("button", { name: "协作专家", exact: true }).click();
+      await page.getByRole("button", { name: "专家协作节点", exact: true }).click();
 
       const policySummary = page.getByTestId("workspace-expert-policy-summary");
       await expect(policySummary).toBeVisible();
@@ -209,7 +209,7 @@ test.describe("Expert policy settings", () => {
         .not.toContain("ReadNotebookOutputsTool");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.getByRole("button", { name: "协作专家", exact: true }).click();
+      await page.getByRole("button", { name: "专家协作节点", exact: true }).click();
       await page
         .getByTestId("workspace-expert-policy-summary")
         .getByTestId("open-workspace-collaboration-settings")
@@ -272,7 +272,7 @@ test.describe("Expert policy settings", () => {
       );
       expect(installReviewerResponse.ok()).toBeTruthy();
 
-      await page.getByRole("button", { name: "协作专家", exact: true }).click();
+      await page.getByRole("button", { name: "专家协作节点", exact: true }).click();
       await expect(page.getByTestId("role-visibility-trigger-coder")).toBeVisible();
       await page.getByTestId("role-visibility-trigger-coder").click();
 

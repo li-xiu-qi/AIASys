@@ -4,6 +4,7 @@ import {
   createWorkspace,
   deleteWorkspace,
   registerLifecycleUser,
+  openWorkspaceFilesPanel
 } from "./support";
 
 test.describe("文件保存快捷键", () => {
@@ -42,17 +43,7 @@ test.describe("文件保存快捷键", () => {
         { waitUntil: "domcontentloaded" },
       );
       await expect(page.locator("textarea")).toBeVisible();
-
-      const panel = page.locator('[data-testid="workspace-artifacts-panel"]');
-      if ((await panel.count()) === 0 || !(await panel.isVisible())) {
-        const fileTab = page.locator("button[aria-label='文件']");
-        if (await fileTab.isVisible()) {
-          await fileTab.click();
-        } else {
-          await page.getByRole("button", { name: "当前工作区", exact: true }).click();
-        }
-      }
-      await expect(panel).toBeVisible();
+      const panel = await openWorkspaceFilesPanel(page);
       await panel.getByPlaceholder("搜索文件或目录...").fill(codeFileName);
       await expect(panel.getByText(codeFileName, { exact: true })).toBeVisible();
 
@@ -137,17 +128,7 @@ test.describe("文件保存快捷键", () => {
         { waitUntil: "domcontentloaded" },
       );
       await expect(page.locator("textarea")).toBeVisible();
-
-      const panel = page.locator('[data-testid="workspace-artifacts-panel"]');
-      if ((await panel.count()) === 0 || !(await panel.isVisible())) {
-        const fileTab = page.locator("button[aria-label='文件']");
-        if (await fileTab.isVisible()) {
-          await fileTab.click();
-        } else {
-          await page.getByRole("button", { name: "当前工作区", exact: true }).click();
-        }
-      }
-      await expect(panel).toBeVisible();
+      const panel = await openWorkspaceFilesPanel(page);
       await panel.getByPlaceholder("搜索文件或目录...").fill(markdownFileName);
       await expect(panel.getByText(markdownFileName, { exact: true })).toBeVisible();
 

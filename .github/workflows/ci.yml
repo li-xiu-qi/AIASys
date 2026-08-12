@@ -107,6 +107,62 @@ jobs:
       - name: Build
         run: npm run build
 
+
+  e2e-lifecycle:
+    # 浏览器生命周期回归：58 条 Playwright 用例，覆盖会话/画布/图谱/预览/流式渲染。
+    # 2026-08-12 实测本地串行 58/58 全绿；此前这批测试断言大面积腐烂，
+    # 修复过程还抓出 5 个真实产品缺陷（alert-dialog asChild 丢 onClick、
+    # RoleVisibilityPopover portal 冒泡、virtual-core 尺寸补偿拖滚动、
+    # 程序化滚动时间窗吞用户上滑、画布卸载丢最后一次编辑）。
+    runs-on: windows-latest
+    # 硬上限。本地串行实测约 25 分钟；runner 更慢，60 分钟是两倍余量。
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: "apps/backend/uv.lock"
+
+      - name: Install backend dependencies
+        run: |
+          cd apps/backend
+          uv sync --frozen
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      # workers/retries 由 playwright.lifecycle.config.ts 按 CI 环境变量自动取值
+      # （workers=2、retries=1）——交互时序类抖动用一次重试吸收，这是该文件里
+      # 写明的实测决策。本地 --workers=1 串行验证过 58/58，CI 上不要改成 0 重试。
+      - name: Run lifecycle e2e
+        run: npx playwright test --config=playwright.lifecycle.config.ts --reporter=list
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: lifecycle-e2e-report
+          path: |
+            apps/web/playwright-report/lifecycle
+            apps/web/test-results/lifecycle
+          retention-days: 7
   backend:
     strategy:
       # 一个平台失败不掩盖另一个平台的结果：跨平台问题往往只在单侧出现。

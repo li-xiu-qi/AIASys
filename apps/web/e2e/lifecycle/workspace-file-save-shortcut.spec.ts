@@ -75,13 +75,13 @@ test.describe("文件保存快捷键", () => {
       await page.keyboard.type(updatedContent);
 
       // 确认未保存状态
-      await expect(page.getByText("未保存")).toBeVisible();
+      await expect(page.getByText("未保存").first()).toBeVisible(); // 多处渲染，取其一
 
       // 按下 Ctrl+S 保存
       await page.keyboard.press("Control+s");
 
       // 等待保存完成，状态变为已保存
-      await expect(page.getByText("已保存")).toBeVisible();
+      await expect(page.getByText("已保存").first()).toBeVisible();
 
       // 通过 API 验证文件内容已持久化
       const contentResponse = await api.get(
@@ -157,13 +157,13 @@ test.describe("文件保存快捷键", () => {
       await page.keyboard.type(updatedContent);
 
       // 确认未保存状态
-      await expect(page.getByText("未保存")).toBeVisible();
+      await expect(page.getByText("未保存").first()).toBeVisible(); // 多处渲染，取其一
 
       // 按下 Ctrl+S 保存
       await page.keyboard.press("Control+s");
 
       // 等待保存完成
-      await expect(page.getByText("已保存")).toBeVisible();
+      await expect(page.getByText("已保存").first()).toBeVisible();
 
       // 验证文件内容已持久化
       const contentResponse = await api.get(

@@ -348,6 +348,8 @@ export function MainCanvasPreview({
           </div>
           <div className="flex items-center gap-2">
             <div ref={setToolbarEl} className="flex items-center gap-2" />
+            {/* 文件树每一行也有「更多操作」，e2e 需要靠这个容器区分主画布的 */}
+            <div data-testid="main-canvas-action-menu" className="contents">
             <CanvasActionMenu
               onClose={onClose}
               closeLabel={closeLabel}
@@ -364,6 +366,7 @@ export function MainCanvasPreview({
                 },
               ]}
             />
+            </div>
           </div>
         </div>
       </div>

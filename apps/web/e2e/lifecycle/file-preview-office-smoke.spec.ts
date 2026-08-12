@@ -189,7 +189,9 @@ test.describe("Workspace file preview browser smoke", () => {
       };
 
       await openInMainCanvas(files.pdf);
-      const pdfFrame = page.locator(`iframe[title="${files.pdf}"]`);
+      // 主画布传给 PdfPreview 的 fileName 是工作区相对路径（如
+      // workspace/browser-preview.pdf），iframe title 随之带前缀；用后缀匹配。
+      const pdfFrame = page.locator(`iframe[title$="${files.pdf}"]`);
       await expect(pdfFrame).toBeAttached();
       await expect
         .poll(async () => await pdfFrame.getAttribute("src"))
@@ -223,13 +225,21 @@ test.describe("Workspace file preview browser smoke", () => {
       await expect(
         page.locator(".pptx-preview-wrapper, .slide").first(),
       ).toBeVisible();
-      await expect(page.getByText("产物信息", { exact: true })).toHaveCount(0);
-      await page.getByRole("button", { name: "查看文件信息" }).click();
-      await expect(page.getByText("产物信息", { exact: true })).toBeVisible();
-      await expect(page.getByText("来源运行", { exact: true })).toBeVisible();
-      await expect(page.getByText("版本记录", { exact: true })).toBeVisible();
+      // 文件信息面板已重设计：按钮叫「文件信息」（MainCanvasPreview），
+      // 内容是通用字段（文件名/路径/类型…），不再是产物信息/来源运行/版本记录。
+      await expect(page.getByText("文件名", { exact: true })).toHaveCount(0);
+      // 非沉浸模式下入口在主画布「更多操作」菜单里（CanvasActionMenu 的
+      // menuitem）；工具栏上的「文件信息」按钮只在沉浸预览里渲染。
+      await page
+        .getByTestId("main-canvas-action-menu")
+        .getByRole("button", { name: "更多操作" })
+        .click();
+      await page.getByRole("menuitem", { name: "查看文件信息" }).click();
+      await expect(page.getByText("文件名", { exact: true })).toBeVisible();
+      await expect(page.getByText("路径", { exact: true })).toBeVisible();
+      await expect(page.getByText("修改时间", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "关闭文件信息" }).click();
-      await expect(page.getByText("产物信息", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("文件名", { exact: true })).toHaveCount(0);
       await expect(
         page.locator(".pptx-preview-wrapper, .slide").first(),
       ).toBeVisible();

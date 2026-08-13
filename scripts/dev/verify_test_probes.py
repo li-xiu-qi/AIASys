@@ -18,6 +18,12 @@
 安全性：每个探针在注入前把目标文件原文读入内存，无论测试结果如何都在
 finally 中原样写回；脚本退出时会校验所有目标文件的内容与开跑前一致，
 不一致则显著报错（这种情况说明恢复逻辑本身出了问题，需要 git checkout）。
+
+已知的恢复漏洞与本脚本的兜底：进程被强杀（Ctrl+C 打断、系统关机、CI 超时
+SIGKILL）时 finally 不会执行，注入的缺陷会残留在 working tree 里——2026-08-13
+实测发生过一次，靠人眼 review diff 才发现。因此 main() 在开跑前先扫一遍所有
+探针的 replace 片段是否已经出现在 target 里，命中即拒绝运行并点名文件，
+防止「上一轮的注入」被本轮 commit 进仓库。
 """
 
 from __future__ import annotations
@@ -459,6 +465,53 @@ def _self_test(runner: str = "pytest") -> int:
     return _report_self_test("pytest", harmless, bogus_anchor)
 
 
+def _detect_leftover_injections(probes: list[Probe]) -> list[str]:
+    """开跑前检测残留注入：target 处于「find 已被换成 replace」的状态。
+
+    这不是理论风险——2026-08-13 实测：探针进程被打断，finally 未执行，
+    empty-tool-arguments-regression 的注入在 working tree 里躺到人工 review
+    才被发现。不检测的话，下一轮探针会把自己的 find 换成 replace 再换回来，
+    「恢复」到的正是残留状态，退出校验也发现不了；更糟的是开着残留直接开发，
+    缺陷会被 commit 进仓库。
+
+    判据是双条件，缺一不可：
+      1. replace 的标记行在场——标记取 replace 中不属于 find 的第一行（strip 后），
+         因为多数探针的 replace 含与 find 相同的行（删改型注入的保留部分），
+         用共有行会大面积误报正常源码；
+      2. find 的标记行缺席——注入恰恰是 find → replace 的替换，find 没了才说明
+         替换真的发生过。只看条件 1 时，`return config` 这类短 replace 在正常
+         文件里本来就有，会误拦干净的工作区（2026-08-13 加检测当天就误报过）。
+    """
+    leftovers: list[str] = []
+    for probe in probes:
+        path = REPO_ROOT / probe.target
+        try:
+            content = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+
+        def marker_of(snippet: str) -> str:
+            return next(
+                (line.strip() for line in snippet.splitlines() if line.strip()),
+                "",
+            )
+
+        replace_marker = next(
+            (
+                line.strip()
+                for line in probe.replace.splitlines()
+                if line.strip() and line.strip() not in {l.strip() for l in probe.find.splitlines()}
+            ),
+            "",
+        )
+        find_marker = marker_of(probe.find)
+        if not replace_marker or not find_marker:
+            continue
+        if find_marker not in content and replace_marker in content:
+            leftovers.append(f"{probe.target}（探针 {probe.name} 的注入残留）")
+    return leftovers
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-k", dest="filter", default=None, help="按探针名字子串过滤")
@@ -479,8 +532,31 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # 残留注入检测必须在任何写入动作（自证也是写入）之前。
+    # 检测范围跟随后续实际要跑的探针集合：有 -k/--runner 过滤时只查那批 target。
+    future_probes = [p for p in PROBES if not args.filter or args.filter in p.name]
+    if args.runner != "all":
+        future_probes = [p for p in future_probes if p.runner == args.runner]
+    leftovers = _detect_leftover_injections(future_probes)
+    if leftovers:
+        print("!! 检测到上一轮探针的注入残留，拒绝运行。", file=sys.stderr)
+        print("   以下文件已含有某个探针的 replace 片段，说明上次运行被强杀、", file=sys.stderr)
+        print("   finally 未恢复。请 git checkout 以下文件后重试：", file=sys.stderr)
+        for item in leftovers:
+            print(f"     {item}", file=sys.stderr)
+        return 4
+
     if args.self_test:
-        return _self_test()
+        # --runner 必须透传给自证：web-check job 只装 node_modules 不装 pytest，
+        # backend job 反之。曾在这里忽略 runner 恒跑 pytest 侧，CI 的
+        # `--self-test --runner vitest` 实际去执行 pytest，job 里没有 pytest，
+        # 输出无「passed」可解析 → 误判 broken → 自证恒失败（2026-08-13 CI 首跑实测）。
+        # 默认 all 时两侧都自证：本地一条命令验全套，CI 分开各跑各的。
+        runners = ("pytest", "vitest") if args.runner == "all" else (args.runner,)
+        rc = 0
+        for runner in runners:
+            rc |= _self_test(runner)
+        return rc
 
     probes = [p for p in PROBES if not args.filter or args.filter in p.name]
     if args.runner != "all":

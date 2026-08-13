@@ -26,6 +26,17 @@ const repoRoot = path.resolve(__dirname, "../..");
 const externalRuntimeDir = process.env.AIASYS_RUNTIME_DATA_DIR;
 const e2eRuntimeDir =
   externalRuntimeDir ?? mkdtempSync(path.join(tmpdir(), "aiasys-e2e-runtime-"));
+
+// CI / 直接 npx 路径：webServer.env 只影响被 spawn 的服务进程，测试进程自己的
+// process.env 并没有这三个值，于是 support.ts 的 BACKEND_WORKSPACES_ROOT 落到
+// 缺省的 ~/AIASys/workspaces——seedWorkspaceFile 把文件写进后端根本不读的目录，
+// 图谱/办公预览等 9 条用例挂在「文件不可见」（2026-08-13 CI 与本地复现一致）。
+// 把同一组值同步进测试进程，保证 seed 写入的位置就是后端读取的位置。
+if (!externalRuntimeDir) {
+  process.env.AIASYS_RUNTIME_DATA_DIR = path.join(e2eRuntimeDir, "data");
+  process.env.AIASYS_RUNTIME_LOGS_DIR = path.join(e2eRuntimeDir, "logs");
+  process.env.AIASYS_RUNTIME_WORKSPACES_DIR = path.join(e2eRuntimeDir, "workspaces");
+}
 // baseURL 必须写 127.0.0.1，不能写 localhost。2026-08-11 实测：
 //   http://127.0.0.1:13000/ -> 200
 //   http://[::1]:13000/     -> 连接被拒

@@ -85,8 +85,6 @@ class TestSessionDbConnectionLifecycle:
     def test_数据在关闭后仍可被新连接读到(self, tmp_path: Path) -> None:
         """关连接不能把未提交的数据一起丢掉——顺手锁住提交语义。"""
         path = tmp_path / "sessions.db"
-        SessionDB(path).add_message(
-            session_id="s1", user_id="u1", role="user", content="持久化"
-        )
+        SessionDB(path).add_message(session_id="s1", user_id="u1", role="user", content="持久化")
         messages = SessionDB(path).get_messages("s1")
         assert [m["content"] for m in messages] == ["持久化"]

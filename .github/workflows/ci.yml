@@ -138,8 +138,10 @@ jobs:
           cache-dependency-glob: "apps/backend/uv.lock"
 
       - name: Install backend dependencies
+        # job 默认 working-directory 是 apps/web，必须显式回到仓库根再进 backend
+        # （原先 cd apps/backend 解析成 apps/web/apps/backend，CI 首跑即挂）
         run: |
-          cd apps/backend
+          cd "$GITHUB_WORKSPACE/apps/backend"
           uv sync --frozen
 
       - name: Install web dependencies
@@ -318,6 +320,11 @@ jobs:
       # 3. 把 `-x`（首败即停）换成 `--maxfail=5`：首败即停会掩盖同批的其它失败，
       #    每轮 CI 只能暴露一个问题；给 5 个额度，既能看到问题面又不会跑满全程。
       - name: Run tests
+        # PYTHONUTF8：Windows runner 默认控制台编码是 cp1252，canvas/竞赛调研等
+        # skill 脚本测试会向 stdout 打印非 ASCII 字符，charmap 编码报错（2026-08-13
+        # CI 实测 3 条）。UTF-8 模式对 ubuntu 无害。
+        env:
+          PYTHONUTF8: "1"
         run: uv run pytest -q --maxfail=5
 
       # 测试有效性门：往源码里注入缺陷，要求对应测试必须失败。

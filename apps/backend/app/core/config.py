@@ -352,7 +352,7 @@ from app.models.user import AuthConfig
 
 # 管理员账号配置（从配置文件读取）
 # Canvas 配置
-CANVAS_AUTO_SAVE_DEBOUNCE_MS = int(_get_config("canvas.auto_save_debounce_ms", 800))
+CANVAS_AUTO_SAVE_DEBOUNCE_MS = int(_get_config("canvas.auto_save_debounce_ms", 300))
 
 AUTH_CONFIG = AuthConfig(
     # 认证模式: none(开发离线)/local(单机默认用户)

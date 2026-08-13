@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createGraphragApi } from "@/lib/api/graphrag";
-import { SqlQueryPanel } from "@/components/database/SqlQueryPanel";
+import { RawDataTab } from "./RawDataTab";
 import type {
   GraphLayoutPosition,
   GraphLlmStatus,
@@ -2217,121 +2217,19 @@ export function GraphPreviewPanel({
 
         {/* 原始数据 Tab */}
         {activeTab === "data" && dbPath ? (
-          <div className="flex h-full min-h-0 flex-col gap-3">
-            {/* 表列表 */}
-            {loadingGraphTables ? (
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                加载表结构...
-              </div>
-            ) : graphTables.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {graphTables.map((table) => (
-                  <button
-                    key={table.name}
-                    type="button"
-                    onClick={() =>
-                      setRawSql(`SELECT * FROM "${table.name.replace(/"/g, "\"\"")}" LIMIT 100;`)
-                    }
-                    className="rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                    title={`${table.name} (${table.columns.map((c) => c.name).join(", ")})`}
-                  >
-                    {table.name}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {/* SQL 编辑器 */}
-            <div className="flex-shrink-0">
-              <SqlQueryPanel
-                sql={rawSql}
-                onSqlChange={setRawSql}
-                queryLimitInput={rawQueryLimit}
-                onLimitChange={setRawQueryLimit}
-                runningAction={rawRunning ? "query" : null}
-                canExecute={false}
-                disabled={!kgId || loadingGraphTables}
-                error={rawError}
-                onRunQuery={handleRunRawQuery}
-                onRunExecute={() => {}}
-              />
-            </div>
-
-            {/* 结果表格 */}
-            <div className="min-h-0 flex-1 overflow-hidden flex flex-col">
-              {rawResult ? (
-                <>
-                  <div className="min-h-0 flex-1 overflow-auto">
-                    {rawResult.columns.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-[11px] text-muted-foreground">
-                        查询已执行，但当前结果没有可展示的列。
-                      </div>
-                    ) : (
-                      <div className="overflow-auto">
-                        <table
-                          className="w-full text-left text-[11px]"
-                          style={{ tableLayout: "auto" }}
-                        >
-                          <thead className="sticky top-0 bg-muted/60">
-                            <tr>
-                              {rawResult.columns.map((column, colIdx) => (
-                                <th
-                                  key={`h-${colIdx}`}
-                                  className="border-b border-border px-2 py-1.5 font-medium text-muted-foreground whitespace-nowrap"
-                                >
-                                  {column}
-                                </th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rawResult.rows.map((row, index) => (
-                              <tr
-                                key={`${index}`}
-                                className="border-b border-border/60 last:border-b-0"
-                              >
-                                {rawResult.columns.map((column, columnIndex) => {
-                                  const value = row[column];
-                                  const display =
-                                    value === null || value === undefined
-                                      ? "NULL"
-                                      : typeof value === "string"
-                                        ? value
-                                        : typeof value === "number" || typeof value === "boolean"
-                                          ? String(value)
-                                          : JSON.stringify(value);
-                                  return (
-                                    <td
-                                      key={`c${columnIndex}-r${index}`}
-                                      className="px-2 py-1.5 align-top font-mono text-[10px] text-foreground max-w-[240px] truncate"
-                                      title={display}
-                                    >
-                                      {display}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0 border-t border-border px-3 py-1.5 flex items-center gap-3 text-[11px] text-muted-foreground bg-muted/20">
-                    <span className="flex items-center gap-1">
-                      <span className="font-medium text-foreground">{rawResult.row_count}</span>
-                      <span>行</span>
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex h-full items-center justify-center px-6 text-center text-[12px] text-muted-foreground">
-                  执行 SQL 后结果将显示在这里。
-                </div>
-              )}
-            </div>
-          </div>
+          <RawDataTab
+            loadingTables={loadingGraphTables}
+            tables={graphTables}
+            resourceId={kgId}
+            sql={rawSql}
+            onSqlChange={setRawSql}
+            queryLimitInput={rawQueryLimit}
+            onLimitChange={setRawQueryLimit}
+            running={rawRunning}
+            error={rawError}
+            result={rawResult}
+            onRunQuery={handleRunRawQuery}
+          />
         ) : null}
       </div>
     </div>

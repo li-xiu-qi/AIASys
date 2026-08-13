@@ -1169,7 +1169,11 @@ async def upload_workspace_file(
     actual_path, uploaded_size = await asyncio.to_thread(_write_upload_file)
 
     # 返回实际保存的文件名（可能与请求不同）
-    actual_filename = actual_path.relative_to(workspace_root).as_posix()
+    # workspace_root 必须 resolve：actual_path 来自 _ensure_path_within_root 的
+    # resolve() 结果（8.3 短名会被展开），而 workspace_root 若来自 TEMP 等环境变量
+    # 可能是 RUNNER~1 短名形式——两者文本不一致时 relative_to 直接 ValueError
+    # （2026-08-13 GitHub windows runner 实测，e2e 上传用例 9 连挂的根因）。
+    actual_filename = actual_path.relative_to(workspace_root.resolve()).as_posix()
 
     logger.info(f"工作区文件上传: {current_user.user_id}/{workspace_id}/{actual_filename}")
 

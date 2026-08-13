@@ -1990,3 +1990,42 @@ async def test_global_upload_preserves_path_traversal_and_reserved_checks(
     )
     assert response["success"] is True
     assert response["filename"] == "normal.txt"
+
+
+@pytest.mark.asyncio
+async def test_upload_workspace_file_handles_non_normalized_workspace_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """workspace_root 文本形式未规范化（8.3 短名/含 .. 段）时上传不应 ValueError。
+
+    回归：GitHub windows runner 的 TEMP 是 RUNNER~1 短名，写入路径经 resolve()
+    展开后与未 resolve 的 workspace_root 文本不一致，relative_to 抛 ValueError，
+    e2e 上传相关用例 9 连挂（2026-08-13 CI 实测）。这里用含 .. 段的等价路径
+    模拟同一类「文本不同但指向同一目录」的情形。
+    """
+    service = _build_workspace_service(tmp_path)
+    _patch_file_route_workspace(monkeypatch, tmp_path, service)
+    service.create_workspace(
+        user_id="local_default",
+        workspace_id="ws-upload-nonnorm",
+        title="非规范化 root 上传",
+    )
+
+    real_root = service.get_workspace_root("local_default", "ws-upload-nonnorm")
+    non_normalized = real_root.parent / "dummy" / ".." / real_root.name
+    monkeypatch.setattr(
+        service,
+        "get_workspace_root",
+        lambda user_id, workspace_id: non_normalized,
+    )
+
+    response = await workspace_files_route.upload_workspace_file(
+        "ws-upload-nonnorm",
+        file=UploadFile(filename="hello.txt", file=io.BytesIO(b"hello")),
+        path=None,
+        current_user=_build_user(),
+    )
+
+    assert response["success"] is True
+    assert response["filename"] == "hello.txt"

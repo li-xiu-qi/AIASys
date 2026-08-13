@@ -91,6 +91,8 @@ export default defineConfig({
     timeout: 15_000,
   },
   outputDir: "./test-results/lifecycle",
+  // 见 globalTeardown.ts 头注释：不修这个，CI 上 58 条全过后也要空转到 job 超时
+  globalTeardown: "./e2e/lifecycle/globalTeardown.ts",
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "./playwright-report/lifecycle" }],

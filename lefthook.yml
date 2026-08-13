@@ -102,8 +102,12 @@ pre-commit:
         files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/backend/(app|tests)/.*[.]py$' | sed 's|^apps/backend/||')
         if [ -z "$files" ]; then exit 0; fi
         cd apps/backend
-        uv run ruff check $files
-        uv run ruff format --check $files
+        # --no-sync：跳过 uv 的环境同步步骤。裸 uv run 执行前会核对 venv 与
+        # uv.lock 是否一致，不一致就联网重新解析——代理关闭/离线时会挂在连包
+        # 索引上，提交卡死在 backend-ruff（2026-08-13 实测两次）。ruff 只需
+        # 用 venv 里已装的版本，同步对它没有价值。
+        uv run --no-sync ruff check $files
+        uv run --no-sync ruff format --check $files
 
     # --- Desktop ---
     # 为什么单独加一条：apps/desktop 此前完全没有 pre-commit 覆盖。上面四条检查的

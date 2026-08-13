@@ -513,6 +513,142 @@ def _create_graph_db_at_path(
         raise HTTPException(status_code=500, detail=f"创建知识图谱数据库失败: {exc}") from exc
 
 
+def _create_resource_db(
+    *,
+    kind: Literal["knowledge", "graph"],
+    workspace_id: str,
+    request: CreateKnowledgeDbRequest | CreateGraphDbRequest,
+    current_user: UserInfo,
+    scope: Literal["workspace", "global"],
+) -> FileCreateResponse:
+    """创建工作区/全局层的知识库或知识图谱资源数据库文件（四个 create-*-db 端点的单源实现）。
+
+    workspace 与 global 两种作用域仅差四处：资源落盘的根路径、前置 404 校验、
+    历史记录的根、以及响应 meta/log 里的逻辑前缀。这里把四处差异参数化，
+    端点薄壳只负责按 scope 提供根路径解析与（仅 workspace）404 校验。
+    """
+    is_knowledge = kind == "knowledge"
+    required_suffix = ".kb.db" if is_knowledge else ".graph.db"
+    resource_label = "知识库" if is_knowledge else "知识图谱"
+    logical_prefix = "/workspace" if scope == "workspace" else "/global"
+    source = "workspace_asset" if scope == "workspace" else "global_workspace_asset"
+
+    normalized_path = _normalize_resource_db_path(
+        request.path,
+        required_suffix=required_suffix,
+        resource_label=resource_label,
+    )
+
+    # 1) 解析落盘根路径；workspace 作用域额外做工作区存在性校验（404）。
+    if scope == "workspace":
+        service = get_workspace_registry_service()
+        try:
+            service.get_workspace(current_user.user_id, workspace_id, include_conversations=False)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Operation failed") from exc
+        root = service.get_workspace_root(current_user.user_id, workspace_id)
+        file_path = _ensure_path_within_root(root, normalized_path)
+    else:
+        root = _resolve_user_global_workspace_root(current_user.user_id)
+        file_path = _resolve_user_global_workspace_file_path(
+            current_user.user_id,
+            normalized_path.as_posix(),
+        )
+
+    existed_before = file_path.exists()
+    if existed_before and not request.overwrite:
+        raise HTTPException(status_code=409, detail="文件已存在")
+
+    # 2) 计算资源 id / 名称 / 描述（kb 走 SQLiteKBService 建库，graph 直接落表）。
+    if is_knowledge:
+        kb_name = (
+            request.name.strip()
+            if request.name
+            else _resource_id_from_db_path(normalized_path, required_suffix)
+        )
+        kb_description = request.description or ""
+        kb = SQLiteKBService().create_knowledge_base(
+            current_user.user_id,
+            KnowledgeBaseCreate(name=kb_name, description=kb_description),
+        )
+        resource_id = kb.id
+        resource_name = kb.name
+        resource_description = kb.description or ""
+    else:
+        graph_request = request
+        assert isinstance(graph_request, CreateGraphDbRequest)
+        resource_id = (
+            graph_request.graph_id.strip()
+            if graph_request.graph_id
+            else _resource_id_from_db_path(normalized_path, required_suffix)
+        )
+        resource_name = graph_request.name.strip() if graph_request.name else resource_id
+        resource_description = graph_request.description or ""
+
+    # 3) 建父目录 → 记历史 → 写资源文件与 metadata。
+    os.makedirs(_sys_path(file_path.parent), exist_ok=True)
+    _record_file_history(
+        root,
+        normalized_path,
+        operation="before_overwrite",
+        current_user=current_user,
+    )
+    if is_knowledge:
+        _write_knowledge_db_metadata(
+            file_path=file_path,
+            normalized_path=normalized_path,
+            kb_id=resource_id,
+            name=resource_name,
+            description=resource_description,
+            logical_prefix=logical_prefix,
+        )
+        meta = _knowledge_db_resource_meta(
+            normalized_path=normalized_path,
+            kb_id=resource_id,
+            name=resource_name,
+            description=resource_description,
+            logical_prefix=logical_prefix,
+            workspace_id=workspace_id,
+            source=source,
+        )
+    else:
+        assert isinstance(request, CreateGraphDbRequest)
+        _create_graph_db_at_path(
+            file_path=file_path,
+            normalized_path=normalized_path,
+            request=request,
+            logical_prefix=logical_prefix,
+        )
+        meta = _graph_db_resource_meta(
+            normalized_path=normalized_path,
+            graph_id=resource_id,
+            name=resource_name,
+            description=resource_description,
+            logical_prefix=logical_prefix,
+            workspace_id=workspace_id,
+            source=source,
+        )
+
+    logger.info(
+        "%s文件创建: %s/%s%s -> %s",
+        resource_label,
+        current_user.user_id,
+        workspace_id if scope == "workspace" else "",
+        normalized_path.as_posix(),
+        resource_id,
+    )
+
+    return FileCreateResponse(
+        success=True,
+        filename=normalized_path.as_posix(),
+        path=f"{logical_prefix}/{normalized_path.as_posix()}",
+        size=file_path.stat().st_size,
+        overwritten=existed_before,
+        created_by=current_user.user_id,
+        meta=meta,
+    )
+
+
 def _write_knowledge_db_metadata(
     *,
     file_path: Path,
@@ -1100,74 +1236,12 @@ async def create_knowledge_db_file(
     current_user: UserInfo = Depends(require_auth()),
 ):
     """在工作区中创建知识库 .kb.db 资源文件，并登记为可用知识库。"""
-
-    service = get_workspace_registry_service()
-    try:
-        service.get_workspace(current_user.user_id, workspace_id, include_conversations=False)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Operation failed") from exc
-
-    normalized_path = _normalize_resource_db_path(
-        request.path,
-        required_suffix=".kb.db",
-        resource_label="知识库",
-    )
-    workspace_root = service.get_workspace_root(current_user.user_id, workspace_id)
-    file_path = _ensure_path_within_root(workspace_root, normalized_path)
-    existed_before = file_path.exists()
-    if existed_before and not request.overwrite:
-        raise HTTPException(status_code=409, detail="文件已存在")
-
-    kb_name = (
-        request.name.strip()
-        if request.name
-        else _resource_id_from_db_path(normalized_path, ".kb.db")
-    )
-    kb_description = request.description or ""
-    kb = SQLiteKBService().create_knowledge_base(
-        current_user.user_id,
-        KnowledgeBaseCreate(name=kb_name, description=kb_description),
-    )
-    os.makedirs(_sys_path(file_path.parent), exist_ok=True)
-    _record_file_history(
-        workspace_root,
-        normalized_path,
-        operation="before_overwrite",
+    return _create_resource_db(
+        kind="knowledge",
+        workspace_id=workspace_id,
+        request=request,
         current_user=current_user,
-    )
-    _write_knowledge_db_metadata(
-        file_path=file_path,
-        normalized_path=normalized_path,
-        kb_id=kb.id,
-        name=kb.name,
-        description=kb.description or "",
-        logical_prefix="/workspace",
-    )
-
-    logger.info(
-        "知识库文件创建: %s/%s/%s -> %s",
-        current_user.user_id,
-        workspace_id,
-        normalized_path.as_posix(),
-        kb.id,
-    )
-
-    return FileCreateResponse(
-        success=True,
-        filename=normalized_path.as_posix(),
-        path=f"/workspace/{normalized_path.as_posix()}",
-        size=file_path.stat().st_size,
-        overwritten=existed_before,
-        created_by=current_user.user_id,
-        meta=_knowledge_db_resource_meta(
-            normalized_path=normalized_path,
-            kb_id=kb.id,
-            name=kb.name,
-            description=kb.description or "",
-            logical_prefix="/workspace",
-            workspace_id=workspace_id,
-            source="workspace_asset",
-        ),
+        scope="workspace",
     )
 
 
@@ -1178,67 +1252,12 @@ async def create_graph_db_file(
     current_user: UserInfo = Depends(require_auth()),
 ):
     """在工作区中创建空的知识图谱 .db 文件并初始化表结构。"""
-
-    service = get_workspace_registry_service()
-    try:
-        service.get_workspace(current_user.user_id, workspace_id, include_conversations=False)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Operation failed") from exc
-
-    normalized_path = _normalize_resource_db_path(
-        request.path,
-        required_suffix=".graph.db",
-        resource_label="知识图谱",
-    )
-    workspace_root = service.get_workspace_root(current_user.user_id, workspace_id)
-    file_path = _ensure_path_within_root(workspace_root, normalized_path)
-    existed_before = file_path.exists()
-    if existed_before and not request.overwrite:
-        raise HTTPException(status_code=409, detail="文件已存在")
-
-    graph_id = (
-        request.graph_id.strip()
-        if request.graph_id
-        else _resource_id_from_db_path(normalized_path, ".graph.db")
-    )
-    graph_name = request.name.strip() if request.name else graph_id
-    graph_description = request.description or ""
-    _record_file_history(
-        workspace_root,
-        normalized_path,
-        operation="before_overwrite",
-        current_user=current_user,
-    )
-    _create_graph_db_at_path(
-        file_path=file_path,
-        normalized_path=normalized_path,
+    return _create_resource_db(
+        kind="graph",
+        workspace_id=workspace_id,
         request=request,
-        logical_prefix="/workspace",
-    )
-
-    logger.info(
-        "知识图谱文件创建: %s/%s/%s",
-        current_user.user_id,
-        workspace_id,
-        normalized_path.as_posix(),
-    )
-
-    return FileCreateResponse(
-        success=True,
-        filename=normalized_path.as_posix(),
-        path=f"/workspace/{normalized_path.as_posix()}",
-        size=file_path.stat().st_size,
-        overwritten=existed_before,
-        created_by=current_user.user_id,
-        meta=_graph_db_resource_meta(
-            normalized_path=normalized_path,
-            graph_id=graph_id,
-            name=graph_name,
-            description=graph_description,
-            logical_prefix="/workspace",
-            workspace_id=workspace_id,
-            source="workspace_asset",
-        ),
+        current_user=current_user,
+        scope="workspace",
     )
 
 
@@ -1950,68 +1969,12 @@ async def create_global_workspace_knowledge_db_file(
     current_user: UserInfo = Depends(require_auth()),
 ):
     """在用户默认层全局工作区中创建知识库 .kb.db 资源文件。"""
-    normalized_path = _normalize_resource_db_path(
-        request.path,
-        required_suffix=".kb.db",
-        resource_label="知识库",
-    )
-    global_path = _resolve_user_global_workspace_file_path(
-        current_user.user_id,
-        normalized_path.as_posix(),
-    )
-    existed_before = global_path.exists()
-    if existed_before and not request.overwrite:
-        raise HTTPException(status_code=409, detail="文件已存在")
-
-    kb_name = (
-        request.name.strip()
-        if request.name
-        else _resource_id_from_db_path(normalized_path, ".kb.db")
-    )
-    kb_description = request.description or ""
-    kb = SQLiteKBService().create_knowledge_base(
-        current_user.user_id,
-        KnowledgeBaseCreate(name=kb_name, description=kb_description),
-    )
-    os.makedirs(_sys_path(global_path.parent), exist_ok=True)
-    _record_file_history(
-        _resolve_user_global_workspace_root(current_user.user_id),
-        normalized_path,
-        operation="before_overwrite",
+    return _create_resource_db(
+        kind="knowledge",
+        workspace_id=workspace_id,
+        request=request,
         current_user=current_user,
-    )
-    _write_knowledge_db_metadata(
-        file_path=global_path,
-        normalized_path=normalized_path,
-        kb_id=kb.id,
-        name=kb.name,
-        description=kb.description or "",
-        logical_prefix="/global",
-    )
-
-    logger.info(
-        "全局知识库文件创建: %s/%s -> %s",
-        current_user.user_id,
-        normalized_path.as_posix(),
-        kb.id,
-    )
-
-    return FileCreateResponse(
-        success=True,
-        filename=normalized_path.as_posix(),
-        path=f"/global/{normalized_path.as_posix()}",
-        size=global_path.stat().st_size,
-        overwritten=existed_before,
-        created_by=current_user.user_id,
-        meta=_knowledge_db_resource_meta(
-            normalized_path=normalized_path,
-            kb_id=kb.id,
-            name=kb.name,
-            description=kb.description or "",
-            logical_prefix="/global",
-            workspace_id=workspace_id,
-            source="global_workspace_asset",
-        ),
+        scope="global",
     )
 
 
@@ -2025,61 +1988,12 @@ async def create_global_workspace_graph_db_file(
     current_user: UserInfo = Depends(require_auth()),
 ):
     """在用户默认层全局工作区中创建知识图谱 .graph.db 资源文件。"""
-    normalized_path = _normalize_resource_db_path(
-        request.path,
-        required_suffix=".graph.db",
-        resource_label="知识图谱",
-    )
-    global_path = _resolve_user_global_workspace_file_path(
-        current_user.user_id,
-        normalized_path.as_posix(),
-    )
-    existed_before = global_path.exists()
-    if existed_before and not request.overwrite:
-        raise HTTPException(status_code=409, detail="文件已存在")
-
-    graph_id = (
-        request.graph_id.strip()
-        if request.graph_id
-        else _resource_id_from_db_path(normalized_path, ".graph.db")
-    )
-    graph_name = request.name.strip() if request.name else graph_id
-    graph_description = request.description or ""
-    _record_file_history(
-        _resolve_user_global_workspace_root(current_user.user_id),
-        normalized_path,
-        operation="before_overwrite",
-        current_user=current_user,
-    )
-    _create_graph_db_at_path(
-        file_path=global_path,
-        normalized_path=normalized_path,
+    return _create_resource_db(
+        kind="graph",
+        workspace_id=workspace_id,
         request=request,
-        logical_prefix="/global",
-    )
-
-    logger.info(
-        "全局知识图谱文件创建: %s/%s",
-        current_user.user_id,
-        normalized_path.as_posix(),
-    )
-
-    return FileCreateResponse(
-        success=True,
-        filename=normalized_path.as_posix(),
-        path=f"/global/{normalized_path.as_posix()}",
-        size=global_path.stat().st_size,
-        overwritten=existed_before,
-        created_by=current_user.user_id,
-        meta=_graph_db_resource_meta(
-            normalized_path=normalized_path,
-            graph_id=graph_id,
-            name=graph_name,
-            description=graph_description,
-            logical_prefix="/global",
-            workspace_id=workspace_id,
-            source="global_workspace_asset",
-        ),
+        current_user=current_user,
+        scope="global",
     )
 
 

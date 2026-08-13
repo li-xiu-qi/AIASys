@@ -382,3 +382,11 @@ jobs:
         # test:unit 走 scripts/run-unit-tests.cjs 递归发现，不依赖 shell 展开 glob，
         # 且发现不到测试时 exit 1——避免「一个测试都没跑」被伪装成绿灯。
         run: npm run test:unit
+
+      - name: Integration tests
+        # 真实系统调用级测试：端口探测/回退/服务复用判定（node:test，无需 electron 二进制）。
+        # 本地 Windows 实测 9/9；本 job 在 ubuntu 上走 lsof/ps 分支，与 Windows 的
+        # PowerShell 分支形成双平台覆盖。canReuseService 的健康复用场景对
+        # readListeningProcess 的超时敏感（Windows 分支 2000ms 假红、8000ms 实测全绿），
+        # ubuntu 的 lsof 调用在 runner 上远快于 PowerShell，无此风险。
+        run: npm run test:integration

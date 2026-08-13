@@ -125,13 +125,18 @@ export default defineConfig({
     // export 了三个目录，process.env 里就有，spread 即可；不能再拼子目录覆盖，
     // 否则会把数据目录改成 <脚本目录>/data 套娃。不存在则说明 playwright 自己 spawn
     // webServer（CI 路径），把 mkdtemp 的隔离目录挂进去。
-    env: externalRuntimeDir
-      ? { ...process.env }
-      : {
-          ...process.env,
-          AIASYS_RUNTIME_DATA_DIR: path.join(e2eRuntimeDir, "data"),
-          AIASYS_RUNTIME_LOGS_DIR: path.join(e2eRuntimeDir, "logs"),
-          AIASYS_RUNTIME_WORKSPACES_DIR: path.join(e2eRuntimeDir, "workspaces"),
-        },
+    // as 断言：process.env 的值类型是 string | undefined，而 playwright 此处的
+    // webServer.env 要求 Record<string, string>；playwright 运行时对 undefined 值
+    // 的处理是直接继承（等效于未设置），语义安全。
+    env: {
+      ...process.env,
+      ...(externalRuntimeDir
+        ? {}
+        : {
+            AIASYS_RUNTIME_DATA_DIR: path.join(e2eRuntimeDir, "data"),
+            AIASYS_RUNTIME_LOGS_DIR: path.join(e2eRuntimeDir, "logs"),
+            AIASYS_RUNTIME_WORKSPACES_DIR: path.join(e2eRuntimeDir, "workspaces"),
+          }),
+    } as Record<string, string>,
   },
 });

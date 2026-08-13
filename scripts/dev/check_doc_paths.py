@@ -92,6 +92,12 @@ ALLOWLIST: dict[str, str] = {
     "docs/implementation-status": "同上，历史说明",
     "scripts/tools": "英文散文里的 scripts/tools 是「或」，非路径",
     "src/tests/docs": "中文散文里指 src、tests、docs 三个目录，非路径",
+    "apps/backend/config.toml": "用户按 config.example.toml 自建，gitignore 不入库",
+    "apps/web/dist": "前端构建产物，npm run build 生成",
+    "apps/backend/.venv": "uv sync 创建的后端虚拟环境，gitignore 不入库",
+    "apps/web/test-results/manual": "Playwright 手工套件输出目录，跑测试时生成",
+    "apps/web/playwright-report/manual": "Playwright 手工套件 HTML 报告，跑测试时生成",
+    "apps/backend/logs": "后端运行日志目录，首次启动时创建",
 }
 
 

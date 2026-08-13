@@ -138,11 +138,17 @@ jobs:
           cache-dependency-glob: "apps/backend/uv.lock"
 
       - name: Install backend dependencies
-        # job 默认 working-directory 是 apps/web，必须显式回到仓库根再进 backend
-        # （原先 cd apps/backend 解析成 apps/web/apps/backend，CI 首跑即挂）
-        run: |
-          cd "$GITHUB_WORKSPACE/apps/backend"
-          uv sync --frozen
+        # 用 step 级 working-directory 覆盖 job 默认的 apps/web。
+        # 不要写 cd "$GITHUB_WORKSPACE/..."：windows-latest 的 run 默认 shell 是
+        # pwsh，$GITHUB_WORKSPACE 在 pwsh 里不是环境变量语法，展开为空字符串
+        # （2026-08-13 CI 实测：cd 到 D:\apps\backend 挂掉）。
+        working-directory: apps/backend
+        run: uv sync --frozen
+
+      # 同 backend job 的说明：fresh checkout 没有 vec0.dll，e2e 起真实后端需要它
+      - name: Download sqlite-vec vendor binary
+        working-directory: apps/backend
+        run: node ../desktop/scripts/download-sqlite-vec-binary.cjs
 
       - name: Install web dependencies
         run: npm ci
@@ -206,6 +212,13 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      # sqlite-vec 的 vec0.dll/.so 被 gitignore（apps/backend/.gitignore），fresh
+      # checkout 里没有；不补的话凡加载 vec0 的测试在 CI 必挂（2026-08-13 windows
+      # 侧实测 5 条 RuntimeError，且报错文案误导成「不支持当前平台」）。脚本按
+      # 平台自动选型，输出固定落在 apps/backend/vendor/sqlite-vec/<平台>/。
+      - name: Download sqlite-vec vendor binary
+        run: node ../desktop/scripts/download-sqlite-vec-binary.cjs
 
       # ── 以下静态检查只在 ubuntu 跑一次 ──────────────────────────────────
       # 理由：格式与 lint 结果跨平台一致，跑两遍纯属浪费；而 pylint 评分与 mypy

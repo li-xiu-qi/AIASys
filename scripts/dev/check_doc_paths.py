@@ -98,6 +98,7 @@ ALLOWLIST: dict[str, str] = {
     "apps/web/test-results/manual": "Playwright 手工套件输出目录，跑测试时生成",
     "apps/web/playwright-report/manual": "Playwright 手工套件 HTML 报告，跑测试时生成",
     "apps/backend/logs": "后端运行日志目录，首次启动时创建",
+    "apps/web/node_modules": "npm ci 安装的前端依赖目录，gitignore 不入库",
 }
 
 

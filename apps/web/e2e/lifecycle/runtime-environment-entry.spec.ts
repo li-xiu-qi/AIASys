@@ -11,11 +11,13 @@ async function waitForBackend(page: Page) {
   await expect
     .poll(
       async () => {
-        // 后端健康检查地址与 readiness.setup.ts 保持同一来源：e2e 环境后端
-        // 在 13002（13000 是前端 vite，13001 是 dev.sh 本地默认，不适用于本套件）。
+        // 后端健康检查地址与 readiness.setup.ts 保持同一来源：默认 13001
+        // （dev.sh 缺省后端端口），端口自动切换时由 run_lifecycle_playwright.sh
+        // export PLAYWRIGHT_BACKEND_HEALTH_URL 覆盖。曾写死 13002（某次调试时的
+        // 移位端口），干净端口环境下必然超时。
         const healthUrl =
           process.env.PLAYWRIGHT_BACKEND_HEALTH_URL ??
-          "http://127.0.0.1:13002/health";
+          "http://127.0.0.1:13001/health";
         const response = await page.request
           .get(healthUrl, { timeout: 1_000 })
           .catch(() => null);

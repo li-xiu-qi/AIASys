@@ -23,6 +23,12 @@ WEB_ROOT="${PROJECT_ROOT}/apps/web"
 DEV_PORTS_FILE="${PROJECT_ROOT}/.tmp/dev-ports.env"
 DEV_LOG_FILE="$(mktemp -t aiasys-e2e-dev-XXXXXX.log)"
 
+# 数据目录隔离的目标路径（export 动作在 is_windows 定义之后，见 setup_runtime_isolation）。
+# 与 playwright.lifecycle.config.ts 里的 webServer.env 保持一致：不隔离时 e2e 后端直接
+# 读写真实 ~/AIASys，测试工作区污染真实数据、断言误吸真实内容（asset-tree /
+# tabbed-split / auto-task 三条 2026-08-12 的失败根因）。
+E2E_RUNTIME_DIR="${TMPDIR:-/tmp}/aiasys-e2e-runtime"
+
 # 端口扫描范围。dev.sh 的自动切换从 13000/13001 起步，正常最多挪几个；给到 13020
 # 足够覆盖，又不会扫到无关服务上去。
 PORT_SCAN_START=13000
@@ -140,6 +146,23 @@ wait_for_stack_ready() {
   return 1
 }
 
+# 数据目录隔离：后端认 AIASYS_RUNTIME_DATA_DIR / LOGS_DIR / WORKSPACES_DIR 三个 env
+# （apps/backend/app/core/config.py），优先级高于数据目录里持久化的存储路径覆盖；
+# local 认证默认用户在空目录下自建。固定路径 + 启动时清空，跑完不留垃圾。
+# 已知边界：「复用已在运行的 dev server」分支不适用隔离（那套栈的数据目录由它自己的
+# 启动环境决定），复用时会在 stderr 打出提示。
+setup_runtime_isolation() {
+  if is_windows; then
+    # Git Bash 下 /tmp 映射到 %TEMP% 子目录，但后端是原生 Windows 进程，认的是
+    # Windows 路径。通过 cygpath 转成 C:\... 形式再传给 env。
+    E2E_RUNTIME_DIR="$(cygpath -w "${E2E_RUNTIME_DIR}" 2>/dev/null || echo "${E2E_RUNTIME_DIR}")"
+  fi
+  rm -rf "${E2E_RUNTIME_DIR}"
+  export AIASYS_RUNTIME_DATA_DIR="${E2E_RUNTIME_DIR}/data"
+  export AIASYS_RUNTIME_LOGS_DIR="${E2E_RUNTIME_DIR}/logs"
+  export AIASYS_RUNTIME_WORKSPACES_DIR="${E2E_RUNTIME_DIR}/workspaces"
+}
+
 start_dev_stack() {
   STARTED_BY_US=1
   rm -f "${DEV_PORTS_FILE}"
@@ -161,11 +184,13 @@ fi
 
 if "${PROJECT_ROOT}/dev.sh" status >/dev/null 2>&1; then
   echo "检测到开发服务已在运行，直接复用。" >&2
+  echo "注意：复用模式下数据目录隔离不生效，测试会读写该服务自身的 ~/AIASys。" >&2
   if [[ -f "${DEV_PORTS_FILE}" ]]; then
     # shellcheck disable=SC1090
     source "${DEV_PORTS_FILE}"
   fi
 else
+  setup_runtime_isolation
   ready_rc=1
   for attempt in $(seq 1 "${MAX_START_ATTEMPTS}"); do
     echo "启动开发服务（第 ${attempt}/${MAX_START_ATTEMPTS} 次尝试）…" >&2
@@ -212,6 +237,13 @@ fi
 # 硬编码的 13000——前端端口一旦自动切换，测试就会全部打到一个空端口上。
 export PLAYWRIGHT_BASE_URL="${FRONTEND_URL:-http://localhost:13000}"
 echo "PLAYWRIGHT_BASE_URL=${PLAYWRIGHT_BASE_URL}" >&2
+
+# 后端同理，而且更隐蔽：readiness.setup.ts 的健康检查默认值写死了 13002
+# （那是某次调试时 13001 被占、后端自动移位后的端口），后端在 13001 上正常服务时
+# 它就等满 180 秒超时——2026-08-13 干净端口环境下实测复现。这里必须用 dev-ports.env
+# 里的实际端口显式覆盖。
+export PLAYWRIGHT_BACKEND_HEALTH_URL="${BACKEND_URL:-http://127.0.0.1:13001}/health"
+echo "PLAYWRIGHT_BACKEND_HEALTH_URL=${PLAYWRIGHT_BACKEND_HEALTH_URL}" >&2
 
 cd "${WEB_ROOT}"
 set +e

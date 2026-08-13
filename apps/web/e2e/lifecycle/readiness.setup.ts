@@ -15,15 +15,19 @@ import { expect, test } from "@playwright/test";
  * 会把真实缺陷淹没在随机失败里。这里显式等两个端口都能服务再放行。
  */
 
+// 默认值必须是后端的真实默认端口 13001（scripts/dev/cli.sh 的 BACKEND_PORT 缺省值）。
+// 这里曾写死 13002——那是某次调试时 13001 被占、后端自动移位后的端口，端口状态一干净
+// 它就等满超时（2026-08-13 实测复现）。端口切换场景由 run_lifecycle_playwright.sh
+// 读取 .tmp/dev-ports.env 后 export PLAYWRIGHT_BACKEND_HEALTH_URL 覆盖。
 const BACKEND_HEALTH_URL =
-  process.env.PLAYWRIGHT_BACKEND_HEALTH_URL || "http://127.0.0.1:13002/health";
+  process.env.PLAYWRIGHT_BACKEND_HEALTH_URL || "http://127.0.0.1:13001/health";
 const READY_TIMEOUT_MS = Number(process.env.PLAYWRIGHT_READY_TIMEOUT_MS || 180_000);
 
 test.describe("lifecycle 就绪门", () => {
   test.setTimeout(READY_TIMEOUT_MS + 30_000);
 
   test("后端与前端均可服务后才放行 lifecycle 用例", async ({ page, baseURL }) => {
-    // 后端：直连 13002 的 /health，它不在 /api 前缀下，不经 vite 代理。
+    // 后端：直连 /health，它不在 /api 前缀下，不经 vite 代理。
     await expect
       .poll(
         async () => {
@@ -82,7 +86,7 @@ test.describe("lifecycle 就绪门", () => {
         {
           timeout: 60_000,
           intervals: [500, 1_000, 2_000],
-          message: "/api/auth/session 代理链路未就绪（vite → 13002）",
+          message: "/api/auth/session 代理链路未就绪（vite → 后端）",
         },
       )
       .toBe(1);

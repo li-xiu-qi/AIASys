@@ -1,10 +1,31 @@
 import { defineConfig } from "@playwright/test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../..");
+
+// 数据目录隔离：不隔离时 e2e 后端直接读写真实 ~/AIASys（工作区、会话、日志全在里面），
+// 测试创建的工作区会污染真实数据，反向也会误吸——asset-tree / tabbed-split / auto-task
+// 三条用例 2026-08-12 的失败根因就是断言看见了真实 profile 里的内容。
+// 后端认 AIASYS_RUNTIME_DATA_DIR / LOGS_DIR / WORKSPACES_DIR 三个 env
+// （apps/backend/app/core/config.py），优先级高于数据目录里持久化的存储路径覆盖；
+// local 认证的默认用户在空目录下会自动创建（ensure_local_default_user_exists）。
+//
+// 两个启动路径的分工：
+// - 本地脚本 run_lifecycle_playwright.sh 先起栈再调 playwright：env 由脚本 export
+//   并随进程继承，这里检测到 AIASYS_RUNTIME_DATA_DIR 已存在就原样透传、不另开目录
+//   （更不能去清空——后端已经在用它，Windows 文件锁会直接 EPERM，2026-08-13 实测）。
+// - CI / 直接 npx：playwright 自己 spawn webServer，这里用 mkdtemp 开独立目录挂进
+//   webServer.env。每轮一个目录，不需要清空动作，也就没有锁冲突。
+// 已知边界：reuseExistingServer=true 且 dev server 是手工起的（不经过上面两条路）时，
+// playwright 复用它，隔离不生效——本地跑之前先 dev.sh stop。
+const externalRuntimeDir = process.env.AIASYS_RUNTIME_DATA_DIR;
+const e2eRuntimeDir =
+  externalRuntimeDir ?? mkdtempSync(path.join(tmpdir(), "aiasys-e2e-runtime-"));
 // baseURL 必须写 127.0.0.1，不能写 localhost。2026-08-11 实测：
 //   http://127.0.0.1:13000/ -> 200
 //   http://[::1]:13000/     -> 连接被拒
@@ -100,5 +121,17 @@ export default defineConfig({
     timeout: 240_000,
     stdout: "pipe",
     stderr: "pipe",
+    // externalRuntimeDir 存在说明外层脚本（run_lifecycle_playwright.sh）已完成隔离并
+    // export 了三个目录，process.env 里就有，spread 即可；不能再拼子目录覆盖，
+    // 否则会把数据目录改成 <脚本目录>/data 套娃。不存在则说明 playwright 自己 spawn
+    // webServer（CI 路径），把 mkdtemp 的隔离目录挂进去。
+    env: externalRuntimeDir
+      ? { ...process.env }
+      : {
+          ...process.env,
+          AIASYS_RUNTIME_DATA_DIR: path.join(e2eRuntimeDir, "data"),
+          AIASYS_RUNTIME_LOGS_DIR: path.join(e2eRuntimeDir, "logs"),
+          AIASYS_RUNTIME_WORKSPACES_DIR: path.join(e2eRuntimeDir, "workspaces"),
+        },
   },
 });

@@ -1071,8 +1071,15 @@ class TeamSpawnTool(AiasysTool):
                 # 派生失败，回滚 mission 状态
                 try:
                     await store.set_status(mission_id, "planned")
-                except Exception:
-                    pass
+                except Exception as rollback_exc:
+                    # 回滚失败会让 mission 卡在非 planned 的中间态，后续 spawn/merge
+                    # 全被状态机拒绝——必须留日志让人能发现，不能静默吞掉。
+                    logger.error(
+                        "team_spawn 失败后回滚 mission 状态失败（mission 可能卡在中间态）: "
+                        "mission_id=%s error=%s",
+                        mission_id,
+                        rollback_exc,
+                    )
                 return _make_tool_result(
                     f"team_spawn 失败: {first_result.content}",
                     is_error=True,
@@ -1131,8 +1138,13 @@ class TeamSpawnTool(AiasysTool):
             # 回滚 mission 状态
             try:
                 await store.set_status(mission_id, "planned")
-            except Exception:
-                pass
+            except Exception as rollback_exc:
+                logger.error(
+                    "team_spawn 异常后回滚 mission 状态失败（mission 可能卡在中间态）: "
+                    "mission_id=%s error=%s",
+                    mission_id,
+                    rollback_exc,
+                )
             return _make_tool_result(f"team_spawn 失败: {exc}", is_error=True)
 
 

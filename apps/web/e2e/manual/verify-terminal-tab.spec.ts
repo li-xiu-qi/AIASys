@@ -1,16 +1,8 @@
 import { test } from "@playwright/test";
 
 /**
- * 【已退役 2026-08-14】本脚本的人工审查点已自动化为
- * e2e/lifecycle/terminal-shortcut.spec.ts（断言 .xterm 可见），随套件运行。
+ * Ctrl+` 是否切到终端侧边栏页签（人工看图确认，本文件不做断言）。
  *
- * 转换过程还实证并修复了一个真实断链：Ctrl+` 此前路由到
- * requestSidebarTab("terminal")，但终端 UI 早已迁到主画布 Tab，侧边栏没有
- * 消费者——快捷键按了没反应。已改路由到 openTerminalTab()（MainContent.tsx）。
- *
- * 本文件保留仅作历史记录，不要再执行；以下内容已冻结。
- *
- * ── 以下为原脚本的维护记录（冻结） ──
  * 2026-08-11 修了三处让它从来跑不起来的问题：
  *
  * 1. `const ARTIFACTS_DIR = path.resolve(__dirname, ...)` 在 ESM 下直接抛

@@ -157,10 +157,7 @@ export function MainContent({
     restoreTerminalTabs();
   }, [executorSessionId, resetPaneTree, restoreTerminalTabs]);
 
-  // Ctrl+` 打开/聚焦主画布终端 Tab
-  // 历史上这里路由到 requestSidebarTab("terminal")，但终端 UI 已迁到主画布
-  // Tab，侧边栏没有 terminal 面板的消费者——快捷键实际断链（按了没反应），
-  // 2026-08-14 由 terminal-shortcut.spec.ts 自动化转换时实证（e2e 两条全红）。
+  // Ctrl+` 打开/聚焦主画布终端 Tab（终端 UI 在主画布，不走侧边栏路由）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "`") {

@@ -14,6 +14,7 @@ import {
   type LLMProviderConfigWithMeta,
 } from "@/lib/api/llm";
 import { Settings2Icon } from "./chatShellIcons";
+import { ModelCapabilityBadges } from "./ModelCapabilityBadges";
 import { useFileUploadToast } from "@/components/file/FileUploadToast";
 
 const PROVIDER_GRADIENTS: Record<string, { gradient: string; initial: string }> = {
@@ -283,6 +284,7 @@ export function ModelSelector({
         <span className="flex-1 min-w-0 text-[13px] font-medium truncate">
           {model.name}
         </span>
+        <ModelCapabilityBadges capabilities={model.capabilities} />
         {badge ? (
           <span className="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
             {badge}

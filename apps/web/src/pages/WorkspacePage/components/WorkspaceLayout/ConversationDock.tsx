@@ -86,6 +86,7 @@ interface ConversationDockProps {
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
   selectedModelSupportsThinking: boolean;
+  selectedModelSupportsImageInput?: boolean;
   onOpenLLMConfigDialog: () => void;
   onOpenToolConfig: () => void;
   onOpenRuntimeTab?: () => void;
@@ -156,6 +157,7 @@ export function ConversationDock({
   setThinkingEnabled,
   setThinkingEffort,
   selectedModelSupportsThinking,
+  selectedModelSupportsImageInput,
   onOpenLLMConfigDialog,
   onOpenToolConfig,
   onOpenRuntimeTab,
@@ -296,6 +298,7 @@ export function ConversationDock({
         setThinkingEnabled={setThinkingEnabled}
         setThinkingEffort={setThinkingEffort}
         selectedModelSupportsThinking={selectedModelSupportsThinking}
+        selectedModelSupportsImageInput={selectedModelSupportsImageInput}
         onOpenLLMConfigDialog={onOpenLLMConfigDialog}
         onOpenToolConfig={onOpenToolConfig}
         sessionInputFocusSignal={sessionInputFocusSignal}

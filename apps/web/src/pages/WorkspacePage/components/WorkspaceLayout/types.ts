@@ -30,6 +30,7 @@ export interface WorkspaceLayoutProps {
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
   selectedModelSupportsThinking: boolean;
+  selectedModelSupportsImageInput?: boolean;
   hasMessagesForMcp: boolean;
   hasMCPConfig: boolean;
   onDeleteSession: (
@@ -64,6 +65,7 @@ export interface MainContentProps {
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
   selectedModelSupportsThinking: boolean;
+  selectedModelSupportsImageInput?: boolean;
   hasMessagesForMcp: boolean;
   hasMCPConfig: boolean;
   onOpenDatabaseConnectionsDialog: () => void;

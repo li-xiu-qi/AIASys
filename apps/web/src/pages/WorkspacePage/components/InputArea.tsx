@@ -44,6 +44,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { FailedUpload } from "@/hooks/useAgentFileUpload";
 import { ModelSelector } from "./ModelSelector";
+import { isImageFilename, shouldWarnImageAttachment } from "./imageAttachmentWarning";
 import { FileMentionPicker, type FileMentionPickerRef } from "./FileMentionPicker";
 
 interface UploadedFile {
@@ -124,6 +125,8 @@ interface InputAreaProps {
   setThinkingEnabled?: (enabled: boolean) => void;
   setThinkingEffort?: (effort: "low" | "medium" | "high") => void;
   selectedModelSupportsThinking?: boolean;
+  /** 三态：true / false / undefined（未解析出具体模型，语义「不知道」，不警告） */
+  selectedModelSupportsImageInput?: boolean;
   /** 跳转到配置页面 */
   onOpenConfig?: () => void;
   /** 打开当前会话工具配置 */
@@ -173,6 +176,7 @@ export const InputArea = memo(function InputArea({
   setThinkingEnabled,
   setThinkingEffort,
   selectedModelSupportsThinking = false,
+  selectedModelSupportsImageInput,
   onOpenConfig,
   onOpenToolConfig,
   onOpenRuntimeTab,
@@ -180,8 +184,7 @@ export const InputArea = memo(function InputArea({
   focusSignal,
   workspaceId,
 }: InputAreaProps) {
-  const isImageFile = (filename: string) =>
-    /\.(png|jpe?g|gif|webp)$/i.test(filename);
+  const isImageFile = isImageFilename;
 
   const [showAttachments, setShowAttachments] = useState(false);
   const fileMentions = useMemo(() => extractFileMentions(inputValue), [inputValue]);
@@ -414,6 +417,23 @@ export const InputArea = memo(function InputArea({
             : "bg-muted border-border",
         )}
       >
+        {/* 非视觉模型 + 图片附件：警告但放行（交互设计/model-capability-display.md）。
+            警告随附件常驻，移除附件或切换视觉模型后消失，不阻断发送。 */}
+        {shouldWarnImageAttachment({
+          supportsImageInput: selectedModelSupportsImageInput,
+          filenames: uploadedFiles.map((file) => file.filename),
+        }) && (
+          <div
+            role="alert"
+            className="mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800"
+          >
+            <AlertCircle size={13} className="flex-shrink-0 text-amber-600" />
+            <span>
+              当前模型不支持图片输入，图片将以链接文本发送，模型无法看到图片内容。
+            </span>
+          </div>
+        )}
+
         {/* 待发送附件预览 */}
         {uploadedFiles.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">

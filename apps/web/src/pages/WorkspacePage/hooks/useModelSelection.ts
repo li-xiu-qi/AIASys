@@ -27,6 +27,8 @@ export interface UseModelSelectionReturn {
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
   /** 当前选中的模型是否支持 thinking */
   selectedModelSupportsThinking: boolean;
+  /** 三态：true / false / undefined（模型未解析，语义为「不知道」） */
+  selectedModelSupportsImageInput: boolean | undefined;
 }
 
 function getDisplayName(selection: SessionLLMSelectionSummary | null): string | null {
@@ -99,6 +101,19 @@ function modelSupportsThinking(model: LLMModelConfig | undefined): boolean {
   return caps.includes("thinking") || caps.includes("always_thinking");
 }
 
+/**
+ * 图片输入能力判定。三态语义：true / false / undefined。
+ * undefined（模型未解析，如选中 "system" 默认）表示「不知道」，
+ * 调用方不得按不支持处理——误报警告比漏报更伤信任
+ * （交互设计/model-capability-display.md）。
+ */
+export function modelSupportsImageInput(
+  model: LLMModelConfig | undefined,
+): boolean | undefined {
+  if (!model) return undefined;
+  return (model.capabilities ?? []).includes("image_in");
+}
+
 export function useModelSelection(
   initialSessionId?: string,
 ): UseModelSelectionReturn {
@@ -122,6 +137,7 @@ export function useModelSelection(
 
   const selectedModel = models.find((m) => m.id === selectedModelId);
   const selectedModelSupportsThinking = modelSupportsThinking(selectedModel);
+  const selectedModelSupportsImageInput = modelSupportsImageInput(selectedModel);
 
   const reloadAvailableModels = useCallback(async () => {
     const res = await getModels(true, undefined);
@@ -285,5 +301,6 @@ export function useModelSelection(
     setThinkingEnabled,
     setThinkingEffort,
     selectedModelSupportsThinking,
+    selectedModelSupportsImageInput,
   };
 }

@@ -27,6 +27,7 @@ import { LoadingPlaceholder } from "./LoadingPlaceholder";
 import { StoppedIndicator } from "./StoppedIndicator";
 import { WorkerIndicators } from "./WorkerIndicators";
 import { ToolBlock } from "./ToolBlock";
+import { ToolCallRow } from "./ToolCallRow";
 import {
   FileOperationNotice,
   extractFilePathFromToolParams,
@@ -39,6 +40,7 @@ export { AiMessageContext, useAiMessageContext } from "./context";
 export { LoadingPlaceholder } from "./LoadingPlaceholder";
 export { StoppedIndicator } from "./StoppedIndicator";
 export { ToolBlock } from "./ToolBlock";
+export { ToolCallRow, summarizeToolParams } from "./ToolCallRow";
 export { FileOperationNotice } from "./FileOperationNotice";
 export { FinalAnswerBlock } from "./FinalAnswerBlock";
 export { WorkerIndicators } from "./WorkerIndicators";
@@ -349,43 +351,20 @@ export const AiMessageContent = memo(function AiMessageContent({
 
         if (seg.type === "tool_call") {
           return (
-            <button
-              onClick={(e) => {
-                const rect = (
-                  e.currentTarget as HTMLButtonElement
-                ).getBoundingClientRect();
+            <ToolCallRow
+              toolName={seg.toolName}
+              toolParams={seg.toolParams}
+              isComplete={seg.isComplete}
+              isError={seg.isError}
+              isMessageStreaming={isStreaming}
+              onClick={(rect) =>
                 onViewToolDetails?.(
                   seg.toolCallId || seg.toolName || `tool-${idx}`,
                   taskId,
                   rect,
-                );
-              }}
-              className="mb-2 group/tool flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-muted/50 hover:bg-accent/70 transition-all duration-200 hover:shadow-sm"
-            >
-              <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary flex-shrink-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                </svg>
-              </div>
-              <div className="flex flex-col items-start gap-0.5 min-w-0">
-                <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
-                  {seg.toolName}
-                </span>
-                <span className="text-[10px] text-muted-foreground group-hover/tool:text-foreground/70 transition-colors">
-                  点击查看详情 →
-                </span>
-              </div>
-            </button>
+                )
+              }
+            />
           );
         }
 
@@ -564,45 +543,21 @@ export const AiMessageContent = memo(function AiMessageContent({
 
       if (seg.type === "tool_call") {
         return (
-          <button
+          <ToolCallRow
             key={`seg-tool-${idx}`}
-            onClick={(e) => {
-              const rect = (
-                e.currentTarget as HTMLButtonElement
-              ).getBoundingClientRect();
-              // 优先使用 toolCallId 作为唯一标识符
+            toolName={seg.toolName}
+            toolParams={seg.toolParams}
+            isComplete={seg.isComplete}
+            isError={seg.isError}
+            isMessageStreaming={isStreaming}
+            onClick={(rect) =>
               onViewToolDetails?.(
                 seg.toolCallId || seg.toolName || `tool-${idx}`,
                 taskId,
                 rect,
-              );
-            }}
-            className="mb-2 group/tool flex items-center gap-3 px-3.5 py-2.5 rounded-lg border border-border bg-muted/50 hover:bg-accent/70 transition-all duration-200 hover:shadow-sm"
-          >
-            <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10 text-primary flex-shrink-0">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-              </svg>
-            </div>
-            <div className="flex flex-col items-start gap-0.5 min-w-0">
-              <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
-                {seg.toolName}
-              </span>
-              <span className="text-[10px] text-muted-foreground group-hover/tool:text-foreground/70 transition-colors">
-                点击查看详情 →
-              </span>
-            </div>
-          </button>
+              )
+            }
+          />
         );
       }
 

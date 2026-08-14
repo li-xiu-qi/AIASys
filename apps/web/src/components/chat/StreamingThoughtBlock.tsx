@@ -5,6 +5,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PreviewFile } from "@/components/layout/WorkspaceSidebar/preview";
 import { ChartAwareMarkdown } from "./ChartAwareMarkdown";
 
+/** 思考用时格式化：<60s 显示秒（一位小数），否则「Xm Ys」。对齐 grok-build 的 "Thought for 2.3s" */
+export function formatThinkDuration(ms: number): string {
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(ms / 60_000);
+  const s = Math.round((ms % 60_000) / 1000);
+  return `${m}m ${s}s`;
+}
+
+/** 取最后一行非空内容作为折叠态预览（grok-build Truncated 模式的极简版） */
+export function lastContentLine(content: string): string | undefined {
+  const lines = content.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+}
+
 interface StreamingThoughtBlockProps {
   /**
    * 初始内容（用于非流式场景或恢复历史）
@@ -59,6 +77,35 @@ export function StreamingThoughtBlock({
   // 用于累积内容的 ref，避免闭包问题
   const contentRef = useRef(initialContent);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 用户手动折叠/展开过后，完成时不再替他自动折叠（grok-build 同款约定：
+  // finished_display_mode 只作用于用户没有表态的条目）
+  const userToggledRef = useRef(false);
+  // 思考计时：进入 streaming 时打点，结束时定格
+  const startTimeRef = useRef<number | null>(isStreaming ? Date.now() : null);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
+  const prevStreamingRef = useRef(streaming);
+
+  const markFinished = useCallback(() => {
+    if (startTimeRef.current !== null) {
+      setDurationMs(Date.now() - startTimeRef.current);
+      startTimeRef.current = null;
+    }
+    if (!userToggledRef.current) {
+      setIsOpen(false);
+    }
+  }, []);
+
+  // streaming 边沿检测：false→true 打点；true→false 定格用时并按需自动折叠
+  useEffect(() => {
+    if (prevStreamingRef.current === streaming) return;
+    prevStreamingRef.current = streaming;
+    if (streaming) {
+      if (startTimeRef.current === null) startTimeRef.current = Date.now();
+    } else {
+      markFinished();
+    }
+  }, [streaming, markFinished]);
 
   // 清理内容中的特殊标记
   // 只清理 <think> 标签，保留 <code> 标签内容（后者是合法 Markdown/HTML）
@@ -129,10 +176,24 @@ export function StreamingThoughtBlock({
     return null;
   }
 
+  // 折叠态预览：最后一行非空内容（grok-build Truncated 模式），streaming 中
+  // 用户手动折叠时也能跟随最新思考位置
+  const collapsedPreview =
+    !isOpen && cleanedContent ? lastContentLine(cleanedContent) : undefined;
+
+  const title = streaming
+    ? "思考中…"
+    : durationMs !== null
+      ? `思考过程 · ${formatThinkDuration(durationMs)}`
+      : "思考过程";
+
   return (
     <div className="mb-3 rounded-lg border border-border/60 bg-muted/20 overflow-hidden">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          userToggledRef.current = true;
+          setIsOpen(!isOpen);
+        }}
         className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
       >
         <div
@@ -140,15 +201,21 @@ export function StreamingThoughtBlock({
         >
           <Brain size={12} className={streaming ? "animate-pulse" : ""} />
         </div>
-        <span className="font-medium">思考过程</span>
-        <span className="text-[10px] text-muted-foreground/50 ml-1">
-          {isOpen ? "点击折叠" : "点击展开"}
-        </span>
+        <span className="font-medium flex-shrink-0">{title}</span>
+        {collapsedPreview ? (
+          <span className="min-w-0 flex-1 truncate text-left text-[11px] font-normal text-muted-foreground/60">
+            {collapsedPreview}
+          </span>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/50 ml-1 flex-1 text-left">
+            {isOpen ? "点击折叠" : "点击展开"}
+          </span>
+        )}
         {streaming && (
-          <Loader2 size={11} className="animate-spin text-primary ml-auto" />
+          <Loader2 size={11} className="animate-spin text-primary ml-auto flex-shrink-0" />
         )}
         <div
-          className={`flex items-center justify-center w-4 h-4 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"} ${streaming ? "" : "ml-auto"}`}
+          className={`flex items-center justify-center w-4 h-4 flex-shrink-0 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"} ${streaming ? "" : "ml-auto"}`}
         >
           <ChevronDown size={12} />
         </div>

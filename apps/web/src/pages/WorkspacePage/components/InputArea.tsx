@@ -37,6 +37,7 @@ import type { LLMModelConfig } from "@/lib/api/llm";
 import { API_ENDPOINTS, getCurrentUserId } from "@/config/api";
 import { extractClipboardFiles } from "@/utils/clipboardFiles";
 import { useDragDrop } from "@/hooks/useDragDrop";
+import { modelThinkingMode } from "../hooks/useModelSelection";
 import {
   WORKSPACE_FILE_DRAG_MIME,
   type WorkspaceFileReferenceDragPayload,
@@ -125,7 +126,6 @@ interface InputAreaProps {
   thinkingEffort?: "low" | "medium" | "high";
   setThinkingEnabled?: (enabled: boolean) => void;
   setThinkingEffort?: (effort: "low" | "medium" | "high") => void;
-  selectedModelSupportsThinking?: boolean;
   /** 三态：true / false / undefined（未解析出具体模型，语义「不知道」，不警告） */
   selectedModelSupportsImageInput?: boolean;
   /** 跳转到配置页面 */
@@ -176,7 +176,6 @@ export const InputArea = memo(function InputArea({
   thinkingEffort = "high",
   setThinkingEnabled,
   setThinkingEffort,
-  selectedModelSupportsThinking = false,
   selectedModelSupportsImageInput,
   onOpenConfig,
   onOpenToolConfig,
@@ -186,6 +185,14 @@ export const InputArea = memo(function InputArea({
   workspaceId,
 }: InputAreaProps) {
   const isImageFile = isImageFilename;
+
+  // 思考能力三态（none/switchable/always），由当前选中模型的 capabilities 派生。
+  // always_thinking 模型的思考关不掉（后端强制开启），UI 必须区分：
+  // switchable 显示开关，always 不提供「关闭」项（假控件：点了后端也不认）。
+  const thinkingMode = modelThinkingMode(
+    userModels?.find((m) => m.id === selectedModelId),
+  );
+  const thinkingOn = thinkingMode === "always" ? true : thinkingEnabled;
 
   const [showAttachments, setShowAttachments] = useState(false);
   const fileMentions = useMemo(() => extractFileMentions(inputValue), [inputValue]);
@@ -658,7 +665,6 @@ export const InputArea = memo(function InputArea({
               thinkingEffort={thinkingEffort}
               setThinkingEnabled={setThinkingEnabled}
               setThinkingEffort={setThinkingEffort}
-              selectedModelSupportsThinking={selectedModelSupportsThinking}
               onOpenConfig={onOpenConfig}
               disabled={
                 isRunning ||
@@ -671,7 +677,7 @@ export const InputArea = memo(function InputArea({
             {/* 权限档位 chip（交互设计/permission-mode-management.md） */}
             <PermissionModeSelect sessionId={sessionId} />
 
-            {selectedModelSupportsThinking && setThinkingEnabled && setThinkingEffort ? (
+            {thinkingMode !== "none" && setThinkingEnabled && setThinkingEffort ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -684,28 +690,44 @@ export const InputArea = memo(function InputArea({
                     }
                     className={cn(
                       "flex-shrink-0 inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                      thinkingEnabled
+                      thinkingOn
                         ? "bg-primary/10 text-primary hover:bg-primary/20"
                         : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
                     )}
-                    title={thinkingEnabled ? `Thinking ${THINKING_EFFORT_LABELS[thinkingEffort]}` : "Thinking 关闭"}
-                    aria-label={thinkingEnabled ? `Thinking 已开启，强度 ${THINKING_EFFORT_LABELS[thinkingEffort]}` : "Thinking 已关闭"}
+                    title={
+                      thinkingMode === "always"
+                        ? `该模型始终开启思考，无法关闭 · 强度 ${THINKING_EFFORT_LABELS[thinkingEffort]}`
+                        : thinkingOn
+                          ? `Thinking ${THINKING_EFFORT_LABELS[thinkingEffort]}`
+                          : "Thinking 关闭"
+                    }
+                    aria-label={
+                      thinkingMode === "always"
+                        ? `Thinking 常开，强度 ${THINKING_EFFORT_LABELS[thinkingEffort]}`
+                        : thinkingOn
+                          ? `Thinking 已开启，强度 ${THINKING_EFFORT_LABELS[thinkingEffort]}`
+                          : "Thinking 已关闭"
+                    }
                   >
                     <Brain className="h-4 w-4" />
                     <span className="min-w-4 text-left font-medium">
-                      {thinkingEnabled ? THINKING_EFFORT_LABELS[thinkingEffort] : "关"}
+                      {thinkingOn ? THINKING_EFFORT_LABELS[thinkingEffort] : "关"}
                     </span>
                     <ChevronDown className="h-3.5 w-3.5 opacity-70" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" side="top" sideOffset={6} className="w-32">
-                  <DropdownMenuItem
-                    onClick={() => setThinkingEnabled(false)}
-                    className="flex items-center justify-between text-xs"
-                  >
-                    <span>关闭</span>
-                    {!thinkingEnabled ? <Check className="h-3.5 w-3.5" /> : null}
-                  </DropdownMenuItem>
+                  {/* always_thinking 模型不提供「关闭」项——后端会强制开启，
+                      提供关闭只会成为假控件（UI 说关了，实际一直在思考） */}
+                  {thinkingMode === "switchable" ? (
+                    <DropdownMenuItem
+                      onClick={() => setThinkingEnabled(false)}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span>关闭</span>
+                      {!thinkingOn ? <Check className="h-3.5 w-3.5" /> : null}
+                    </DropdownMenuItem>
+                  ) : null}
                   {(["low", "medium", "high"] as const).map((level) => (
                     <DropdownMenuItem
                       key={level}
@@ -716,7 +738,7 @@ export const InputArea = memo(function InputArea({
                       className="flex items-center justify-between text-xs"
                     >
                       <span>{THINKING_EFFORT_LABELS[level]}</span>
-                      {thinkingEnabled && thinkingEffort === level ? (
+                      {thinkingOn && thinkingEffort === level ? (
                         <Check className="h-3.5 w-3.5" />
                       ) : null}
                     </DropdownMenuItem>

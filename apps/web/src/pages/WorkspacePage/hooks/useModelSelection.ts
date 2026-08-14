@@ -95,6 +95,28 @@ function saveThinkingConfig(
   }
 }
 
+/**
+ * 模型思考能力三态：none（不能思考）/ switchable（可开关）/ always（永远思考）。
+ *
+ * 为什么必须三态：always_thinking 模型（R1、o 系列）的思考关不掉——后端
+ * _resolve_request_options 会无视前端传的 thinking_enabled=false 强制开启。
+ * 二态判定（supports/not）会让 UI 在这类模型上显示一个可点的「关」，
+ * 点了实际无效，成为假控件。UI 应按三态分叉：none 隐藏、switchable 开关、
+ * always 显示常开徽章（交互设计/permission-mode-management.md 同批调查结论，
+ * 参照 deepseek-harness「UI 只提供模型声明的档位」原则）。
+ */
+export type ModelThinkingMode = "none" | "switchable" | "always";
+
+export function modelThinkingMode(
+  model: LLMModelConfig | undefined,
+): ModelThinkingMode {
+  if (!model) return "none";
+  const caps = model.capabilities ?? [];
+  if (caps.includes("always_thinking")) return "always";
+  if (caps.includes("thinking")) return "switchable";
+  return "none";
+}
+
 function modelSupportsThinking(model: LLMModelConfig | undefined): boolean {
   if (!model) return false;
   const caps = model.capabilities ?? [];

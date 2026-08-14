@@ -40,7 +40,6 @@ export function MainContent({
   thinkingEffort,
   setThinkingEnabled,
   setThinkingEffort,
-  selectedModelSupportsThinking,
   hasMCPConfig,
   onOpenDatabaseConnectionsDialog,
   onCreateDatabaseConnectionDialog,
@@ -467,7 +466,6 @@ export function MainContent({
               thinkingEffort={thinkingEffort}
               setThinkingEnabled={setThinkingEnabled}
               setThinkingEffort={setThinkingEffort}
-              selectedModelSupportsThinking={selectedModelSupportsThinking}
               onOpenLLMConfigDialog={onOpenLLMConfigDialog}
               onOpenToolConfig={onOpenToolConfig}
               onOpenRuntimeTab={openRuntimeTab}

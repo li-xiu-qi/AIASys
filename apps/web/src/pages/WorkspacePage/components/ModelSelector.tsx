@@ -15,6 +15,7 @@ import {
 } from "@/lib/api/llm";
 import { Settings2Icon } from "./chatShellIcons";
 import { ModelCapabilityBadges } from "./ModelCapabilityBadges";
+import { modelThinkingMode } from "../hooks/useModelSelection";
 import { useFileUploadToast } from "@/components/file/FileUploadToast";
 
 const PROVIDER_GRADIENTS: Record<string, { gradient: string; initial: string }> = {
@@ -86,7 +87,6 @@ interface ModelSelectorProps {
   thinkingEffort?: "low" | "medium" | "high";
   setThinkingEnabled?: (enabled: boolean) => void;
   setThinkingEffort?: (effort: "low" | "medium" | "high") => void;
-  selectedModelSupportsThinking?: boolean;
   onOpenConfig?: () => void;
   disabled?: boolean;
 }
@@ -100,7 +100,6 @@ export function ModelSelector({
   thinkingEffort = "high",
   setThinkingEnabled,
   setThinkingEffort,
-  selectedModelSupportsThinking = false,
   onOpenConfig,
   disabled,
 }: ModelSelectorProps) {
@@ -262,6 +261,12 @@ export function ModelSelector({
     setOpen(false);
   };
 
+  // 思考三态：always_thinking 模型不提供开关（后端强制开启，开关是假控件）
+  const thinkingMode = modelThinkingMode(
+    userModels.find((item) => item.id === selectedModelId),
+  );
+  const thinkingOn = thinkingMode === "always" ? true : thinkingEnabled;
+
   const isSelected = (modelId: string) => selectedModelId === modelId;
 
   const renderModelItem = (model: LLMModelConfig, badge?: string) => {
@@ -355,25 +360,34 @@ export function ModelSelector({
               ) : null}
             </div>
 
-            {selectedModelSupportsThinking && setThinkingEnabled ? (
+            {thinkingMode !== "none" && setThinkingEnabled ? (
               <div className="border-t border-border p-2.5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[13px] font-medium">深度思考</span>
-                  <button
-                    type="button"
-                    onClick={() => setThinkingEnabled(!thinkingEnabled)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      thinkingEnabled ? "bg-primary" : "bg-muted-foreground/30"
-                    }`}
-                  >
+                  {thinkingMode === "always" ? (
                     <span
-                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                        thinkingEnabled ? "translate-x-4.5" : "translate-x-0.5"
+                      className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                      title="该模型始终开启思考，无法关闭"
+                    >
+                      常开
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setThinkingEnabled(!thinkingEnabled)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                        thinkingEnabled ? "bg-primary" : "bg-muted-foreground/30"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          thinkingEnabled ? "translate-x-4.5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </button>
+                  )}
                 </div>
-                {thinkingEnabled && setThinkingEffort ? (
+                {thinkingOn && setThinkingEffort ? (
                   <div className="flex items-center gap-1">
                     {(["low", "medium", "high"] as const).map((level) => (
                       <button

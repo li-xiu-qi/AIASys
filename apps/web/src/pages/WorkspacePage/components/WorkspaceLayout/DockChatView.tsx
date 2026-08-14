@@ -88,7 +88,6 @@ interface DockChatViewProps {
   thinkingEffort: "low" | "medium" | "high";
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
-  selectedModelSupportsThinking: boolean;
   selectedModelSupportsImageInput?: boolean;
   onOpenLLMConfigDialog: () => void;
   onOpenToolConfig: () => void;
@@ -140,7 +139,6 @@ export const DockChatView = memo(function DockChatView({
   thinkingEffort,
   setThinkingEnabled,
   setThinkingEffort,
-  selectedModelSupportsThinking,
   selectedModelSupportsImageInput,
   onOpenLLMConfigDialog,
   onOpenToolConfig,
@@ -247,7 +245,6 @@ export const DockChatView = memo(function DockChatView({
         thinkingEffort={thinkingEffort}
         setThinkingEnabled={setThinkingEnabled}
         setThinkingEffort={setThinkingEffort}
-        selectedModelSupportsThinking={selectedModelSupportsThinking}
         selectedModelSupportsImageInput={selectedModelSupportsImageInput}
         onOpenConfig={onOpenLLMConfigDialog}
         onOpenToolConfig={onOpenToolConfig}

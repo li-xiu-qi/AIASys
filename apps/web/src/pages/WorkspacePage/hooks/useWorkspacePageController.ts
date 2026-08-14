@@ -87,7 +87,6 @@ export function useWorkspacePageController({
     thinkingEffort,
     setThinkingEnabled,
     setThinkingEffort,
-    selectedModelSupportsThinking,
     selectedModelSupportsImageInput,
   } = useModelSelection();
 
@@ -365,7 +364,6 @@ export function useWorkspacePageController({
     thinkingEffort,
     setThinkingEnabled,
     setThinkingEffort,
-    selectedModelSupportsThinking,
     selectedModelSupportsImageInput,
     hasMessagesForMcp:
       (sessionLifecycle.effectiveSessionStatus?.message_count ?? 0) > 0 ||

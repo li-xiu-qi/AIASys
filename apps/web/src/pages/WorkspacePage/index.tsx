@@ -151,7 +151,6 @@ function WorkspacePageContent({
         thinkingEffort={controller.thinkingEffort}
         setThinkingEnabled={controller.setThinkingEnabled}
         setThinkingEffort={controller.setThinkingEffort}
-        selectedModelSupportsThinking={controller.selectedModelSupportsThinking}
         hasMessagesForMcp={controller.hasMessagesForMcp}
         hasMCPConfig={controller.hasMCPConfig}
         onDeleteSession={controller.handleDeleteSession}

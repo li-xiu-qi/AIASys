@@ -39,7 +39,6 @@ export function WorkspaceLayout({
   thinkingEffort,
   setThinkingEnabled,
   setThinkingEffort,
-  selectedModelSupportsThinking,
   selectedModelSupportsImageInput,
   hasMessagesForMcp,
   hasMCPConfig,
@@ -284,7 +283,6 @@ export function WorkspaceLayout({
         thinkingEffort={thinkingEffort}
         setThinkingEnabled={setThinkingEnabled}
         setThinkingEffort={setThinkingEffort}
-        selectedModelSupportsThinking={selectedModelSupportsThinking}
         selectedModelSupportsImageInput={selectedModelSupportsImageInput}
         hasMessagesForMcp={hasMessagesForMcp}
         hasMCPConfig={hasMCPConfig}

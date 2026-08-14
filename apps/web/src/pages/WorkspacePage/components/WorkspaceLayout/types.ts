@@ -29,7 +29,6 @@ export interface WorkspaceLayoutProps {
   thinkingEffort: "low" | "medium" | "high";
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
-  selectedModelSupportsThinking: boolean;
   selectedModelSupportsImageInput?: boolean;
   hasMessagesForMcp: boolean;
   hasMCPConfig: boolean;
@@ -64,7 +63,6 @@ export interface MainContentProps {
   thinkingEffort: "low" | "medium" | "high";
   setThinkingEnabled: (enabled: boolean) => void;
   setThinkingEffort: (effort: "low" | "medium" | "high") => void;
-  selectedModelSupportsThinking: boolean;
   selectedModelSupportsImageInput?: boolean;
   hasMessagesForMcp: boolean;
   hasMCPConfig: boolean;

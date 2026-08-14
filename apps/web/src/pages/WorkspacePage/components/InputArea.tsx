@@ -8,7 +8,6 @@ import {
   FlaskConical,
   Hash,
   RefreshCw,
-  SlidersHorizontal,
   StopCircle,
   Upload,
   X,
@@ -130,8 +129,6 @@ interface InputAreaProps {
   selectedModelSupportsImageInput?: boolean;
   /** 跳转到配置页面 */
   onOpenConfig?: () => void;
-  /** 打开当前会话工具配置 */
-  onOpenToolConfig?: () => void;
   /** 打开执行资源面板 */
   onOpenRuntimeTab?: () => void;
   /** 当前运行环境信息 */
@@ -178,7 +175,6 @@ export const InputArea = memo(function InputArea({
   setThinkingEffort,
   selectedModelSupportsImageInput,
   onOpenConfig,
-  onOpenToolConfig,
   onOpenRuntimeTab,
   activeEnv,
   focusSignal,
@@ -745,27 +741,6 @@ export const InputArea = memo(function InputArea({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : null}
-
-            {onOpenToolConfig ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onOpenToolConfig}
-                    disabled={!sessionId}
-                    className="flex-shrink-0 inline-flex items-center justify-center rounded-md bg-secondary p-2 text-xs text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:cursor-not-allowed disabled:opacity-50"
-                    title="当前会话工具配置"
-                    aria-label="当前会话工具配置"
-                    data-testid="input-tool-config"
-                  >
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={6}>
-                  当前会话工具配置
-                </TooltipContent>
-              </Tooltip>
             ) : null}
 
             {/* 运行环境状态徽标 */}

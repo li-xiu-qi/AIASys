@@ -162,7 +162,7 @@ export function DockHeader({
                   {onOpenToolConfig ? (
                     <DropdownMenuItem onClick={onOpenToolConfig}>
                       <Wrench className="mr-2 h-4 w-4" />
-                      工具配置
+                      会话配置
                     </DropdownMenuItem>
                   ) : null}
                   {onOpenLLMConfigDialog ? (

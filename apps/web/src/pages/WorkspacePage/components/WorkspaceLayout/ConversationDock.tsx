@@ -297,7 +297,6 @@ export function ConversationDock({
         setThinkingEffort={setThinkingEffort}
         selectedModelSupportsImageInput={selectedModelSupportsImageInput}
         onOpenLLMConfigDialog={onOpenLLMConfigDialog}
-        onOpenToolConfig={onOpenToolConfig}
         sessionInputFocusSignal={sessionInputFocusSignal}
         tasks={sessionStatus?.tasks}
         planState={sessionStatus?.plan_state}

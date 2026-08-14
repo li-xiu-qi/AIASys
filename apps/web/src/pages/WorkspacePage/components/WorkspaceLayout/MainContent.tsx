@@ -60,7 +60,6 @@ export function MainContent({
   onDeleteConversation,
   onImportConversation,
   activeTabRequest,
-  requestSidebarTab,
 }: MainContentProps) {
   const { session, user } = useAuthContext();
   const token = session?.token;
@@ -158,17 +157,20 @@ export function MainContent({
     restoreTerminalTabs();
   }, [executorSessionId, resetPaneTree, restoreTerminalTabs]);
 
-  // Ctrl+` 切换到侧边栏终端 Tab
+  // Ctrl+` 打开/聚焦主画布终端 Tab
+  // 历史上这里路由到 requestSidebarTab("terminal")，但终端 UI 已迁到主画布
+  // Tab，侧边栏没有 terminal 面板的消费者——快捷键实际断链（按了没反应），
+  // 2026-08-14 由 terminal-shortcut.spec.ts 自动化转换时实证（e2e 两条全红）。
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
-        requestSidebarTab?.("terminal");
+        openTerminalTab();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [requestSidebarTab]);
+  }, [openTerminalTab]);
 
   useEffect(() => {
     if (!activeTabRequest || !currentWorkspaceId) {

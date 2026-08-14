@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import type { FailedUpload } from "@/hooks/useAgentFileUpload";
 import { ModelSelector } from "./ModelSelector";
 import { isImageFilename, shouldWarnImageAttachment } from "./imageAttachmentWarning";
+import { PermissionModeSelect } from "./PermissionModeSelect";
 import { FileMentionPicker, type FileMentionPickerRef } from "./FileMentionPicker";
 
 interface UploadedFile {
@@ -666,6 +667,9 @@ export const InputArea = memo(function InputArea({
                 isCompactingConversation
               }
             />
+
+            {/* 权限档位 chip（交互设计/permission-mode-management.md） */}
+            <PermissionModeSelect sessionId={sessionId} />
 
             {selectedModelSupportsThinking && setThinkingEnabled && setThinkingEffort ? (
               <DropdownMenu>

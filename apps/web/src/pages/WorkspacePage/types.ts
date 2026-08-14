@@ -255,6 +255,7 @@ export type ListProjectScopedSessionsResponse = {
 
 export type SessionStatusInfo = {
   session_id: string;
+  authorization_mode?: string | null;
   status?: string;
   message_count?: number;
   code_timeout?: number | null;

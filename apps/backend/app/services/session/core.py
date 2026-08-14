@@ -1402,6 +1402,50 @@ class SessionManager(StatusMixin, HistoryMixin, FileSnapshotMixin):
             )
             return None
 
+    def update_authorization_mode(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        authorization_mode: str,
+    ) -> SessionMetadata | None:
+        """更新会话的能力授权模式（manual/smart/auto/full_auto）。
+
+        生效语义为 next_run_only：已创建的运行时会话保持旧档位，
+        下一轮执行时由 mixins/session.py 的读取逻辑生效。
+        """
+        try:
+            metadata = self.get_session(session_id, user_id)
+            if not metadata:
+                logger.warning(
+                    "会话元数据不存在，无法更新授权模式: user=%s, session=%s",
+                    user_id,
+                    session_id,
+                )
+                return None
+
+            metadata.authorization_mode = authorization_mode
+            metadata.updated_at = datetime.now().isoformat()
+
+            session_dir = self._get_session_dir(session_id, user_id)
+            self._write_metadata_atomic(session_dir, metadata.model_dump())
+
+            logger.info(
+                "会话授权模式已更新: user=%s, session=%s, mode=%s",
+                user_id,
+                session_id,
+                authorization_mode,
+            )
+            return metadata
+        except Exception as e:
+            logger.error(
+                "更新会话授权模式失败: user=%s, session=%s, error=%s",
+                user_id,
+                session_id,
+                e,
+            )
+            return None
+
     def update_session_expert_policy(
         self,
         *,

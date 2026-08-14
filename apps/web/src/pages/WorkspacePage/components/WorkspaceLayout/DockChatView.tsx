@@ -245,8 +245,6 @@ export const DockChatView = memo(function DockChatView({
         setThinkingEffort={setThinkingEffort}
         selectedModelSupportsImageInput={selectedModelSupportsImageInput}
         onOpenConfig={onOpenLLMConfigDialog}
-        onOpenRuntimeTab={onOpenRuntimeTab}
-        activeEnv={runtimeControls.activeEnv}
         focusSignal={sessionInputFocusSignal}
         workspaceId={workspaceId}
       />

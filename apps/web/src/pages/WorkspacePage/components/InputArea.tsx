@@ -3,9 +3,7 @@ import {
   Brain,
   Check,
   ChevronDown,
-  Container,
   FileText,
-  FlaskConical,
   Hash,
   RefreshCw,
   StopCircle,
@@ -19,7 +17,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import {
   type ChangeEvent,
   type KeyboardEvent,
@@ -130,14 +127,7 @@ interface InputAreaProps {
   /** 跳转到配置页面 */
   onOpenConfig?: () => void;
   /** 打开执行资源面板 */
-  onOpenRuntimeTab?: () => void;
   /** 当前运行环境信息 */
-  activeEnv?: {
-    id: string;
-    name: string;
-    image: string;
-    sandbox_mode?: string;
-  } | null;
   /** 需要把焦点重新带回输入框时递增 */
   focusSignal?: number;
   /** 当前工作区 ID，用于 @ 文件引用 */
@@ -175,8 +165,6 @@ export const InputArea = memo(function InputArea({
   setThinkingEffort,
   selectedModelSupportsImageInput,
   onOpenConfig,
-  onOpenRuntimeTab,
-  activeEnv,
   focusSignal,
   workspaceId,
 }: InputAreaProps) {
@@ -741,44 +729,6 @@ export const InputArea = memo(function InputArea({
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : null}
-
-            {/* 运行环境状态徽标 */}
-            {activeEnv && onOpenRuntimeTab ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onOpenRuntimeTab}
-                    disabled={isInitializingEnvironment}
-                    className={cn(
-                      "flex-shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                      activeEnv.image === "none"
-                        ? "bg-warning/10 text-warning hover:bg-warning/20"
-                        : activeEnv.image === "docker"
-                          ? "bg-info/10 text-info hover:bg-info/20"
-                          : "bg-success/10 text-success hover:bg-success/20",
-                    )}
-                    aria-label={`运行环境：${activeEnv.name}`}
-                  >
-                    {activeEnv.image === "docker" ? (
-                      <Container className="h-3.5 w-3.5" />
-                    ) : activeEnv.image === "none" ? (
-                      <FlaskConical className="h-3.5 w-3.5" />
-                    ) : (
-                      <FlaskConical className="h-3.5 w-3.5" />
-                    )}
-                    <span className="max-w-[120px] truncate">
-                      {activeEnv.image === "none" ? "未配置环境" : activeEnv.name}
-                    </span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={6}>
-                  {activeEnv.image === "none"
-                    ? "未配置运行环境，点击配置"
-                    : `运行环境：${activeEnv.name}，点击管理`}
-                </TooltipContent>
-              </Tooltip>
             ) : null}
 
             <input

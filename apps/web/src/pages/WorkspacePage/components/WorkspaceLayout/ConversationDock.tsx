@@ -253,6 +253,7 @@ export function ConversationDock({
         onOpenToolConfig={onOpenToolConfig}
         onOpenLLMConfigDialog={onOpenLLMConfigDialog}
         onOpenRuntimeTab={onOpenRuntimeTab}
+        activeEnv={runtimeControls.activeEnv}
       />
 
       <DockChatView

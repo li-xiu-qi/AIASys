@@ -497,7 +497,7 @@ export const AiMessageContent = memo(function AiMessageContent({
             key={`seg-think-${idx}`}
             initialContent={seg.content}
             isStreaming={isStreaming && !seg.isComplete}
-            defaultOpen={isStreaming}
+            defaultOpen={false}
             onOpenInMainCanvas={onOpenWorkspaceArtifact}
             onOpenInBrowserTab={onOpenInBrowserTab}
           />

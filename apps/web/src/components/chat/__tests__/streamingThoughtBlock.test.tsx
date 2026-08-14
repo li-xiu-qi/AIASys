@@ -6,6 +6,8 @@ import {
   StreamingThoughtBlock,
   formatThinkDuration,
   lastContentLine,
+  tailPreviewText,
+  TAIL_PREVIEW_LINES,
 } from "../StreamingThoughtBlock";
 
 // 组件内部只取 session?.token，mock 掉 AuthContext 避免拉进整个认证栈
@@ -22,10 +24,13 @@ vi.mock("../ChartAwareMarkdown", () => ({
 }));
 
 /**
- * StreamingThoughtBlock 的折叠行为契约（借鉴 grok-build ThinkingBlock 三态）：
- * 1. streaming 结束 → 用户没动过 → 自动折叠，标题定格「思考过程 · Xs」；
- * 2. 用户手动展开过 → 结束时保持展开；
- * 3. 折叠态显示最后一行预览，内容随时更新。
+ * StreamingThoughtBlock 的三态契约（参照 step-code ThinkingPreview +
+ * grok-build ThinkingBlock 三态 + deepseek-harness ReasoningRow 最新行跟随）：
+ *
+ * 1. streaming 中且未展开：只占 3 行的尾部滚动预览（纯文本，跟随最新位置），
+ *    全文 markdown 不渲染——思考不占满对话区是本组件存在的核心理由；
+ * 2. 用户点击标题 → 展开全文；结束后若用户表过态则保持展开，否则自动折叠；
+ * 3. 结束后折叠：标题定格「思考过程 · Xs」+ 最后一行预览。
  */
 
 describe("formatThinkDuration", () => {
@@ -46,20 +51,61 @@ describe("lastContentLine", () => {
   });
 });
 
-describe("StreamingThoughtBlock 折叠行为", () => {
-  it("streaming 结束后自动折叠并定格用时", async () => {
+describe("tailPreviewText", () => {
+  it("默认取尾部 3 行", () => {
+    expect(TAIL_PREVIEW_LINES).toBe(3);
+    expect(tailPreviewText("一\n二\n三\n四\n五")).toBe("三\n四\n五");
+  });
+  it("不足 3 行时全量返回", () => {
+    expect(tailPreviewText("一\n二")).toBe("一\n二");
+  });
+  it("空内容返回空串", () => {
+    expect(tailPreviewText("")).toBe("");
+  });
+});
+
+describe("StreamingThoughtBlock 三态", () => {
+  it("streaming 中显示尾部预览而非全文", () => {
+    render(
+      <StreamingThoughtBlock
+        initialContent={"第一行思考\n第二行思考\n第三行思考\n最新一行"}
+        isStreaming
+      />,
+    );
+    const preview = screen.queryByTestId("think-tail-preview");
+    expect(preview).not.toBeNull();
+    // 预览只含尾部 3 行，首行不在其中
+    expect(preview!.textContent).toContain("最新一行");
+    expect(preview!.textContent).not.toContain("第一行思考");
+    // 全文 markdown 不渲染
+    expect(screen.queryByTestId("markdown")).toBeNull();
+  });
+
+  it("streaming 中点击标题展开全文", async () => {
+    const user = userEvent.setup();
+    render(
+      <StreamingThoughtBlock initialContent="完整思考内容" isStreaming />,
+    );
+    expect(screen.queryByTestId("markdown")).toBeNull();
+    await user.click(screen.getByRole("button"));
+    expect(screen.queryByTestId("markdown")).not.toBeNull();
+    // 展开后预览区让位
+    expect(screen.queryByTestId("think-tail-preview")).toBeNull();
+  });
+
+  it("streaming 结束且用户未表态 → 自动折叠并定格用时", async () => {
     const { rerender } = render(
       <StreamingThoughtBlock initialContent="一些思考" isStreaming />,
     );
-    // 流式中：内容可见
-    expect(screen.queryByTestId("markdown")).not.toBeNull();
-
     rerender(<StreamingThoughtBlock initialContent="一些思考" isStreaming={false} />);
 
     await waitFor(() => {
+      expect(screen.queryByTestId("think-tail-preview")).toBeNull();
       expect(screen.queryByTestId("markdown")).toBeNull();
     });
     expect(screen.queryByText(/思考过程 · \d/)).not.toBeNull();
+    // 折叠态显示最后一行预览
+    expect(screen.queryByText("一些思考")).not.toBeNull();
   });
 
   it("用户手动展开后，结束时保持展开", async () => {
@@ -67,19 +113,16 @@ describe("StreamingThoughtBlock 折叠行为", () => {
     const { rerender } = render(
       <StreamingThoughtBlock initialContent="一些思考" isStreaming />,
     );
-    // 用户先折叠再展开，即「表过态」
-    await user.click(screen.getByRole("button"));
     await user.click(screen.getByRole("button"));
     expect(screen.queryByTestId("markdown")).not.toBeNull();
 
     rerender(<StreamingThoughtBlock initialContent="一些思考" isStreaming={false} />);
 
-    // 结束后仍展开
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId("markdown")).not.toBeNull();
   });
 
-  it("折叠态显示最后一行预览", () => {
+  it("历史恢复（无 streaming 经历）折叠态显示末行预览、无用时", () => {
     render(
       <StreamingThoughtBlock
         initialContent={"第一行思考\n最终的结论行"}
@@ -88,15 +131,9 @@ describe("StreamingThoughtBlock 折叠行为", () => {
       />,
     );
     expect(screen.queryByText("最终的结论行")).not.toBeNull();
-    expect(screen.queryByTestId("markdown")).toBeNull();
-  });
-
-  it("历史恢复（无 streaming 经历）不显示用时", () => {
-    render(
-      <StreamingThoughtBlock initialContent="旧思考" isStreaming={false} defaultOpen={false} />,
-    );
     expect(screen.queryByText("思考过程")).not.toBeNull();
     expect(screen.queryByText(/思考过程 · /)).toBeNull();
+    expect(screen.queryByTestId("markdown")).toBeNull();
   });
 
   it("无内容且不 streaming 时不渲染", () => {

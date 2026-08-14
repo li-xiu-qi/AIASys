@@ -23,6 +23,22 @@ export function lastContentLine(content: string): string | undefined {
   return undefined;
 }
 
+/** streaming 中尾部预览的行数（对齐 step-code THINKING_PREVIEW_LINES = 3） */
+export const TAIL_PREVIEW_LINES = 3;
+
+/**
+ * 取内容尾部 n 行作为 streaming 滚动预览。
+ * 渲染为纯文本不走 markdown——预览区不需要格式，且半截 markdown 在
+ * 流式中途必然出现，纯文本渲染天然规避（step-code 同款取舍：
+ * transient=true 时关高亮只透传原文）。
+ */
+export function tailPreviewText(
+  content: string,
+  n: number = TAIL_PREVIEW_LINES,
+): string {
+  return content.split("\n").slice(-n).join("\n");
+}
+
 interface StreamingThoughtBlockProps {
   /**
    * 初始内容（用于非流式场景或恢复历史）
@@ -64,7 +80,7 @@ export function StreamingThoughtBlock({
   initialContent = "",
   isStreaming = false,
   subscribeToStream,
-  defaultOpen = true,
+  defaultOpen = false,
   onOpenInMainCanvas,
   onOpenInBrowserTab,
 }: StreamingThoughtBlockProps) {
@@ -176,10 +192,16 @@ export function StreamingThoughtBlock({
     return null;
   }
 
-  // 折叠态预览：最后一行非空内容（grok-build Truncated 模式），streaming 中
-  // 用户手动折叠时也能跟随最新思考位置
+  // 折叠态预览：最后一行非空内容（grok-build Truncated 模式）。
+  // 只在「结束后折叠」时显示——streaming 中的预览由下方尾部滚动区承担，
+  // 标题行不再重复显示同一行内容
   const collapsedPreview =
-    !isOpen && cleanedContent ? lastContentLine(cleanedContent) : undefined;
+    !isOpen && !streaming && cleanedContent
+      ? lastContentLine(cleanedContent)
+      : undefined;
+
+  // streaming 中且未展开：尾部 N 行滚动预览（step-code ThinkingPreview 形态）
+  const showTailPreview = streaming && !isOpen && cleanedContent.length > 0;
 
   const title = streaming
     ? "思考中…"
@@ -232,6 +254,19 @@ export function StreamingThoughtBlock({
             onOpenInMainCanvas={onOpenInMainCanvas}
             onOpenInBrowserTab={onOpenInBrowserTab}
           />
+        </div>
+      )}
+
+      {/* streaming 尾部滚动预览：只占 3 行高度，纯文本跟随最新思考位置，
+          顶部渐隐提示上方还有内容。点标题行展开全文。 */}
+      {showTailPreview && (
+        <div
+          data-testid="think-tail-preview"
+          className="border-t border-border/40 bg-muted/10 px-4 py-2"
+        >
+          <div className="max-h-[3.9em] overflow-hidden whitespace-pre-wrap break-words text-[12px] italic leading-[1.3em] text-muted-foreground/70 [overflow-wrap:anywhere] [mask-image:linear-gradient(to_bottom,transparent,black_45%)]">
+            {tailPreviewText(cleanedContent)}
+          </div>
         </div>
       )}
     </div>
@@ -303,7 +338,7 @@ export function StreamingSegmentsRenderer({
               key={`thought-${idx}`}
               initialContent={seg.content}
               isStreaming={isStreaming && isLast}
-              defaultOpen={true}
+              defaultOpen={false}
             />
           );
         }

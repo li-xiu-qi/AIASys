@@ -286,6 +286,35 @@ PROBES: tuple[Probe, ...] = (
             "就红，而不是等用户发现「配了没反应」"
         ),
     ),
+    # ---- P0 借鉴项：最后一问预览的注入隔离 ----
+    # 列表预览用最后一条「真实用户消息」，系统注入（system_notice/contextual_user/
+    # compaction_summary）不能被当成用户的最后一问展示，否则会把系统提示泄露到会话列表。
+    Probe(
+        name="last-preview-includes-system-injection",
+        target="apps/backend/app/services/workspace_registry.py",
+        find='                if message.get("origin") not in (None, "user", "forked"):\n'
+        "                    continue\n",
+        replace="",
+        tests=("tests/test_conversation_last_user_preview.py",),
+        extra_args=("-k", "system_injected or compaction or origin_filter"),
+        rationale=(
+            "丢掉 origin 过滤后，列表预览会取到最后一条 system_notice/contextual_user 注入，"
+            "把系统提示当成用户的最后一问展示在会话列表"
+        ),
+    ),
+    # ---- P0 借鉴项：审批 Esc 必须映射拒绝，不得静默放行 ----
+    Probe(
+        name="approval-esc-maps-to-allow",
+        target="apps/web/src/components/CapabilityConfirmationCard/index.tsx",
+        find="      e.preventDefault();\n      void handleReject();",
+        replace='      e.preventDefault();\n      void handleApprove("once");',
+        tests=("src/components/__tests__/capabilityConfirmationTakeover.test.tsx",),
+        rationale=(
+            "Esc 若映射为允许，用户按 Esc 想取消却静默放行危险操作；对齐 codex 的 "
+            "dismissal 永不映射为继续"
+        ),
+        runner="vitest",
+    ),
 )
 
 

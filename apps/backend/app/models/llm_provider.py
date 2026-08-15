@@ -409,3 +409,33 @@ PROVIDER_TEMPLATES = {
 def get_provider_templates() -> Dict[str, Any]:
     """获取服务商模板（仅作为前端默认值参考）"""
     return PROVIDER_TEMPLATES
+
+
+def is_force_thinking_model(base_url: Optional[str], model_name: Optional[str]) -> bool:
+    """模型是否强制思考（思考无法通过 API 参数关闭）。
+
+    依据 step-code（阶跃官方 Step-Realtime-CLI）2026-08-02 逐参数实测：
+    Step 的 effort 取值域为 low/medium/high，**没有 off/none 档**；非法值
+    被静默忽略（传 bogus 也返回 200），不传 effort 则服务端默认深度思考。
+    即 step 系列模型的思考开不掉。
+
+    这类模型必须声明 always_thinking，否则 UI 会显示一个可点的「关闭」
+    开关——用户点关，服务端照思考，形成假控件。
+    """
+    if base_url and "stepfun" in base_url.lower():
+        return True
+    return bool(model_name) and model_name.lower().startswith("step-")
+
+
+def normalize_force_thinking_capabilities(
+    capabilities: Any, base_url: Optional[str], model_name: Optional[str]
+) -> list:
+    """读取侧能力归一化：强制思考模型确保 always_thinking 在能力集中。
+
+    在读路径（而非注册路径）做归一化，存量配置无需迁移即可生效。
+    """
+    caps = list(capabilities) if isinstance(capabilities, (list, set, tuple)) else []
+    if is_force_thinking_model(base_url, model_name):
+        if "thinking" in caps and "always_thinking" not in caps:
+            caps.append("always_thinking")
+    return caps

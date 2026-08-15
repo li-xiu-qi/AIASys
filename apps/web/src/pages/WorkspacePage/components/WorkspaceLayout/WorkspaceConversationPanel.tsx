@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { matchesConversation } from "@/utils/listSearch";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { exportConversation, importConversation } from "@/lib/api/sessions";
@@ -188,6 +189,19 @@ const ConversationItem = React.memo(function ConversationItem({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            {/* 状态点（Harness Rows.tsx 优先级链思路，数据用现有字段）：
+                运行中 > 失败 > 无。待审批状态后端列表数据暂缺，补数后再加。 */}
+            {conversation.last_execution_status === "running" ? (
+              <span
+                className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500"
+                title="运行中"
+              />
+            ) : conversation.last_execution_status === "failed" ? (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full bg-red-500"
+                title="上次执行失败"
+              />
+            ) : null}
             <div
               className="truncate text-sm font-medium text-foreground"
               title={conversation.title || "未命名对话"}
@@ -224,6 +238,15 @@ const ConversationItem = React.memo(function ConversationItem({
             {" · "}
             {conversation.execution_record_count ?? 0} 次执行
           </div>
+
+          {conversation.last_user_preview ? (
+            <div
+              className="mt-1 truncate text-[11px] text-muted-foreground/80"
+              title={conversation.last_user_preview}
+            >
+              最后一问：{conversation.last_user_preview}
+            </div>
+          ) : null}
         </div>
 
         <DropdownMenu>
@@ -443,9 +466,7 @@ export function WorkspaceConversationPanel({
     () =>
       trimmedSearchQuery
         ? sortedConversations.filter((conversation) =>
-            (conversation.title || "未命名对话")
-              .toLowerCase()
-              .includes(trimmedSearchQuery),
+            matchesConversation(conversation, trimmedSearchQuery),
           )
         : sortedConversations,
     [sortedConversations, trimmedSearchQuery],

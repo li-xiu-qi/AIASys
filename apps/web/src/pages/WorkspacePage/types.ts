@@ -240,6 +240,8 @@ export interface WorkspaceConversationSummary {
   auto_task_id?: string | null;
   automation_continuation_id?: string | null;
   automation_continuation_target_kind?: string | null;
+  /** 最后一条用户消息预览（列表行展示与搜索匹配用） */
+  last_user_preview?: string | null;
 }
 
 export interface TaskWorkspaceSummary {

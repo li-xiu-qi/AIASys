@@ -217,6 +217,8 @@ class WorkspaceConversationSummary(BaseModel):
     auto_task_id: Optional[str] = None
     automation_continuation_id: Optional[str] = None
     automation_continuation_target_kind: Optional[str] = None
+    # 最后一条用户消息预览（kimi 卡片式会话列表思路），供列表行与搜索使用
+    last_user_preview: Optional[str] = None
 
 
 class WorkspaceSummary(BaseModel):

@@ -31,6 +31,7 @@ from app.models.workspace import (
     WorkspaceDetailResponse,
     WorkspaceRuntimeBinding,
 )
+from app.services.agent.message_content import extract_message_text
 from app.services.agent_context_documents import (
     ensure_user_soul_file,
     ensure_workspace_project_profile_file,
@@ -595,6 +596,7 @@ class WorkspaceRegistryService:
 
         metadata = self.session_manager.get_session(session_id, user_id)
         execution_summary = self.session_manager.get_execution_summary(session_id, user_id)
+        last_user_preview = self._build_last_user_preview(session_id, user_id)
 
         created_at = payload.get("created_at") or _safe_getattr(metadata, "created_at", _now_iso())
         updated_at = (
@@ -637,7 +639,44 @@ class WorkspaceRegistryService:
                 _safe_getattr(metadata, "automation_continuation_target_kind", None)
                 or payload.get("automation_continuation_target_kind")
             ),
+            last_user_preview=last_user_preview,
         )
+
+    def _build_last_user_preview(
+        self,
+        session_id: str,
+        user_id: str,
+        max_chars: int = 80,
+    ) -> str | None:
+        """从历史快照取最后一条真实用户消息作为列表预览（kimi 卡片式会话列表思路）。
+
+        只取 origin 为 user/forked 的消息——系统注入（system_notice 等）不算；
+        剥掉执行契约包装；失败静默返回 None，预览是增强不是必需。
+        """
+        try:
+            from app.services.history.session_history_projection import unwrap_user_prompt
+
+            history = self.session_manager.get_history(session_id, user_id)
+            for message in reversed(history):
+                if not isinstance(message, dict) or message.get("role") != "user":
+                    continue
+                if message.get("origin") not in (None, "user", "forked"):
+                    continue
+                raw = message.get("display_content", message.get("content"))
+                text = extract_message_text(raw).strip()
+                unwrapped = unwrap_user_prompt(text) or text
+                unwrapped = unwrapped.strip()
+                if not unwrapped or unwrapped.startswith("<system-reminder>"):
+                    continue
+                first_line = unwrapped.split("\n", 1)[0].strip()
+                if not first_line:
+                    continue
+                if len(first_line) > max_chars:
+                    return first_line[: max_chars - 1] + "…"
+                return first_line
+        except Exception:
+            return None
+        return None
 
     def _is_hidden_conversation_payload(
         self,

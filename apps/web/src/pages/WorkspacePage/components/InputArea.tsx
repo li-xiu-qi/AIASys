@@ -42,6 +42,10 @@ import { cn } from "@/lib/utils";
 import type { FailedUpload } from "@/hooks/useAgentFileUpload";
 import { ModelSelector } from "./ModelSelector";
 import { isImageFilename, shouldWarnImageAttachment } from "./imageAttachmentWarning";
+import {
+  buildPastedTextFilename,
+  shouldPasteAsAttachment,
+} from "./pasteAsAttachment";
 import { PermissionModeSelect } from "./PermissionModeSelect";
 import { FileMentionPicker, type FileMentionPickerRef } from "./FileMentionPicker";
 
@@ -364,18 +368,44 @@ export const InputArea = memo(function InputArea({
   const handlePaste = useCallback(
     (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const pastedFiles = extractClipboardFiles(e.clipboardData);
-      if (pastedFiles.length === 0) return;
+      if (pastedFiles.length > 0) {
+        // 阻止默认粘贴行为，改走统一文件上传链路。
+        e.preventDefault();
 
-      // 阻止默认粘贴行为，改走统一文件上传链路。
-      e.preventDefault();
+        if (
+          !onFileChange ||
+          isUploading ||
+          isPrewarming ||
+          isInitializingEnvironment
+        ) {
+          return;
+        }
 
-      if (!onFileChange || isUploading || isPrewarming || isInitializingEnvironment) {
+        // 构造虚拟 ChangeEvent 以复用系统文件上传处理流程
+        const dt = new DataTransfer();
+        pastedFiles.forEach((f) => dt.items.add(f));
+        const mockEvent = {
+          target: { files: dt.files },
+        } as React.ChangeEvent<HTMLInputElement>;
+        onFileChange(mockEvent);
         return;
       }
 
-      // 构造虚拟 ChangeEvent 以复用系统文件上传处理流程
+      // 长文本粘贴转附件（pasteAsAttachment.ts 有语义与阈值说明）：
+      // 粘贴长文档/日志不淹没输入框，转 .txt 走统一上传链路。
+      if (!onFileChange || isUploading || isPrewarming || isInitializingEnvironment) {
+        return;
+      }
+      const text = e.clipboardData.getData("text/plain");
+      if (!shouldPasteAsAttachment(text)) {
+        return;
+      }
+      e.preventDefault();
+      const file = new File([text], buildPastedTextFilename(), {
+        type: "text/plain",
+      });
       const dt = new DataTransfer();
-      pastedFiles.forEach((f) => dt.items.add(f));
+      dt.items.add(file);
       const mockEvent = {
         target: { files: dt.files },
       } as React.ChangeEvent<HTMLInputElement>;

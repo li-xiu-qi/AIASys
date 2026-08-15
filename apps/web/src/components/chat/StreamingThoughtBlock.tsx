@@ -216,8 +216,9 @@ export function StreamingThoughtBlock({
           userToggledRef.current = true;
           setIsOpen(!isOpen);
         }}
-        className="group flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+        className="group relative flex w-full items-center gap-2.5 px-3.5 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
       >
+        {streaming && <span className="aiasys-think-sweep" aria-hidden="true" />}
         <div
           className={`flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors ${streaming ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground group-hover:bg-muted-foreground/10"}`}
         >

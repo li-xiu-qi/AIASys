@@ -547,3 +547,49 @@
     scrollbar-color: var(--scrollbar-thumb, oklch(0 0 0 / 10%)) transparent;
   }
 }
+
+/* 思考块运行中扫光动画（借鉴 DeepSeek Harness dsh-reasoning-row-sweep）。
+  纯 CSS、只读 transform/opacity，不触发 layout；尊重减弱动效偏好。 */
+@keyframes aiasys-think-sweep {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.aiasys-think-sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.aiasys-think-sweep::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0 0 0 / 6%),
+    transparent
+  );
+  animation: aiasys-think-sweep 2.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aiasys-think-sweep::before {
+    animation: none;
+  }
+}

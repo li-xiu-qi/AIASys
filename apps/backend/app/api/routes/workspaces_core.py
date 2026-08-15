@@ -33,6 +33,7 @@ from app.models.llm_selection import (
 from app.models.session import ExecutionRecord
 from app.models.user import UserInfo
 from app.models.workspace import (
+    ArchiveConversationRequest,
     ConversationListResponse,
     ConversationRunsResponse,
     CreateConversationRequest,
@@ -1220,11 +1221,16 @@ async def delete_workspace(
 )
 async def list_workspace_conversations(
     workspace_id: str,
+    include_archived: bool = Query(False, description="是否包含已归档对话"),
     current_user: UserInfo = Depends(require_auth()),
 ):
     service = get_workspace_registry_service()
     try:
-        conversations = service.list_conversations(current_user.user_id, workspace_id)
+        conversations = service.list_conversations(
+            current_user.user_id,
+            workspace_id,
+            include_hidden_conversations=include_archived,
+        )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Operation failed") from exc
     return ConversationListResponse(
@@ -1279,6 +1285,36 @@ async def create_workspace_conversation(
         raise HTTPException(status_code=404, detail="Operation failed") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Operation failed") from exc
+
+
+@router.patch(
+    "/{workspace_id}/conversations/{conversation_id}/archive",
+    response_model=WorkspaceConversationSummary,
+)
+async def archive_workspace_conversation(
+    workspace_id: str,
+    conversation_id: str,
+    request: ArchiveConversationRequest,
+    current_user: UserInfo = Depends(require_auth()),
+):
+    """归档/取消归档对话。归档只从默认列表隐藏，数据保留，可恢复。"""
+    service = get_workspace_registry_service()
+    try:
+        ok = service.set_conversation_archived(
+            user_id=current_user.user_id,
+            workspace_id=workspace_id,
+            conversation_id=conversation_id,
+            archived=request.archived,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Operation failed") from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="对话不存在")
+    return service.get_conversation(
+        user_id=current_user.user_id,
+        workspace_id=workspace_id,
+        conversation_id=conversation_id,
+    )
 
 
 @router.get(

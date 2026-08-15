@@ -1247,6 +1247,53 @@ class SessionManager(StatusMixin, HistoryMixin, FileSnapshotMixin):
             )
             return False
 
+    def update_session_metadata(
+        self,
+        session_id: str,
+        user_id: str,
+        **fields: Any,
+    ) -> bool:
+        """原子更新会话元数据的任意字段。
+
+        只更新 SessionMetadata 已声明的字段，未知字段忽略（避免污染存储）。
+        供归档/隐藏标记等轻量字段写入复用，不必为每个字段写一个 update_* 方法。
+        """
+        try:
+            metadata = self.get_session(session_id, user_id)
+            if not metadata:
+                logger.warning(
+                    "会话元数据不存在，无法更新: user=%s, session=%s",
+                    user_id,
+                    session_id,
+                )
+                return False
+
+            allowed = set(type(metadata).model_fields.keys())
+            changed = False
+            for key, value in fields.items():
+                if key not in allowed:
+                    continue
+                if getattr(metadata, key, None) != value:
+                    setattr(metadata, key, value)
+                    changed = True
+
+            if not changed:
+                return True
+
+            metadata.updated_at = datetime.now().isoformat()
+            session_dir = self._get_session_dir(session_id, user_id)
+            self._write_metadata_atomic(session_dir, metadata.model_dump())
+            return True
+        except Exception as e:
+            logger.error(
+                "更新会话元数据失败: user=%s, session=%s, fields=%s, error=%s",
+                user_id,
+                session_id,
+                list(fields.keys()),
+                e,
+            )
+            return False
+
     def update_session_title(
         self,
         session_id: str,

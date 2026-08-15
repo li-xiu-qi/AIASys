@@ -242,6 +242,8 @@ export interface WorkspaceConversationSummary {
   automation_continuation_target_kind?: string | null;
   /** 最后一条用户消息预览（列表行展示与搜索匹配用） */
   last_user_preview?: string | null;
+  /** 归档（从默认列表隐藏，数据保留可恢复） */
+  archived?: boolean;
 }
 
 export interface TaskWorkspaceSummary {

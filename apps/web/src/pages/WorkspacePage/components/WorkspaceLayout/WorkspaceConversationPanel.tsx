@@ -1,5 +1,6 @@
 import {
   AlertTriangle,
+  Archive,
   Download,
   GitBranchPlus,
   Loader2,
@@ -34,7 +35,11 @@ import { toast } from "@/lib/toast";
 import { matchesConversation } from "@/utils/listSearch";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { exportConversation, importConversation } from "@/lib/api/sessions";
+import {
+  archiveConversation,
+  exportConversation,
+  importConversation,
+} from "@/lib/api/sessions";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TaskWorkspaceSummary, WorkspaceConversationSummary } from "../../types";
@@ -95,6 +100,7 @@ interface ConversationItemProps {
     title: string,
   ) => void;
   onStartRename: (sessionId: string, title: string) => void;
+  onArchiveConversation?: (conversation: WorkspaceConversationSummary) => void;
   currentUserId?: string;
   style?: React.CSSProperties;
   measureRef?: (element: HTMLElement | null) => void;
@@ -110,6 +116,7 @@ const ConversationItem = React.memo(function ConversationItem({
   onRequestDelete,
   onExportConversation,
   onStartRename,
+  onArchiveConversation,
   currentUserId,
   style,
   measureRef,
@@ -145,6 +152,11 @@ const ConversationItem = React.memo(function ConversationItem({
       conversation.session_id,
       conversation.title || "conversation",
     );
+  };
+
+  const handleArchiveClick = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onArchiveConversation?.(conversation);
   };
 
   const handleDeleteClick = (event: React.MouseEvent) => {
@@ -274,6 +286,12 @@ const ConversationItem = React.memo(function ConversationItem({
               <DropdownMenuItem onClick={handleExportClick}>
                 <Download className="mr-2 h-4 w-4" />
                 导出对话
+              </DropdownMenuItem>
+            ) : null}
+            {onArchiveConversation ? (
+              <DropdownMenuItem onClick={handleArchiveClick}>
+                <Archive className="mr-2 h-4 w-4" />
+                {conversation.archived ? "取消归档" : "归档对话"}
               </DropdownMenuItem>
             ) : null}
             {onRequestDelete ? (
@@ -413,6 +431,33 @@ export function WorkspaceConversationPanel({
       }
     },
     [currentUserId],
+  );
+
+  const [isArchiving, setIsArchiving] = useState<string | null>(null);
+  const handleArchiveConversation = useCallback(
+    async (conversation: WorkspaceConversationSummary) => {
+      const workspaceId = workspace?.workspace_id;
+      if (!currentUserId || !workspaceId || isArchiving) return;
+      const targetArchived = !conversation.archived;
+      setIsArchiving(conversation.conversation_id);
+      try {
+        await archiveConversation(
+          currentUserId,
+          workspaceId,
+          conversation.conversation_id,
+          targetArchived,
+        );
+        toast.success(targetArchived ? "已归档" : "已取消归档");
+        onImportConversation?.();
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? `归档失败：${error.message}` : "归档对话失败",
+        );
+      } finally {
+        setIsArchiving(null);
+      }
+    },
+    [currentUserId, workspace?.workspace_id, isArchiving, onImportConversation],
   );
 
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -729,6 +774,11 @@ export function WorkspaceConversationPanel({
                       }
                       onExportConversation={handleExportConversation}
                       onStartRename={handleStartRename}
+                      onArchiveConversation={
+                        currentUserId && workspace?.workspace_id
+                          ? handleArchiveConversation
+                          : undefined
+                      }
                       currentUserId={currentUserId}
                       measureRef={rowVirtualizer.measureElement}
                       style={{

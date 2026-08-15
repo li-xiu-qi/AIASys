@@ -640,6 +640,10 @@ class WorkspaceRegistryService:
                 or payload.get("automation_continuation_target_kind")
             ),
             last_user_preview=last_user_preview,
+            archived=bool(
+                payload.get("exclude_from_user_history")
+                or _safe_getattr(metadata, "exclude_from_user_history", False)
+            ),
         )
 
     def _build_last_user_preview(
@@ -683,6 +687,10 @@ class WorkspaceRegistryService:
         user_id: str,
         payload: dict[str, Any],
     ) -> bool:
+        # conversations.json 投影里的标记优先（归档时双写 payload 与 metadata）；
+        # payload 缺失时回退查 session metadata，兼容历史数据与重建路径。
+        if payload.get("exclude_from_user_history"):
+            return True
         session_id = str(payload.get("session_id") or payload.get("conversation_id") or "")
         if not session_id:
             return False
@@ -1323,6 +1331,46 @@ class WorkspaceRegistryService:
         self._write_workspace_meta(user_id, workspace_id, meta)
         return True
 
+    def set_conversation_archived(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        conversation_id: str,
+        archived: bool,
+    ) -> bool:
+        """切换对话的归档（隐藏）状态。
+
+        归档只改 exclude_from_user_history 标记：默认列表不显示、数据保留，
+        可在 include_hidden_conversations 视图里取消归档。与物理删除不同。
+        同时写回 session metadata，保持 conversations.json 与 session 元数据一致。
+        """
+        payloads = self._read_conversation_payloads(user_id, workspace_id)
+        target: dict[str, Any] | None = None
+        for payload in payloads:
+            cid = str(payload.get("conversation_id") or payload.get("session_id") or "")
+            if cid == conversation_id:
+                target = payload
+                break
+        if target is None:
+            return False
+
+        target["exclude_from_user_history"] = bool(archived)
+        target["updated_at"] = _now_iso()
+        self._write_conversation_payloads(user_id, workspace_id, payloads)
+
+        # 写回 session metadata，保证重建会话时标记不丢（与 core.py recreate 路径对齐）
+        try:
+            session_id = str(target.get("session_id") or conversation_id)
+            self.session_manager.update_session_metadata(
+                session_id,
+                user_id,
+                exclude_from_user_history=bool(archived),
+            )
+        except Exception:
+            logger.warning("写回 session 归档标记失败: %s", conversation_id, exc_info=True)
+        return True
+
     def remove_conversation_by_session_id(
         self,
         *,
@@ -1807,6 +1855,20 @@ class WorkspaceRegistryService:
         self._write_workspace_meta(user_id, workspace_id, meta)
 
         return self._build_conversation_summary(user_id, workspace_id, payload)
+
+    def get_conversation(
+        self,
+        *,
+        user_id: str,
+        workspace_id: str,
+        conversation_id: str,
+    ) -> WorkspaceConversationSummary:
+        """取单个对话摘要。找不到抛 FileNotFoundError。"""
+        for payload in self._read_conversation_payloads(user_id, workspace_id):
+            cid = str(payload.get("conversation_id") or payload.get("session_id") or "")
+            if cid == conversation_id:
+                return self._build_conversation_summary(user_id, workspace_id, payload)
+        raise FileNotFoundError(f"对话不存在: {conversation_id}")
 
     def get_conversation_runs(
         self,

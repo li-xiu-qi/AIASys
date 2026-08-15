@@ -17,6 +17,7 @@ from app.services.agent.mixins.context import (
     build_memory_context_text,
 )
 from app.services.agent.runtime_backends.aiasys.llm_clients import BaseLlmClient, LlmRequestOptions
+from app.services.history.wire_event_log import append_message_event
 from app.services.session.constants import (
     ACTIVE_SESSION_STATE_DIR_NAME,
     HISTORY_SNAPSHOT_FILE_NAME,
@@ -581,6 +582,15 @@ class AiasysRuntimeSession(
             message["turn_n"] = self._current_turn_n
 
         self.messages.append(message)
+        # A1 双写：message.append 事件进 wire 日志（append-only 事实源）。
+        # 读路径仍走旧机制，投影一致性由 tests/test_wire_event_log.py 看守。
+        # system 角色不落事件流：system prompt 由 __init__ 重建，不是历史事实。
+        if message.get("role") != "system" and self._spec.session_dir is not None:
+            append_message_event(
+                Path(str(self._spec.session_dir)),
+                self.session_id,
+                message,
+            )
         # 把新增消息计入 pending，等待下次 LLM 真实 usage 修正。
         # 避免运行中 _estimated_token_count 停留在旧精确值，导致上下文占用被低估。
         self._pending_token_estimate += estimate_text_tokens([message])

@@ -27,6 +27,13 @@ export type ChatSegment = {
   monitorExitCode?: number | null;
   /** 显示提示：后端根据 origin 映射，前端据此决定渲染方式 */
   display_hint?: "visible" | "collapsed" | "hidden";
+  /** 压缩标记专用：本次压缩的 token 统计（compaction_summary 段） */
+  compactionStats?: {
+    tokens_before?: number;
+    tokens_after?: number;
+    saved_tokens?: number;
+    compacted_count?: number;
+  };
 };
 
 export type WorkerRecord = {
@@ -115,6 +122,12 @@ export type SessionHistoryMessage = {
   content: SessionHistoryContentItem[] | string;
   display_content?: SessionHistoryContentItem[] | string;
   reasoning_content?: string | null;
+  compaction_stats?: {
+    tokens_before?: number;
+    tokens_after?: number;
+    saved_tokens?: number;
+    compacted_count?: number;
+  } | null;
   rewritten_from?: string | null;
   timestamp?: string | null;
   turn_n?: number | null;

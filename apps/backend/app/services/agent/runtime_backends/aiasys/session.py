@@ -648,6 +648,9 @@ class AiasysRuntimeSession(
                 message["tool_calls"] = item.get("tool_calls")
             if item.get("reasoning_content") is not None:
                 message["reasoning_content"] = item.get("reasoning_content")
+            # 压缩统计随摘要消息走会话重建，否则重载后前端压缩标记丢失 token 数据
+            if isinstance(item.get("compaction_stats"), dict):
+                message["compaction_stats"] = item["compaction_stats"]
             turn_n = item.get("turn_n")
             if isinstance(turn_n, int):
                 message["turn_n"] = turn_n

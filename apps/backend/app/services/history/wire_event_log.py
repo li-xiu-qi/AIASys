@@ -38,6 +38,7 @@ _MESSAGE_EVENT_FIELDS = (
     "reasoning_redacted_data",
     "tool_calls",
     "tool_call_id",
+    "compaction_stats",
     "origin",
     "turn_n",
 )

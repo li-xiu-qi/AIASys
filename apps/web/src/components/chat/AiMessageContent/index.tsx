@@ -28,6 +28,7 @@ import { StoppedIndicator } from "./StoppedIndicator";
 import { WorkerIndicators } from "./WorkerIndicators";
 import { ToolBlock } from "./ToolBlock";
 import { ToolCallRow } from "./ToolCallRow";
+import { ToolCallGroupRow, groupToolCallSegments } from "./ToolCallGroupRow";
 import {
   FileOperationNotice,
   extractFilePathFromToolParams,
@@ -303,8 +304,35 @@ export const AiMessageContent = memo(function AiMessageContent({
       }
     }
 
+    // 连续同名 tool_call 聚合分组（Kimi Code ReadGroup 思路，纯渲染层变换）。
+    // 分组的段替换成一个 group 单元，其余段保持原顺序原索引。
+    const renderUnits = groupToolCallSegments(mergedSegments);
+
     // 按顺序渲染合并后的 segments
-    return mergedSegments.map((seg, idx) => {
+    return renderUnits.map((unit) => {
+      if (unit.kind === "group") {
+        return (
+          <ToolCallGroupRow
+            key={`tool-group-${unit.index}`}
+            group={unit.group}
+            isMessageStreaming={isStreaming}
+            onCallClick={
+              onViewToolDetails
+                ? (callSeg, callIdx, rect) =>
+                    onViewToolDetails(
+                      callSeg.toolCallId ||
+                        callSeg.toolName ||
+                        `tool-${unit.index}-${callIdx}`,
+                      taskId,
+                      rect,
+                    )
+                : undefined
+            }
+          />
+        );
+      }
+      const seg = unit.segment;
+      const idx = unit.index;
       // hidden：不进 DOM
       if (seg.display_hint === "hidden") {
         return null;

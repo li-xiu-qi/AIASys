@@ -60,4 +60,30 @@ describe("restoreChatItemsFromHistory - think 段还原", () => {
 
     expect(thinkSegments.length).toBe(0);
   });
+
+  it("compaction_summary 消息的 compaction_stats 透传到段上", () => {
+    const messages: SessionHistoryMessage[] = [
+      {
+        role: "user",
+        origin: "compaction_summary",
+        content: "Previous context has been compacted...",
+        compaction_stats: {
+          tokens_before: 45000,
+          tokens_after: 12000,
+          saved_tokens: 33000,
+          compacted_count: 18,
+        },
+      },
+    ];
+
+    const items = restoreChatItemsFromHistory("s1", messages);
+    const seg = items
+      .filter((item) => item.type === "message")
+      .flatMap((item) => (item.type === "message" ? item.segments ?? [] : []))
+      .find((s) => s.type === "compaction_summary");
+
+    expect(seg).toBeDefined();
+    expect(seg?.compactionStats?.tokens_before).toBe(45000);
+    expect(seg?.compactionStats?.saved_tokens).toBe(33000);
+  });
 });

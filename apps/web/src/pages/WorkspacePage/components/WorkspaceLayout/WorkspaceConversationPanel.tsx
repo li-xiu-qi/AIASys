@@ -30,12 +30,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 import { matchesConversation } from "@/utils/listSearch";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { exportConversation, importConversation } from "@/lib/api/sessions";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useFileUploadToast } from "@/components/file/FileUploadToast";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TaskWorkspaceSummary, WorkspaceConversationSummary } from "../../types";
 
@@ -327,7 +327,6 @@ export function WorkspaceConversationPanel({
   } | null>(null);
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const { user } = useAuthContext();
-  const { showError } = useFileUploadToast();
   const currentUserId = user?.id;
   const isCollapsed = embedded ? false : collapsed;
   const edgeBorderClass =
@@ -409,8 +408,8 @@ export function WorkspaceConversationPanel({
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-      } catch {
-        // 静默失败，不打扰用户
+      } catch (error) {
+        toast.error(error instanceof Error ? `导出失败：${error.message}` : "导出对话失败");
       }
     },
     [currentUserId],
@@ -435,8 +434,10 @@ export function WorkspaceConversationPanel({
       try {
         await importConversation(currentUserId, workspaceId, file);
         onImportConversation?.();
+        toast.success("对话导入成功");
       } catch (error) {
         console.error("导入对话失败:", error);
+        toast.error(error instanceof Error ? `导入失败：${error.message}` : "导入对话失败");
       } finally {
         setIsImporting(false);
         event.target.value = "";
@@ -517,13 +518,14 @@ export function WorkspaceConversationPanel({
         setIsDeletingConversation(true);
         await onDeleteConversation(sessionId);
         setPendingDeletion(null);
+        toast.success("对话已删除");
       } catch (err) {
-        showError(err instanceof Error ? err.message : "删除会话失败");
+        toast.error(err instanceof Error ? err.message : "删除会话失败");
       } finally {
         setIsDeletingConversation(false);
       }
     })();
-  }, [onDeleteConversation, pendingDeletion, showError]);
+  }, [onDeleteConversation, pendingDeletion]);
 
   const handleDeleteDialogOpenChange = useCallback(
     (open: boolean) => {

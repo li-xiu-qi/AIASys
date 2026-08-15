@@ -6,6 +6,7 @@ const WorkspaceDialogLayer = lazy(() =>
   })),
 );
 import { WorkspaceLayout } from "./components/WorkspaceLayout";
+import { Toaster } from "@/lib/toast";
 
 // 本地 Hooks
 import { getCurrentUserId } from "@/config/api";
@@ -166,6 +167,8 @@ function WorkspacePageContent({
       <Suspense fallback={null}>
         <WorkspaceDialogLayer controller={controller} />
       </Suspense>
+
+      <Toaster />
     </div>
   );
 }

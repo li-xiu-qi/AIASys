@@ -279,7 +279,7 @@ export function ModelSelector({
         key={model.id + (badge ?? "")}
         type="button"
         onClick={() => handleSelect(model.id)}
-        className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-accent rounded-[10px] transition-colors ${selected ? "bg-primary/10" : ""}`}
+        className={`w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-accent rounded-md transition-colors ${selected ? "bg-primary/10" : ""}`}
       >
         <span
           className={`w-7 h-7 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}
@@ -305,7 +305,7 @@ export function ModelSelector({
       ? createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[9999] w-[300px] bg-popover border border-border rounded-2xl shadow-lg overflow-hidden"
+            className="fixed z-[9999] w-[300px] bg-popover border border-border rounded-md shadow-md overflow-hidden"
             style={{ bottom: panelPos.bottom, left: panelPos.left }}
           >
             <div className="p-3 border-b border-border">

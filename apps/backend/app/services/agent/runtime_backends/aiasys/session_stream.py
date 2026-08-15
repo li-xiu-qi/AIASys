@@ -636,7 +636,6 @@ class SessionStreamMixin:
             latest_raw_finish_reason: str | None = None
             latest_usage: dict[str, Any] | None = None
             request_options = self._resolve_request_options()
-            suppress_reasoning_content = bool(request_options.thinking_disabled)
 
             # thinking 死循环检测按轮独立：每轮的思考流是新的，跨轮累积会把上一轮的
             # 正常思考当成本轮「更早内容」里的重复，制造误报。
@@ -694,7 +693,11 @@ class SessionStreamMixin:
                                 text=delta.content,
                             )
 
-                        if delta.reasoning_content and not suppress_reasoning_content:
+                        # 渲染只认模型实际吐出的事件，不认开关（step-code events.ts /
+                        # harness ReasoningRow 同款原则）：开关只控制请求侧「不主动
+                        # 要求思考」；模型服务端默认思考并返回了 reasoning 时，必须
+                        # 展示并记入历史——隐藏实际输出会让 UI 对模型行为撒谎。
+                        if delta.reasoning_content:
                             assistant_reasoning = merge_stream_fragment(
                                 assistant_reasoning,
                                 delta.reasoning_content,
@@ -834,13 +837,13 @@ class SessionStreamMixin:
                     fallback_message: dict[str, Any] = {"role": "assistant"}
                     if fallback_content:
                         fallback_message["content"] = fallback_content
-                    if assistant_reasoning and not suppress_reasoning_content:
+                    if assistant_reasoning:
                         fallback_message["reasoning_content"] = assistant_reasoning
                         if assistant_reasoning_signature:
                             fallback_message["reasoning_signature"] = assistant_reasoning_signature
                     # 加密推理块与可读 thinking 相互独立：只有 redacted 而无可读内容
                     # 是合法形态，故不嵌在上面的 reasoning 分支内。
-                    if assistant_reasoning_redacted and not suppress_reasoning_content:
+                    if assistant_reasoning_redacted:
                         fallback_message["reasoning_redacted_data"] = assistant_reasoning_redacted
                     self._append_message(fallback_message)
                     yield AgentRuntimeEvent(
@@ -876,9 +879,8 @@ class SessionStreamMixin:
                 await self._check_session_budget(input_tokens, output_tokens)
 
             assistant_content = "".join(assistant_parts) or None
-            assistant_reasoning_content = (
-                None if suppress_reasoning_content else assistant_reasoning or ""
-            )
+            assistant_reasoning_content = assistant_reasoning or ""
+
             tool_calls = self._build_openai_tool_calls(aggregated_tool_calls)
 
             # Fallback: if no structured tool_calls but content has raw tags

@@ -1039,7 +1039,7 @@ async def test_aiasys_runtime_session_enables_thinking_for_thinking_model(tmp_pa
     assert options.thinking_budget_tokens == 8192
 
 
-async def test_aiasys_runtime_session_hides_reasoning_when_thinking_disabled(tmp_path):
+async def test_aiasys_runtime_session_shows_reasoning_despite_thinking_disabled(tmp_path):
     agent_file = _write_agent_files(tmp_path)
     registry = ToolRegistry()
     client = _ReasoningDespiteDisabledClient()
@@ -1074,12 +1074,20 @@ async def test_aiasys_runtime_session_hides_reasoning_when_thinking_disabled(tmp
         registry,
     )
 
+    # 契约（2026-08-14 反转）：开关只控制请求侧「不主动要求思考」。
+    # 模型服务端默认思考并实际返回了 reasoning 时，渲染层必须展示并记入历史
+    # （step-code events.ts / harness ReasoningRow 同款原则：渲染只认实际事件）。
+    # 隐藏实际输出会让 UI 对模型行为撒谎——step-3.7 不传 effort 时服务端默认
+    # 深度思考，旧逻辑把返回的 reasoning 整个吃掉，正是用户报告的「没有 think」。
     events = [event async for event in session.prompt("hello")]
 
     public_events = [event for event in events if getattr(event, "kind", None) != "turn_begin"]
-    assert [event.kind for event in public_events] == ["content", "token_usage"]
+    assert [event.kind for event in public_events] == ["content", "content", "token_usage"]
+    # 同一 chunk 内 text 先于 think 推送（session_stream.py 的处理顺序）
     assert public_events[0].content_type == "text"
     assert public_events[0].text == "visible answer"
+    assert public_events[1].content_type == "think"
+    assert public_events[1].think == "hidden reasoning"
     assert client.request_options[0] is not None
     assert client.request_options[0].thinking_disabled is True
 
@@ -1087,7 +1095,7 @@ async def test_aiasys_runtime_session_hides_reasoning_when_thinking_disabled(tmp
         message for message in session.messages if message.get("role") == "assistant"
     ]
     assert assistant_messages[-1]["content"] == "visible answer"
-    assert "reasoning_content" not in assistant_messages[-1]
+    assert assistant_messages[-1]["reasoning_content"]
 
     await session.close()
 

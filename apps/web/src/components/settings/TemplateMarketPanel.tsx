@@ -75,11 +75,11 @@ export function TemplateMarketPanel() {
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Input size="sm"
               placeholder="搜索模板..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs"
+              className="pl-8 text-xs"
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -165,8 +165,8 @@ export function TemplateMarketPanel() {
                 <div className="mt-3 flex items-center justify-end gap-2">
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
+                    size="xs"
+                    className="text-xs"
                     onClick={() => handleOpenDetail(item.item_id)}
                   >
                     详情
@@ -174,8 +174,8 @@ export function TemplateMarketPanel() {
                   {item.is_installed ? (
                     <Button
                       variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
+                      size="xs"
+                      className="text-xs"
                       disabled
                     >
                       <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -184,8 +184,8 @@ export function TemplateMarketPanel() {
                   ) : (
                     <Button
                       variant="default"
-                      size="sm"
-                      className="h-7 text-xs"
+                      size="xs"
+                      className="text-xs"
                       onClick={() => handleInstall(item.item_id)}
                       disabled={installingItemId === item.item_id}
                     >

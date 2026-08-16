@@ -42,17 +42,17 @@ export function SqlQueryPanel({
           <span className="text-caption font-medium">SQL</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Input
+          <Input size="xs"
             value={queryLimitInput}
             onChange={(e) => onLimitChange(e.target.value)}
             inputMode="numeric"
             placeholder="100"
-            className="h-7 w-12 text-micro"
+            className="w-12 text-micro"
             title="查询行数上限"
           />
           <Button
-            size="sm"
-            className="h-7 shrink-0 whitespace-nowrap px-2 text-micro"
+            size="xs"
+            className="shrink-0 whitespace-nowrap px-2 text-micro"
             onClick={onRunQuery}
             disabled={disabled || runningAction !== null}
           >
@@ -65,9 +65,9 @@ export function SqlQueryPanel({
           </Button>
           {canExecute && (
             <Button
-              size="sm"
+              size="xs"
               variant="outline"
-              className="h-7 shrink-0 whitespace-nowrap px-2 text-micro"
+              className="shrink-0 whitespace-nowrap px-2 text-micro"
               onClick={onRunExecute}
               disabled={disabled || runningAction !== null}
             >

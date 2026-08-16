@@ -98,8 +98,8 @@ export const Header = () => {
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="hidden xl:inline-flex h-9"
+            size="default"
+            className="hidden xl:inline-flex"
             onClick={() => goToAnalysis()}
           >
             开始分析
@@ -113,8 +113,8 @@ export const Header = () => {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="hidden h-9 gap-2 sm:inline-flex"
+                  size="default"
+                  className="hidden gap-2 sm:inline-flex"
                 >
                   <User className="h-4 w-4" />
                   <span className="hidden sm:inline max-w-[120px] truncate">
@@ -142,9 +142,9 @@ export const Header = () => {
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="default"
               onClick={goToWorkspaceHome}
-              className="hidden h-9 font-mono sm:inline-flex"
+              className="hidden font-mono sm:inline-flex"
             >
               进入工作区
             </Button>

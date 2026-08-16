@@ -861,7 +861,7 @@ export function GlobalAutoTaskDialog({
                       <Button
                         type="button"
                         size="sm"
-                        className="h-8 gap-1.5 text-micro"
+                        className="gap-1.5 text-micro"
                         onClick={() => openCreateDialog()}
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -871,7 +871,7 @@ export function GlobalAutoTaskDialog({
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 text-micro"
+                        className="gap-1.5 text-micro"
                         onClick={() => void loadAutoTasks()}
                         disabled={isLoading}
                       >
@@ -904,9 +904,9 @@ export function GlobalAutoTaskDialog({
                           <Button
                             key={option.value}
                             type="button"
-                            size="sm"
+                            size="xs"
                             variant={statusFilter === option.value ? "default" : "outline"}
-                            className="h-7 px-2.5 text-micro"
+                            className="px-2.5 text-micro"
                             onClick={() => setStatusFilter(option.value)}
                           >
                             {option.label}
@@ -920,9 +920,9 @@ export function GlobalAutoTaskDialog({
                           <Button
                             key={option.value}
                             type="button"
-                            size="sm"
+                            size="xs"
                             variant={categoryFilter === option.value ? "default" : "outline"}
-                            className="h-7 px-2.5 text-micro"
+                            className="px-2.5 text-micro"
                             onClick={() => setCategoryFilter(option.value)}
                           >
                             {option.label}
@@ -1021,9 +1021,8 @@ export function GlobalAutoTaskDialog({
                                   <TooltipTrigger asChild>
                                     <Button
                                       type="button"
-                                      size="icon"
+                                      size="icon-sm"
                                       variant="ghost"
-                                      className="h-8 w-8"
                                       onClick={() => void handleRunNow(task)}
                                       disabled={isMutating}
                                     >
@@ -1040,9 +1039,8 @@ export function GlobalAutoTaskDialog({
                                   <TooltipTrigger asChild>
                                     <Button
                                       type="button"
-                                      size="icon"
+                                      size="icon-sm"
                                       variant="ghost"
-                                      className="h-8 w-8"
                                       onClick={() => openEditDialog(task)}
                                       disabled={isMutating}
                                     >
@@ -1055,9 +1053,8 @@ export function GlobalAutoTaskDialog({
                                   <TooltipTrigger asChild>
                                     <Button
                                       type="button"
-                                      size="icon"
+                                      size="icon-sm"
                                       variant="ghost"
-                                      className="h-8 w-8"
                                       onClick={() => void handleToggleTask(task)}
                                       disabled={isMutating || task.status === "completed"}
                                     >
@@ -1076,9 +1073,9 @@ export function GlobalAutoTaskDialog({
                                   <TooltipTrigger asChild>
                                     <Button
                                       type="button"
-                                      size="icon"
+                                      size="icon-sm"
                                       variant="ghost"
-                                      className="h-8 w-8 text-error hover:text-error hover:bg-error-container"
+                                      className="text-error hover:text-error hover:bg-error-container"
                                       onClick={() => setPendingDeleteTask(task)}
                                       disabled={isMutating}
                                     >

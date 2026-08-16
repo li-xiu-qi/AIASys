@@ -419,8 +419,7 @@ export function UnifiedDocumentUploadDialog({
                     {!isUploading ? (
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
+                        size="icon-xs"
                         onClick={() => handleRemoveFile(file.name)}
                       >
                         <X className="h-4 w-4" />

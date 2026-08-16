@@ -193,7 +193,7 @@ export function SkillMarket({
           <Input
             ref={searchInputRef}
             placeholder="搜索技能..."
-            className="pl-9 h-9"
+            className="pl-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -206,7 +206,7 @@ export function SkillMarket({
         <div className="flex-1" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1 text-xs">
+            <Button variant="outline" size="default" className="gap-1 text-xs">
               <Plus className="h-3.5 w-3.5" />
               添加
             </Button>
@@ -242,9 +242,9 @@ export function SkillMarket({
         {workspaceId && onImportArchive ? (
           <Button
             variant="outline"
-            size="sm"
+            size="default"
             onClick={handleImportClick}
-            className="h-9 gap-1 text-xs"
+            className="gap-1 text-xs"
             disabled={isLoading}
           >
             <FileArchive className="h-3.5 w-3.5" />

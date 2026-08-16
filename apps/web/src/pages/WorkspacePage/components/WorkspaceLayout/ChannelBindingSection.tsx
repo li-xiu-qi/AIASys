@@ -151,7 +151,7 @@ export function ChannelBindingSection({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 w-full justify-between px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="w-full justify-between px-2 text-xs text-muted-foreground hover:text-foreground"
             >
               <span>高级配置</span>
               <ChevronDown

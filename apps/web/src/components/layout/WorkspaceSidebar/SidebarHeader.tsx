@@ -154,8 +154,8 @@ export const SidebarHeader: React.FC<SidebarHeaderProps> = ({
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="h-7 gap-1.5 text-micro"
+            size="xs"
+            className="gap-1.5 text-micro"
             onClick={() => {
               void onSwitchToLeadSession?.();
             }}

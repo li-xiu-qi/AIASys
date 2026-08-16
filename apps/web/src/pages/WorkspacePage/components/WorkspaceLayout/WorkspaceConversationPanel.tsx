@@ -266,8 +266,8 @@ const ConversationItem = React.memo(function ConversationItem({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              size="icon-sm"
+              className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
               onClick={(event) => event.stopPropagation()}
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -635,8 +635,8 @@ export function WorkspaceConversationPanel({
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0 text-muted-foreground"
+                size="icon-sm"
+                className="shrink-0 text-muted-foreground"
                 onClick={() => setCollapsed((prev) => !prev)}
                 title={isCollapsed ? "展开对话列表" : "收起对话列表"}
               >

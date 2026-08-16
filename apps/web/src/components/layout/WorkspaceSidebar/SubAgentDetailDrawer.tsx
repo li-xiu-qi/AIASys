@@ -522,7 +522,7 @@ export function SubAgentDetailDrawer({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs"
+                        className="text-xs"
                         onClick={handleStop}
                         disabled={isStopping}
                       >
@@ -538,7 +538,7 @@ export function SubAgentDetailDrawer({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs"
+                        className="text-xs"
                         onClick={handleRetry}
                         disabled={isRetrying}
                       >
@@ -846,7 +846,7 @@ export function SubAgentDetailDrawer({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs"
+                        className="text-xs"
                         onClick={handleStop}
                         disabled={isStopping}
                       >
@@ -862,7 +862,7 @@ export function SubAgentDetailDrawer({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 text-xs"
+                        className="text-xs"
                         onClick={handleRetry}
                         disabled={isRetrying}
                       >

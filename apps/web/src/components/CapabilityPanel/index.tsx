@@ -456,11 +456,11 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
         <div className="border-b px-3 py-2">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Input size="sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="搜索能力..."
-              className="h-8 pl-8 pr-7 text-xs"
+              className="pl-8 pr-7 text-xs"
             />
             {searchQuery && (
               <button
@@ -478,9 +478,9 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
         <div className="border-b px-3 py-2 flex flex-wrap gap-1.5">
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="outline"
-            className="h-7 gap-1 text-micro"
+            className="gap-1 text-micro"
             onClick={() => setSkillMarketOpen(true)}
           >
             <Plus className="h-3 w-3" />
@@ -488,9 +488,9 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
           </Button>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="outline"
-            className="h-7 gap-1 text-micro"
+            className="gap-1 text-micro"
             onClick={() => setMcpMarketOpen(true)}
           >
             <Plus className="h-3 w-3" />
@@ -498,9 +498,9 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
           </Button>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="outline"
-            className="h-7 gap-1 text-micro"
+            className="gap-1 text-micro"
             data-testid="capability-panel-new-expert"
             onClick={() => setRolesMarketOpen(true)}
           >
@@ -871,7 +871,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => setPreviewOpen(false)}
             >
               关闭
@@ -917,7 +917,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => setMcpConfigOpen(false)}
             >
               取消
@@ -925,7 +925,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
             <Button
               type="button"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => void handleMcpConfigInstall()}
             >
               安装

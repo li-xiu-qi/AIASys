@@ -427,7 +427,7 @@ function ChatAreaRoot({
             data-testid="chat-scroll-to-bottom"
             size="sm"
             variant="secondary"
-            className="pointer-events-auto h-8 rounded-full border border-border/80 bg-background px-3 text-xs shadow-[0_4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm hover:bg-muted"
+            className="pointer-events-auto rounded-full border border-border/80 bg-background px-3 text-xs shadow-[0_4px_20px_rgba(0,0,0,0.12)] backdrop-blur-sm hover:bg-muted"
             onClick={() => scrollToBottom("smooth")}
             title="回到底部"
           >

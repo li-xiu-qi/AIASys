@@ -909,12 +909,11 @@ export function KnowledgeBasePreviewPanel({
                 }}
                 placeholder="输入关键词..."
                 disabled={!knowledgeBaseId || isQuerying || !canUseKnowledgeBase}
-                className="h-9"
               />
               <Button
                 type="button"
-                size="sm"
-                className="h-9 px-4 gap-1.5"
+                size="default"
+                className="px-4 gap-1.5"
                 onClick={() => void handleSearch()}
                 disabled={!knowledgeBaseId || !queryText.trim() || isQuerying || !canUseKnowledgeBase}
               >
@@ -937,7 +936,7 @@ export function KnowledgeBasePreviewPanel({
                   try { localStorage.setItem("kb-top-k", String(next)); } catch { /* noop */ }
                 }}
               >
-                <SelectTrigger className="h-7 w-[72px] text-micro">
+                <SelectTrigger size="xs" className="w-[72px] text-micro">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1011,11 +1010,11 @@ export function KnowledgeBasePreviewPanel({
                 <Label htmlFor="kb-edit-name" className="text-xs text-muted-foreground">
                   知识库名称
                 </Label>
-                <Input
+                <Input size="sm"
                   id="kb-edit-name"
                   value={editName || node.name}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="h-8 text-xs"
+                  className="text-xs"
                   disabled={!knowledgeBaseId || isSaving}
                 />
               </div>
@@ -1023,11 +1022,11 @@ export function KnowledgeBasePreviewPanel({
                 <Label htmlFor="kb-edit-desc" className="text-xs text-muted-foreground">
                   说明
                 </Label>
-                <Input
+                <Input size="sm"
                   id="kb-edit-desc"
                   value={editDescription || (effectiveDescription ?? "")}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="h-8 text-xs"
+                  className="text-xs"
                   disabled={!knowledgeBaseId || isSaving}
                   placeholder="暂无说明"
                 />
@@ -1041,7 +1040,7 @@ export function KnowledgeBasePreviewPanel({
                   onValueChange={(value) => setEditEmbeddingModel(value === "__default__" ? "" : value)}
                   disabled={!knowledgeBaseId || isSaving || isLoadingModels || !canEditIndexConfig}
                 >
-                  <SelectTrigger id="kb-edit-embedding" className="h-8 text-xs">
+                  <SelectTrigger size="sm" id="kb-edit-embedding" className="text-xs">
                     <SelectValue placeholder="选择 embedding 模型" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1073,7 +1072,7 @@ export function KnowledgeBasePreviewPanel({
                   onValueChange={(value) => setEditSearchMode(value as KnowledgeBaseSearchMode)}
                   disabled={!knowledgeBaseId || isSaving}
                 >
-                  <SelectTrigger id="kb-edit-search-mode" className="h-8 text-xs">
+                  <SelectTrigger size="sm" id="kb-edit-search-mode" className="text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1097,7 +1096,7 @@ export function KnowledgeBasePreviewPanel({
                   onValueChange={(value) => setEditExtractionMode(value as KnowledgeBaseExtractionMode)}
                   disabled={!knowledgeBaseId || isSaving}
                 >
-                  <SelectTrigger id="kb-edit-extraction-mode" className="h-8 text-xs">
+                  <SelectTrigger size="sm" id="kb-edit-extraction-mode" className="text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1131,7 +1130,7 @@ export function KnowledgeBasePreviewPanel({
                       }
                       disabled={!knowledgeBaseId || isSaving}
                     >
-                      <SelectTrigger className="h-8 flex-1 text-xs">
+                      <SelectTrigger size="sm" className="flex-1 text-xs">
                         <SelectValue placeholder="使用默认" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1158,7 +1157,7 @@ export function KnowledgeBasePreviewPanel({
                       }
                       disabled={!knowledgeBaseId || isSaving}
                     >
-                      <SelectTrigger className="h-8 flex-1 text-xs">
+                      <SelectTrigger size="sm" className="flex-1 text-xs">
                         <SelectValue placeholder="使用默认" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1181,14 +1180,14 @@ export function KnowledgeBasePreviewPanel({
                   <Label htmlFor="kb-edit-chunk-size" className="text-xs text-muted-foreground">
                     分块大小
                   </Label>
-                  <Input
+                  <Input size="sm"
                     id="kb-edit-chunk-size"
                     type="number"
                     min={64}
                     max={8192}
                     value={editChunkSize}
                     onChange={(e) => setEditChunkSize(e.target.value)}
-                    className="h-8 text-xs"
+                    className="text-xs"
                     disabled={!knowledgeBaseId || isSaving || !canEditIndexConfig}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
@@ -1199,14 +1198,14 @@ export function KnowledgeBasePreviewPanel({
                   <Label htmlFor="kb-edit-chunk-overlap" className="text-xs text-muted-foreground">
                     重叠
                   </Label>
-                  <Input
+                  <Input size="sm"
                     id="kb-edit-chunk-overlap"
                     type="number"
                     min={0}
                     max={4096}
                     value={editChunkOverlap}
                     onChange={(e) => setEditChunkOverlap(e.target.value)}
-                    className="h-8 text-xs"
+                    className="text-xs"
                     disabled={!knowledgeBaseId || isSaving || !canEditIndexConfig}
                   />
                   <p className="text-xs text-muted-foreground mt-1">

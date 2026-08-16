@@ -245,7 +245,7 @@ export function TokenUsageBar({
             Token 预算上限
           </Label>
           <div className="flex gap-2">
-            <Input
+            <Input size="sm"
               id="budget-tokens"
               type="text"
               inputMode="numeric"
@@ -269,13 +269,13 @@ export function TokenUsageBar({
                 if (e.key === "Enter") void handleSaveBudget();
               }}
               disabled={isSaving}
-              className="h-8 text-sm"
+              className="text-sm"
             />
             <Button
               type="button"
               variant="default"
               size="sm"
-              className="h-8 shrink-0"
+              className="shrink-0"
               onClick={() => void handleSaveBudget()}
               disabled={isSaving}
             >

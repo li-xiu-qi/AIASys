@@ -471,8 +471,8 @@ export function DesignSidebarHistorySection({
                             <Button
                               type="button"
                               variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
+                              size="xs"
+                              className="px-2 text-xs"
                               disabled={isSaving}
                               onClick={cancelWorkspaceEdit}
                             >
@@ -480,8 +480,8 @@ export function DesignSidebarHistorySection({
                             </Button>
                             <Button
                               type="button"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
+                              size="xs"
+                              className="px-2 text-xs"
                               disabled={isSaving}
                               onClick={() => void saveWorkspaceEdit(workspace)}
                             >
@@ -538,8 +538,8 @@ export function DesignSidebarHistorySection({
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
-                              size="icon"
-                              className="mr-1 h-8 w-8 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                              size="icon-sm"
+                              className="mr-1 p-0 opacity-0 transition-opacity group-hover:opacity-100"
                               onClick={(event) => event.stopPropagation()}
                               title="更多操作"
                             >

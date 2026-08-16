@@ -179,7 +179,7 @@ export function AutoTaskList({
                     <Button
                       type="button"
                       size="sm"
-                      className="h-8 gap-1.5 rounded-xl px-3 text-micro"
+                      className="gap-1.5 rounded-xl px-3 text-micro"
                       onClick={() => onRunNow(task)}
                       disabled={isMutating}
                     >
@@ -190,7 +190,7 @@ export function AutoTaskList({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 rounded-xl px-3 text-micro"
+                      className="gap-1.5 rounded-xl px-3 text-micro"
                       onClick={() => onToggleTask(task)}
                       disabled={isMutating || task.status === "completed"}
                     >
@@ -205,7 +205,7 @@ export function AutoTaskList({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 rounded-xl px-3 text-micro"
+                      className="gap-1.5 rounded-xl px-3 text-micro"
                       onClick={() => onEditTask(task)}
                       disabled={isMutating}
                     >
@@ -216,7 +216,7 @@ export function AutoTaskList({
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="h-8 gap-1.5 rounded-xl border-error/20 px-3 text-micro text-error hover:bg-error-container hover:text-error"
+                      className="gap-1.5 rounded-xl border-error/20 px-3 text-micro text-error hover:bg-error-container hover:text-error"
                       onClick={() => onDeleteTask(task)}
                       disabled={isMutating}
                     >
@@ -238,7 +238,7 @@ export function AutoTaskList({
             <Button
               type="button"
               size="sm"
-              className="mt-4 h-8 gap-1.5 rounded-xl px-4 text-micro"
+              className="mt-4 gap-1.5 rounded-xl px-4 text-micro"
               onClick={onCreateFromTemplate}
             >
               <Plus className="h-3.5 w-3.5" />

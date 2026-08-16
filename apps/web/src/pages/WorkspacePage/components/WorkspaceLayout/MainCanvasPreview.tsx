@@ -204,8 +204,8 @@ export function MainCanvasPreview({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="h-8 w-8 rounded-lg p-0"
+          size="icon-sm"
+          className="rounded-lg p-0"
           aria-label="关闭文件信息"
           onClick={() => setIsDetailsOpen(false)}
         >
@@ -440,7 +440,7 @@ export function MainCanvasPreview({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 rounded-lg px-2 text-xs"
+                className="rounded-lg px-2 text-xs"
                 onClick={() => setIsDetailsOpen((open) => !open)}
               >
                 文件信息
@@ -449,7 +449,7 @@ export function MainCanvasPreview({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 rounded-lg px-2 text-xs"
+                className="rounded-lg px-2 text-xs"
                 aria-label="退出沉浸预览"
                 onClick={() => {
                   setIsImmersiveOpen(false);

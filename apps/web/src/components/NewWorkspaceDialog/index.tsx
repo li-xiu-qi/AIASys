@@ -1197,9 +1197,9 @@ export function NewWorkspaceDialog({
                               selectableRegisteredEnvs.length === 0
                             }
                           >
-                            <SelectTrigger
+                            <SelectTrigger size="sm"
                               id="registered-python-choice"
-                              className="h-8 w-full min-w-0 max-w-full text-xs"
+                              className="w-full min-w-0 max-w-full text-xs"
                             >
                               <SelectValue placeholder="选择已登记 Python">
                                 {selectedRegisteredEnv?.display_name ||

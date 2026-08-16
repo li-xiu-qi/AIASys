@@ -405,7 +405,7 @@ export function UploadDialog({
                       ) : null}
                     </div>
                     {!isUploading ? (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onRemoveFile(file.name)}>
+                      <Button variant="ghost" size="icon-xs" onClick={() => onRemoveFile(file.name)}>
                         <X className="h-4 w-4" />
                       </Button>
                     ) : null}

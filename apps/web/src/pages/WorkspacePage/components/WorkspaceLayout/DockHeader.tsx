@@ -190,8 +190,8 @@ export function DockHeader({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground"
+                    size="icon-xs"
+                    className="rounded-lg text-muted-foreground"
                     title="会话设置"
                   >
                     <Settings className="h-4 w-4" />
@@ -222,8 +222,8 @@ export function DockHeader({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-lg text-muted-foreground"
+              size="icon-xs"
+              className="rounded-lg text-muted-foreground"
               onClick={onNewConversation}
               title="新建会话"
             >
@@ -232,8 +232,8 @@ export function DockHeader({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-lg text-muted-foreground"
+              size="icon-xs"
+              className="rounded-lg text-muted-foreground"
               onClick={onClose}
               title="收起右侧栏"
             >

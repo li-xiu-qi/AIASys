@@ -266,8 +266,8 @@ export function WorkspaceAgentConfigPanel({
           <div className="flex items-center gap-1.5">
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 text-micro"
+              size="xs"
+              className="text-micro"
               onClick={handleReset}
               disabled={saving}
             >
@@ -332,8 +332,8 @@ export function WorkspaceAgentConfigPanel({
                   )}
                 </div>
                 <Button
-                  size="sm"
-                  className="h-7 text-micro"
+                  size="xs"
+                  className="text-micro"
                   onClick={savePrompt}
                   disabled={saving}
                 >
@@ -368,7 +368,7 @@ export function WorkspaceAgentConfigPanel({
                 value={toolStrategyDraft}
                 onValueChange={(v) => setToolStrategyDraft(v)}
               >
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger size="sm" className="text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -395,8 +395,8 @@ export function WorkspaceAgentConfigPanel({
 
               <div className="flex justify-end">
                 <Button
-                  size="sm"
-                  className="h-7 text-micro"
+                  size="xs"
+                  className="text-micro"
                   onClick={saveTools}
                   disabled={saving}
                 >
@@ -423,12 +423,12 @@ export function WorkspaceAgentConfigPanel({
             <div className="px-2 pb-3 pt-1 space-y-3">
               <div className="space-y-1">
                 <Label className="text-micro">保留上下文空间</Label>
-                <Input
+                <Input size="sm"
                   type="number"
                   min={1000}
                   value={reservedContextDraft}
                   onChange={(e) => setReservedContextDraft(e.target.value)}
-                  className="h-8 text-xs"
+                  className="text-xs"
                 />
                 {!isUserScope && (
                   <div className="text-nano text-muted-foreground">
@@ -438,14 +438,14 @@ export function WorkspaceAgentConfigPanel({
               </div>
               <div className="space-y-1">
                 <Label className="text-micro">自动压缩触发比例</Label>
-                <Input
+                <Input size="sm"
                   type="number"
                   min={0.5}
                   max={0.99}
                   step={0.01}
                   value={compactionRatioDraft}
                   onChange={(e) => setCompactionRatioDraft(e.target.value)}
-                  className="h-8 text-xs"
+                  className="text-xs"
                 />
                 {!isUserScope && (
                   <div className="text-nano text-muted-foreground">
@@ -464,8 +464,8 @@ export function WorkspaceAgentConfigPanel({
                   )}
                 </div>
                 <Button
-                  size="sm"
-                  className="h-7 text-micro"
+                  size="xs"
+                  className="text-micro"
                   onClick={saveRuntime}
                   disabled={saving}
                 >
@@ -481,8 +481,8 @@ export function WorkspaceAgentConfigPanel({
 
         {/* Global Save */}
         <div className="px-2 py-2">
-          <Button
-            className="w-full h-8 text-micro"
+          <Button size="sm"
+            className="w-full text-micro"
             onClick={saveAll}
             disabled={saving}
           >

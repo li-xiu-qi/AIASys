@@ -450,8 +450,8 @@ export function ChannelAssetsSection({
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
+                          size="icon-xs"
+                          className="p-0"
                           disabled={isMutating}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -466,8 +466,8 @@ export function ChannelAssetsSection({
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-error hover:text-error hover:bg-error-container"
+                          size="icon-xs"
+                          className="p-0 text-error hover:text-error hover:bg-error-container"
                           disabled={isMutating}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -564,11 +564,11 @@ export function ChannelAssetsSection({
                           <div className="grid gap-2 mb-2">
                             <div className="grid gap-1">
                               <Label className="text-micro">目标聊天 ID</Label>
-                              <Input value={editChatId} onChange={(e) => setEditChatId(e.target.value)} placeholder="可选，留空会自动认领" className="h-8 text-xs" />
+                              <Input size="sm" value={editChatId} onChange={(e) => setEditChatId(e.target.value)} placeholder="可选，留空会自动认领" className="text-xs" />
                             </div>
                             <div className="grid gap-1">
                               <Label className="text-micro">目标聊天备注</Label>
-                              <Input value={editChatLabel} onChange={(e) => setEditChatLabel(e.target.value)} placeholder="可选" className="h-8 text-xs" />
+                              <Input size="sm" value={editChatLabel} onChange={(e) => setEditChatLabel(e.target.value)} placeholder="可选" className="text-xs" />
                             </div>
                             <div className="flex gap-2 justify-end">
                               <Button variant="ghost" size="sm" onClick={() => setEditingChannelId(null)}>取消</Button>
@@ -600,7 +600,7 @@ export function ChannelAssetsSection({
                     {/* Full binding management */}
                     <Collapsible>
                       <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 w-full justify-between px-2 text-xs text-muted-foreground hover:text-foreground">
+                        <Button variant="ghost" size="xs" className="w-full justify-between px-2 text-xs text-muted-foreground hover:text-foreground">
                           <span className="flex items-center gap-1.5">
                             <Link2 className="h-3 w-3" />
                             管理绑定
@@ -719,11 +719,11 @@ export function ChannelAssetsSection({
                             </div>
                             <div className="grid gap-1">
                               <Label className="text-micro">目标聊天 ID</Label>
-                              <Input value={createChatId} onChange={(e) => setCreateChatId(e.target.value)} placeholder="可选，留空会自动认领" className="h-8 text-xs" />
+                              <Input size="sm" value={createChatId} onChange={(e) => setCreateChatId(e.target.value)} placeholder="可选，留空会自动认领" className="text-xs" />
                             </div>
                             <div className="grid gap-1">
                               <Label className="text-micro">目标聊天备注</Label>
-                              <Input value={createChatLabel} onChange={(e) => setCreateChatLabel(e.target.value)} placeholder="可选" className="h-8 text-xs" />
+                              <Input size="sm" value={createChatLabel} onChange={(e) => setCreateChatLabel(e.target.value)} placeholder="可选" className="text-xs" />
                             </div>
                             <div className="flex gap-2 justify-end">
                               <Button variant="ghost" size="sm" disabled={isBindingSaving} onClick={() => {
@@ -761,7 +761,7 @@ export function ChannelAssetsSection({
                             </div>
                           </div>
                         ) : (
-                          <Button variant="ghost" size="sm" className="h-7 w-full text-xs" onClick={() => {
+                          <Button variant="ghost" size="xs" className="w-full text-xs" onClick={() => {
                             setCreateSessionId(sessionId || "");
                             setCreateChatId("");
                             setCreateChatLabel("");

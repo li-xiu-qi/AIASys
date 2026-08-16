@@ -564,7 +564,7 @@ export function WorkspaceContextPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="mt-4 h-8 text-xs"
+            className="mt-4 text-xs"
             onClick={onOpenWorkspaceSettings}
           >
             管理全局资源
@@ -604,7 +604,7 @@ export function WorkspaceContextPanel({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-4 h-8 text-xs"
+                  className="mt-4 text-xs"
                   onClick={onCreateDatabaseConnection}
                 >
                   创建数据库连接
@@ -785,7 +785,7 @@ export function WorkspaceContextPanel({
                   type="button"
                   size="sm"
                   variant={activeView === button.id ? "default" : "outline"}
-                  className="h-8 text-micro"
+                  className="text-micro"
                   onClick={() => handleActiveViewChange(button.id)}
                 >
                   {button.label}

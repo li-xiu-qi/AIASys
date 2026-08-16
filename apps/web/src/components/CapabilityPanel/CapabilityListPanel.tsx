@@ -257,11 +257,11 @@ export function CapabilityListPanel({
       <div className="border-b px-3 py-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <Input size="sm"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索能力..."
-            className="h-8 pl-8 pr-7 text-xs"
+            className="pl-8 pr-7 text-xs"
           />
           {searchQuery && (
             <button

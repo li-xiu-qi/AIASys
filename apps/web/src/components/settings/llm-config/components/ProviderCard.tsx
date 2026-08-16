@@ -189,8 +189,8 @@ export function ProviderCard({
             {selectedCount > 0 && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 text-micro bg-destructive/10 text-destructive hover:text-destructive hover:bg-destructive/20 font-medium"
+                size="xs"
+                className="text-micro bg-destructive/10 text-destructive hover:text-destructive hover:bg-destructive/20 font-medium"
                 onClick={onBatchDelete}
                 disabled={batchDeleting}
               >
@@ -201,8 +201,8 @@ export function ProviderCard({
             )}
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 text-micro"
+              size="xs"
+              className="text-micro"
               onClick={() => onAddModel(provider.id)}
             >
               <Plus className="w-3 h-3 mr-1" />
@@ -210,8 +210,8 @@ export function ProviderCard({
             </Button>
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 text-micro"
+              size="xs"
+              className="text-micro"
               onClick={() => onFetchModels(provider.id)}
             >
               <Plus className="w-3 h-3 mr-1" />

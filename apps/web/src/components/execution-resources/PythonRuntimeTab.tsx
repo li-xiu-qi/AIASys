@@ -203,7 +203,7 @@ function UvEnvCard({
           ) : null}
 
           <div className="flex items-center gap-2">
-            <Input
+            <Input size="sm"
               type="text"
               value={packageInput}
               onChange={(e) => setPackageInput(e.target.value)}
@@ -215,7 +215,7 @@ function UvEnvCard({
               }}
               placeholder="空格分隔多个包，如 numpy pandas==2.0"
               disabled={localInstalling || !workspaceId}
-              className="h-8 text-sm"
+              className="text-sm"
             />
             <Button
               type="button"

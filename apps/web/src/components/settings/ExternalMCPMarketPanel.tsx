@@ -150,18 +150,18 @@ export function ExternalMCPMarketPanel({
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Input size="sm"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="搜索连接器名称或作者"
-              className="pl-9 h-8 text-xs"
+              className="pl-9 text-xs"
             />
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 text-xs"
+            className="text-xs"
             onClick={() => void refreshItems()}
           >
             刷新
@@ -228,7 +228,7 @@ export function ExternalMCPMarketPanel({
                       type="button"
                       variant="accent"
                       size="sm"
-                      className="h-8 text-xs"
+                      className="text-xs"
                       onClick={(event) => {
                         event.stopPropagation();
                         void openDetail(item.item_id);
@@ -279,7 +279,7 @@ export function ExternalMCPMarketPanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs"
+                className="text-xs"
                 onClick={() => void loadMore()}
                 disabled={loadingItems || loadingMore}
               >
@@ -343,7 +343,7 @@ export function ExternalMCPMarketPanel({
                       type="button"
                       variant="accent"
                       size="sm"
-                      className="h-8 text-xs"
+                      className="text-xs"
                       onClick={() => void handleImport()}
                       disabled={
                         !detail.can_import ||
@@ -438,7 +438,7 @@ export function ExternalMCPMarketPanel({
                             {field.description || "未提供说明"}
                           </div>
                           <Input
-                            className="mt-2 h-9"
+                            className="mt-2"
                             value={envValues[field.name] || ""}
                             onChange={(event) =>
                               setEnvValues((previous) => ({
@@ -476,7 +476,7 @@ export function ExternalMCPMarketPanel({
           {detail && !loadingDetail && (
             <div className="shrink-0 flex items-center justify-end gap-2 pt-4 border-t border-border">
               {detail.source.source_id === "modelscope" ? (
-                <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>
+                <Button type="button" variant="outline" size="sm" className="text-xs" asChild>
                   <a
                     href={`https://www.modelscope.cn/mcp/servers/${detail.item.item_id}`}
                     target="_blank"
@@ -491,7 +491,7 @@ export function ExternalMCPMarketPanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs"
+                className="text-xs"
                 onClick={() => setDetailOpen(false)}
               >
                 关闭

@@ -290,7 +290,7 @@ export function SettingsMCPMarketPanel({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 text-xs"
+            className="text-xs"
             onClick={() => void handleTest(server.name)}
             disabled={isTesting}
           >
@@ -304,7 +304,7 @@ export function SettingsMCPMarketPanel({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 text-xs"
+            className="text-xs"
             onClick={() => setDetailServer(server.name)}
           >
             详情
@@ -314,8 +314,8 @@ export function SettingsMCPMarketPanel({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              size="icon-sm"
+              className="p-0 text-muted-foreground hover:text-foreground"
               onClick={() => openEditDialog(server)}
               disabled={isProcessing}
               title="编辑"
@@ -328,8 +328,8 @@ export function SettingsMCPMarketPanel({
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              size="icon-sm"
+              className="p-0 text-muted-foreground hover:text-destructive"
               onClick={() => void handleRemove(server.name)}
               disabled={isProcessing}
               title="删除"
@@ -395,7 +395,7 @@ export function SettingsMCPMarketPanel({
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="搜索连接器..."
-                  className="pl-9 h-9"
+                  className="pl-9"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -413,8 +413,8 @@ export function SettingsMCPMarketPanel({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="h-9 gap-1 text-xs"
+                size="default"
+                className="gap-1 text-xs"
                 onClick={() => openAddDialog()}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -627,8 +627,8 @@ export function SettingsMCPMarketPanel({
                         <Button
                           type="button"
                           variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
+                          size="xs"
+                          className="text-xs"
                           onClick={() => void handleSaveEnv(detailItem.name)}
                           disabled={detailEnvSaving}
                         >
@@ -664,13 +664,13 @@ export function SettingsMCPMarketPanel({
                                 {field.description}
                               </div>
                             )}
-                            <Input
+                            <Input size="sm"
                               type="text"
                               value={detailEditingEnv[field.name] || ""}
                               onChange={(e) =>
                                 setDetailEditingEnv((prev) => ({ ...prev, [field.name]: e.target.value }))
                               }
-                              className="h-8 text-xs"
+                              className="text-xs"
                               placeholder={field.default_value || `填写 ${field.name}`}
                             />
                           </div>
@@ -681,20 +681,20 @@ export function SettingsMCPMarketPanel({
                           .map(([k, v]) => (
                             <div key={k} className="flex items-center gap-2">
                               <span className="font-mono text-xs text-foreground w-28 shrink-0 truncate">{k}</span>
-                              <Input
+                              <Input size="xs"
                                 type="text"
                                 value={v}
                                 onChange={(e) =>
                                   setDetailEditingEnv((prev) => ({ ...prev, [k]: e.target.value }))
                                 }
-                                className="h-7 text-xs flex-1"
+                                className="text-xs flex-1"
                                 placeholder="值"
                               />
                               <Button
                                 type="button"
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 shrink-0"
+                                size="icon-xs"
+                                className="p-0 shrink-0"
                                 onClick={() =>
                                   setDetailEditingEnv((prev) => {
                                     const next = { ...prev };
@@ -708,10 +708,10 @@ export function SettingsMCPMarketPanel({
                             </div>
                           ))}
                         <div className="flex items-center gap-2 pt-1">
-                          <Input
+                          <Input size="xs"
                             type="text"
                             id={`env-key-${detailItem.name}`}
-                            className="h-7 text-xs w-28 shrink-0"
+                            className="text-xs w-28 shrink-0"
                             placeholder="变量名"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -729,10 +729,10 @@ export function SettingsMCPMarketPanel({
                               }
                             }}
                           />
-                          <Input
+                          <Input size="xs"
                             type="text"
                             id={`env-val-${detailItem.name}`}
-                            className="h-7 text-xs flex-1"
+                            className="text-xs flex-1"
                             placeholder="值"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -753,8 +753,8 @@ export function SettingsMCPMarketPanel({
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 shrink-0"
+                            size="icon-xs"
+                            className="p-0 shrink-0"
                             onClick={() => {
                               const keyInput = document.getElementById(`env-key-${detailItem.name}`) as HTMLInputElement;
                               const valInput = document.getElementById(`env-val-${detailItem.name}`) as HTMLInputElement;
@@ -777,20 +777,20 @@ export function SettingsMCPMarketPanel({
                         {Object.entries(detailEditingEnv).map(([k, v]) => (
                           <div key={k} className="flex items-center gap-2">
                             <span className="font-mono text-xs text-foreground w-28 shrink-0 truncate">{k}</span>
-                            <Input
+                            <Input size="xs"
                               type="text"
                               value={v}
                               onChange={(e) =>
                                 setDetailEditingEnv((prev) => ({ ...prev, [k]: e.target.value }))
                               }
-                              className="h-7 text-xs flex-1"
+                              className="text-xs flex-1"
                               placeholder="值"
                             />
                             <Button
                               type="button"
                               variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 shrink-0"
+                              size="icon-xs"
+                              className="p-0 shrink-0"
                               onClick={() =>
                                 setDetailEditingEnv((prev) => {
                                   const next = { ...prev };
@@ -804,10 +804,10 @@ export function SettingsMCPMarketPanel({
                           </div>
                         ))}
                         <div className="flex items-center gap-2 pt-1">
-                          <Input
+                          <Input size="xs"
                             type="text"
                             id={`env-key-${detailItem.name}`}
-                            className="h-7 text-xs w-28 shrink-0"
+                            className="text-xs w-28 shrink-0"
                             placeholder="变量名"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -825,10 +825,10 @@ export function SettingsMCPMarketPanel({
                               }
                             }}
                           />
-                          <Input
+                          <Input size="xs"
                             type="text"
                             id={`env-val-${detailItem.name}`}
-                            className="h-7 text-xs flex-1"
+                            className="text-xs flex-1"
                             placeholder="值"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -849,8 +849,8 @@ export function SettingsMCPMarketPanel({
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 shrink-0"
+                            size="icon-xs"
+                            className="p-0 shrink-0"
                             onClick={() => {
                               const keyInput = document.getElementById(`env-key-${detailItem.name}`) as HTMLInputElement;
                               const valInput = document.getElementById(`env-val-${detailItem.name}`) as HTMLInputElement;
@@ -879,8 +879,8 @@ export function SettingsMCPMarketPanel({
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
+                      size="xs"
+                      className="text-xs"
                       onClick={() => void handleTestInDialog(detailItem.name)}
                       disabled={detailTestingName === detailItem.name}
                     >
@@ -959,7 +959,7 @@ export function SettingsMCPMarketPanel({
                     type="button"
                     variant="destructive"
                     size="sm"
-                    className="h-8 text-xs"
+                    className="text-xs"
                     onClick={() => {
                       setDetailServer(null);
                       void handleRemove(detailItem.name);
@@ -973,7 +973,7 @@ export function SettingsMCPMarketPanel({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 text-xs"
+                  className="text-xs"
                   onClick={() => setDetailServer(null)}
                 >
                   关闭

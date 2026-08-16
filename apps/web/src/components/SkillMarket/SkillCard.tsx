@@ -89,7 +89,7 @@ export function SkillCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs"
+                className="text-xs"
                 onClick={() => onViewEntry(skill.name)}
                 disabled={isProcessing}
               >
@@ -101,7 +101,7 @@ export function SkillCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs"
+                className="text-xs"
                 onClick={() => onInstall(skill.name)}
                 disabled={isProcessing}
               >
@@ -113,7 +113,7 @@ export function SkillCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs text-warning hover:border-warning/30 hover:bg-warning/5 hover:text-warning"
+                className="text-xs text-warning hover:border-warning/30 hover:bg-warning/5 hover:text-warning"
                 onClick={() => onUpdate(skill.name)}
                 disabled={isProcessing}
               >
@@ -125,7 +125,7 @@ export function SkillCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs text-destructive hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
+                className="text-xs text-destructive hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
                 onClick={() => onUninstall(skill.name)}
                 disabled={isProcessing}
               >
@@ -137,7 +137,7 @@ export function SkillCard({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs text-destructive hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
+                className="text-xs text-destructive hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive"
                 onClick={() => onRemoveStore(skill.name)}
                 disabled={isProcessing}
               >

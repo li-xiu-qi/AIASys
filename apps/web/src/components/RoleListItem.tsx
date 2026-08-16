@@ -145,7 +145,7 @@ export function RoleListItem({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                className="gap-1.5 text-xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   void onEnableDefault(role);
@@ -161,7 +161,7 @@ export function RoleListItem({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5 text-xs"
+                className="gap-1.5 text-xs"
                 onClick={(e) => {
                   e.stopPropagation();
                   void onEnableWorkspace(role);
@@ -183,8 +183,8 @@ export function RoleListItem({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="h-8 w-8 rounded-lg p-0"
+                size="icon-sm"
+                className="rounded-lg p-0"
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(role);
@@ -201,7 +201,7 @@ export function RoleListItem({
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  "h-8 rounded-lg text-destructive hover:text-destructive",
+                  "rounded-lg text-destructive hover:text-destructive",
                   isSystemRole ? "px-2 text-xs" : "w-8 p-0",
                 )}
                 onClick={(e) => {

@@ -104,8 +104,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       <div className="absolute left-3 top-3 z-30 flex flex-col items-center gap-1 rounded-lg border border-slate-200 dark:border-gray-700 bg-white/92 dark:bg-gray-900/92 p-1 shadow-sm backdrop-blur">
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="添加文本节点"
           onClick={onAddTextNode}
         >
@@ -113,8 +112,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="添加文档节点"
           onClick={onAddFileNode}
         >
@@ -122,8 +120,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="添加图片节点"
           onClick={onAddImageNode}
         >
@@ -131,8 +128,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="添加链接节点"
           onClick={onAddLinkNode}
         >
@@ -140,8 +136,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="添加分组"
           onClick={onAddGroupNode}
         >
@@ -150,8 +145,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <div className="my-1 h-px w-5 bg-slate-200" />
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="撤销"
           aria-label="撤销"
           disabled={!canUndo}
@@ -161,8 +155,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="重做"
           aria-label="重做"
           disabled={!canRedo}
@@ -173,8 +166,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <div className="my-1 h-px w-5 bg-slate-200" />
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="横向整理"
           aria-label="横向整理"
           onClick={() => onAutoLayout("horizontal")}
@@ -183,8 +175,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="纵向整理"
           aria-label="纵向整理"
           onClick={() => onAutoLayout("vertical")}
@@ -193,8 +184,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="中心发散整理"
           aria-label="中心发散整理"
           onClick={() => onAutoLayout("radial")}
@@ -204,8 +194,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <div className="my-1 h-px w-5 bg-slate-200" />
         <Button
           variant="ghost"
-          size="icon"
-          className="h-8 w-8"
+          size="icon-sm"
           title="删除选中项"
           disabled={!canDelete}
           onClick={onDeleteSelected}
@@ -215,8 +204,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         {hasSaveTarget && (
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+            size="icon-sm"
             title="保存"
             onClick={onSave}
           >
@@ -228,8 +216,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
             <div className="my-1 h-px w-5 bg-slate-200" />
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8"
+              size="icon-sm"
               title="沉浸预览"
               aria-label="沉浸预览"
               data-testid="canvas-immersive-preview-button"
@@ -261,7 +248,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-none border-b border-slate-100 dark:border-gray-800"
+          className="rounded-none border-b border-slate-100 dark:border-gray-800"
           title="放大"
           onClick={onZoomIn}
         >
@@ -270,7 +257,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-none border-b border-slate-100 dark:border-gray-800"
+          className="rounded-none border-b border-slate-100 dark:border-gray-800"
           title="重置缩放"
           onClick={onResetZoom}
         >
@@ -279,7 +266,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-none border-b border-slate-100 dark:border-gray-800"
+          className="rounded-none border-b border-slate-100 dark:border-gray-800"
           title="适配画布"
           aria-label="适配画布"
           onClick={onFitView}
@@ -289,7 +276,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-none"
+          className="rounded-none"
           title="缩小"
           onClick={onZoomOut}
         >

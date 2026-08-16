@@ -239,9 +239,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    size="sm"
+                    size="icon-sm"
                     variant="ghost"
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-error"
+                    className="p-0 text-muted-foreground hover:text-error"
                     onClick={handleClearAll}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -254,9 +254,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-8 w-8 p-0"
+                  className="p-0"
                   onClick={() => refresh()}
                   disabled={loading}
                 >
@@ -276,7 +276,7 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
             <Button
               variant="ghost"
               size="sm"
-              className="w-full h-8 gap-1.5 text-micro text-muted-foreground rounded-none"
+              className="w-full gap-1.5 text-micro text-muted-foreground rounded-none"
             >
               <Plus className="h-3.5 w-3.5" />
               {spawnOpen ? "收起命令面板" : "新建监控任务"}
@@ -299,8 +299,8 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
               />
               <Button
                 type="button"
-                size="sm"
-                className="h-9 shrink-0 gap-1 rounded-xl px-3 text-caption"
+                size="default"
+                className="shrink-0 gap-1 rounded-xl px-3 text-caption"
                 onClick={() => void handleSpawn()}
                 disabled={spawning || !commandInput.trim()}
               >
@@ -340,13 +340,13 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-micro text-muted-foreground">限时</span>
-                <Input
+                <Input size="xs"
                   type="number"
                   min={1}
                   value={spawnTimeout}
                   onChange={(e) => setSpawnTimeout(e.target.value)}
                   placeholder="秒"
-                  className="h-7 w-20 rounded-md text-micro"
+                  className="w-20 rounded-md text-micro"
                 />
                 <span className="text-micro text-muted-foreground">秒</span>
               </div>
@@ -435,9 +435,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
                     {m.info.status === "running" ? (
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon-xs"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-error hover:bg-error/10 hover:text-error"
+                        className="p-0 text-error hover:bg-error/10 hover:text-error"
                         onClick={() => handleKill(m.info.id)}
                         disabled={killingId === m.info.id}
                         title="终止"
@@ -452,9 +452,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
                       <>
                         <Button
                           type="button"
-                          size="sm"
+                          size="icon-xs"
                           variant="ghost"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                          className="p-0 text-muted-foreground hover:text-foreground"
                           onClick={() => handleRestart(m.info.id, m.info.command)}
                           disabled={restartingId === m.info.id}
                           title="重启"
@@ -467,9 +467,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
                         </Button>
                         <Button
                           type="button"
-                          size="sm"
+                          size="icon-xs"
                           variant="ghost"
-                          className="h-7 w-7 p-0 text-muted-foreground hover:bg-error/10 hover:text-error"
+                          className="p-0 text-muted-foreground hover:bg-error/10 hover:text-error"
                           onClick={() => handleDelete(m.info.id)}
                           disabled={deletingId === m.info.id}
                           title="删除"
@@ -485,9 +485,9 @@ export function WorkspaceMonitorPanel({ userId, sessionId }: WorkspaceMonitorPan
                     {m.segments.length > 0 && (
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon-xs"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        className="p-0 text-muted-foreground hover:text-foreground"
                         onClick={() => {
                           const text = m.segments.map((s) => s.content).join("\n");
                           void handleCopyOutput(text);

@@ -167,18 +167,18 @@ export function ExternalSkillMarketPanel({
         <div className="flex items-center gap-2">
           <div className="relative flex-1 max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Input size="sm"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="搜索技能名称或分类"
-              className="pl-9 h-8 text-xs"
+              className="pl-9 text-xs"
             />
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 text-xs"
+            className="text-xs"
             onClick={() => void refreshItems()}
           >
             刷新
@@ -290,7 +290,7 @@ export function ExternalSkillMarketPanel({
                         type="button"
                         variant={installed ? "secondary" : "accent"}
                         size="sm"
-                        className="h-8 text-xs"
+                        className="text-xs"
                         onClick={(event) => {
                           event.stopPropagation();
                           void openDetail(item.item_id);
@@ -437,7 +437,7 @@ export function ExternalSkillMarketPanel({
                         type="button"
                         variant="accent"
                         size="sm"
-                        className="mt-3 w-full h-8 text-xs"
+                        className="mt-3 w-full text-xs"
                         disabled={
                           !workspaceId ||
                           !selectedSourceId ||
@@ -499,7 +499,7 @@ export function ExternalSkillMarketPanel({
           </div>
           <div className="shrink-0 flex items-center justify-end gap-2 pt-4 border-t border-border">
             {detail?.item.homepage_url ? (
-              <Button variant="outline" size="sm" className="h-8 text-xs" asChild>
+              <Button variant="outline" size="sm" className="text-xs" asChild>
                 <a
                   href={detail.item.homepage_url}
                   target="_blank"
@@ -514,7 +514,7 @@ export function ExternalSkillMarketPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => setDetailOpen(false)}
             >
               关闭

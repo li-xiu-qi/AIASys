@@ -250,8 +250,8 @@ export function EnvVarsPanel({
             <Button
               type="button"
               variant="outline"
-              size="sm"
-              className="h-7 text-xs"
+              size="xs"
+              className="text-xs"
               onClick={() => void loadGlobalEnvVars()}
             >
               重试
@@ -287,7 +287,7 @@ export function EnvVarsPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="mt-3 h-8 text-xs"
+              className="mt-3 text-xs"
               onClick={() => newKeyInputRef.current?.focus()}
             >
               添加环境变量
@@ -313,8 +313,8 @@ export function EnvVarsPanel({
               <span className="text-xs text-muted-foreground">=</span>
 
               {isEditing ? (
-                <Input
-                  className="h-7 text-xs font-mono flex-[2] min-w-0"
+                <Input size="xs"
+                  className="text-xs font-mono flex-[2] min-w-0"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onKeyDown={(e) => {
@@ -392,17 +392,17 @@ export function EnvVarsPanel({
 
       {/* 添加 / 编辑提示 */}
       <div className="grid gap-2 border-t pt-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,2fr)_auto]">
-        <Input
+        <Input size="sm"
           ref={newKeyInputRef}
-          className="h-8 text-xs font-mono flex-1"
+          className="text-xs font-mono flex-1"
           placeholder="KEY"
           value={newKey}
           onChange={(e) => setNewKey(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
         />
         <span className="hidden self-center text-xs text-muted-foreground md:block">=</span>
-        <Input
-          className="h-8 text-xs font-mono flex-[2]"
+        <Input size="sm"
+          className="text-xs font-mono flex-[2]"
           placeholder="value"
           value={newValue}
           onChange={(e) => setNewValue(e.target.value)}
@@ -410,8 +410,8 @@ export function EnvVarsPanel({
         />
         <Button
           variant="outline"
-          size="icon"
-          className="h-8 w-8 shrink-0"
+          size="icon-sm"
+          className="shrink-0"
           disabled={!newKey.trim() || saving}
           onClick={handleAdd}
           aria-label="新增环境变量"

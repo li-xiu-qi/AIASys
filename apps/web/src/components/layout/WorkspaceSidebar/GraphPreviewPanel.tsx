@@ -1228,11 +1228,11 @@ export function GraphPreviewPanel({
                   <div className="min-w-[160px] flex-1">
                     <div className="relative">
                       <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                      <Input
+                      <Input size="xs"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="搜索节点..."
-                        className="h-7 pl-7 text-micro"
+                        className="pl-7 text-micro"
                       />
                       {searchQuery && (
                         <button
@@ -1362,9 +1362,9 @@ export function GraphPreviewPanel({
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant="outline"
-                          className="h-7 px-2 text-micro"
+                          className="px-2 text-micro"
                           onClick={handleStartConnectNode}
                           disabled={!kgId}
                           data-testid="graph-preview-connect-node-button"
@@ -1426,7 +1426,7 @@ export function GraphPreviewPanel({
                     <div className="grid gap-2">
                       <div className="grid gap-1">
                         <label className="text-micro text-muted-foreground">名称</label>
-                        <Input
+                        <Input size="sm"
                           value={newNodeName}
                           onChange={(event) => {
                             setNewNodeName(event.target.value);
@@ -1438,18 +1438,18 @@ export function GraphPreviewPanel({
                             }
                           }}
                           placeholder="输入节点名称"
-                          className="h-8 text-xs"
+                          className="text-xs"
                           disabled={isSavingNewNode}
                           autoFocus
                         />
                       </div>
                       <div className="grid gap-1">
                         <label className="text-micro text-muted-foreground">类型</label>
-                        <Input
+                        <Input size="sm"
                           value={newNodeType}
                           onChange={(event) => setNewNodeType(event.target.value)}
                           placeholder="concept"
-                          className="h-8 text-xs"
+                          className="text-xs"
                           disabled={isSavingNewNode}
                         />
                       </div>
@@ -1471,8 +1471,8 @@ export function GraphPreviewPanel({
                       <div className="flex gap-2 pt-1">
                         <Button
                           type="button"
-                          size="sm"
-                          className="h-7 text-xs"
+                          size="xs"
+                          className="text-xs"
                           onClick={() => void handleCreateNode()}
                           disabled={isSavingNewNode}
                         >
@@ -1485,9 +1485,9 @@ export function GraphPreviewPanel({
                         </Button>
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant="outline"
-                          className="h-7 text-xs"
+                          className="text-xs"
                           onClick={() => {
                             setIsCreatingNode(false);
                             setNewNodeError(null);
@@ -1512,7 +1512,7 @@ export function GraphPreviewPanel({
                         <label className="text-micro text-muted-foreground">搜索目标节点</label>
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                          <Input
+                          <Input size="sm"
                             value={connectTargetSearch}
                             onChange={(event) => {
                               setConnectTargetSearch(event.target.value);
@@ -1520,7 +1520,7 @@ export function GraphPreviewPanel({
                               setRelationSaveError(null);
                             }}
                             placeholder="输入节点名称、类型或描述"
-                            className="h-8 pl-7 text-xs"
+                            className="pl-7 text-xs"
                             disabled={isSavingRelation}
                             data-testid="graph-preview-connect-target-search"
                           />
@@ -1588,25 +1588,25 @@ export function GraphPreviewPanel({
                       </div>
                       <div className="grid gap-1">
                         <label className="text-micro text-muted-foreground">目标节点 ID</label>
-                        <Input
+                        <Input size="sm"
                           value={connectTargetNodeId}
                           onChange={(event) => {
                             setConnectTargetNodeId(event.target.value.trim());
                             setRelationSaveError(null);
                           }}
                           placeholder="搜索选择后自动填入，也可粘贴节点 ID"
-                          className="h-8 text-xs"
+                          className="text-xs"
                           disabled={isSavingRelation}
                           data-testid="graph-preview-connect-target-id"
                         />
                       </div>
                       <div className="grid gap-1">
                         <label className="text-micro text-muted-foreground">关系类型</label>
-                        <Input
+                        <Input size="sm"
                           value={connectRelationType}
                           onChange={(event) => setConnectRelationType(event.target.value)}
                           placeholder="related_to"
-                          className="h-8 text-xs"
+                          className="text-xs"
                           disabled={isSavingRelation}
                         />
                       </div>
@@ -1628,8 +1628,8 @@ export function GraphPreviewPanel({
                       <div className="flex gap-2 pt-1">
                         <Button
                           type="button"
-                          size="sm"
-                          className="h-7 text-xs"
+                          size="xs"
+                          className="text-xs"
                           onClick={() => void handleCreateRelation()}
                           disabled={
                             isSavingRelation ||
@@ -1645,9 +1645,9 @@ export function GraphPreviewPanel({
                         </Button>
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant="outline"
-                          className="h-7 text-xs"
+                          className="text-xs"
                           onClick={() => {
                             setIsConnectingNode(false);
                             setRelationSaveError(null);
@@ -1666,19 +1666,19 @@ export function GraphPreviewPanel({
                         <div className="space-y-2">
                           <div>
                             <label className="text-micro text-muted-foreground">名称</label>
-                            <Input
+                            <Input size="xs"
                               value={editNodeName}
                               onChange={(e) => setEditNodeName(e.target.value)}
-                              className="mt-0.5 h-7 text-xs"
+                              className="mt-0.5 text-xs"
                               disabled={isSavingNode}
                             />
                           </div>
                           <div>
                             <label className="text-micro text-muted-foreground">类型</label>
-                            <Input
+                            <Input size="xs"
                               value={editNodeType}
                               onChange={(e) => setEditNodeType(e.target.value)}
-                              className="mt-0.5 h-7 text-xs"
+                              className="mt-0.5 text-xs"
                               disabled={isSavingNode}
                             />
                           </div>
@@ -1699,7 +1699,7 @@ export function GraphPreviewPanel({
                               ) : (
                                 Object.entries(editNodeProperties).map(([key, value]) => (
                                   <div key={key} className="flex gap-1.5">
-                                    <Input
+                                    <Input size="xs"
                                       value={key}
                                       onChange={(e) => {
                                         const newKey = e.target.value;
@@ -1713,10 +1713,10 @@ export function GraphPreviewPanel({
                                         });
                                       }}
                                       placeholder="属性名"
-                                      className="h-7 text-xs"
+                                      className="text-xs"
                                       disabled={isSavingNode}
                                     />
-                                    <Input
+                                    <Input size="xs"
                                       value={value}
                                       onChange={(e) => {
                                         const newValue = e.target.value;
@@ -1726,14 +1726,14 @@ export function GraphPreviewPanel({
                                         }));
                                       }}
                                       placeholder="属性值"
-                                      className="h-7 text-xs"
+                                      className="text-xs"
                                       disabled={isSavingNode}
                                     />
                                     <Button
                                       type="button"
-                                      size="sm"
+                                      size="icon-xs"
                                       variant="ghost"
-                                      className="h-7 w-7 shrink-0 p-0"
+                                      className="shrink-0 p-0"
                                       onClick={() => {
                                         setEditNodeProperties((prev) => {
                                           const { [key]: _, ...rest } = prev;
@@ -1749,9 +1749,9 @@ export function GraphPreviewPanel({
                               )}
                               <Button
                                 type="button"
-                                size="sm"
+                                size="xs"
                                 variant="outline"
-                                className="h-7 text-micro"
+                                className="text-micro"
                                 onClick={() => {
                                   setEditNodeProperties((prev) => ({
                                     ...prev,
@@ -1772,8 +1772,8 @@ export function GraphPreviewPanel({
                           <div className="flex gap-2 pt-1">
                             <Button
                               type="button"
-                              size="sm"
-                              className="h-7 text-xs"
+                              size="xs"
+                              className="text-xs"
                               onClick={() => void handleSaveNode()}
                               disabled={isSavingNode}
                             >
@@ -1786,9 +1786,9 @@ export function GraphPreviewPanel({
                             </Button>
                             <Button
                               type="button"
-                              size="sm"
+                              size="xs"
                               variant="outline"
-                              className="h-7 text-xs"
+                              className="text-xs"
                               onClick={() => {
                                 setIsEditingNode(false);
                                 setNodeSaveError(null);

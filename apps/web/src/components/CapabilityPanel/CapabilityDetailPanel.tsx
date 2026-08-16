@@ -610,7 +610,7 @@ export function CapabilityDetailPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => setMcpConfigOpen(false)}
             >
               取消
@@ -618,7 +618,7 @@ export function CapabilityDetailPanel({
             <Button
               type="button"
               size="sm"
-              className="h-8 text-xs"
+              className="text-xs"
               onClick={() => void handleMcpConfigInstall()}
             >
               安装

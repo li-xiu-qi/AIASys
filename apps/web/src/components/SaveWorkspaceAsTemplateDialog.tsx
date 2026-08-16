@@ -342,8 +342,8 @@ export function SaveWorkspaceAsTemplateDialog({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="h-7 gap-1 text-micro"
+                    size="xs"
+                    className="gap-1 text-micro"
                     disabled={isLoadingFiles || workspaceFiles.length === 0}
                   >
                     <Settings2 className="h-3 w-3" />
@@ -385,11 +385,11 @@ export function SaveWorkspaceAsTemplateDialog({
                         添加自定义规则
                       </p>
                       <div className="flex gap-1">
-                        <Input
+                        <Input size="xs"
                           value={customRuleInput}
                           onChange={(e) => setCustomRuleInput(e.target.value)}
                           placeholder="如 *.bak、temp/"
-                          className="h-7 text-micro"
+                          className="text-micro"
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -399,8 +399,8 @@ export function SaveWorkspaceAsTemplateDialog({
                         />
                         <Button
                           type="button"
-                          size="sm"
-                          className="h-7 px-2 text-micro"
+                          size="xs"
+                          className="px-2 text-micro"
                           onClick={handleAddCustomRule}
                         >
                           添加

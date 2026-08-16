@@ -2095,7 +2095,7 @@ const WorkspaceAssetPanelComponent: React.FC<WorkspaceAssetPanelProps> = ({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="mt-4 h-8 text-xs"
+                    className="mt-4 text-xs"
                     onClick={onOpenWorkspaceSettings}
                   >
                     管理全局资源

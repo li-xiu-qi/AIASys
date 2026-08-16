@@ -59,8 +59,8 @@ export function ChartCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  size="icon-xs"
+                  className="text-muted-foreground hover:text-foreground"
                   disabled={!canExportPng}
                   onClick={onExportPng}
                   aria-label="导出 PNG"

@@ -132,8 +132,7 @@ export const CanvasPropertiesPanel: React.FC<CanvasPropertiesPanelProps> = ({
         <Button
           type="button"
           variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+          size="icon-xs"
           aria-label="关闭属性面板"
           onClick={onClose}
         >
@@ -252,7 +251,7 @@ export const CanvasPropertiesPanel: React.FC<CanvasPropertiesPanelProps> = ({
                   })
                 }
               >
-                <SelectTrigger className="h-9" aria-label="连线箭头">
+                <SelectTrigger aria-label="连线箭头">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

@@ -214,12 +214,12 @@ export function GlobalMonitorDialog({
               ))}
               <div className="ml-auto flex items-center gap-2">
                 <Search className="h-3.5 w-3.5 text-muted-foreground" />
-                <Input
+                <Input size="sm"
                   type="text"
                   placeholder="搜索命令、工作区..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 w-48 rounded-lg text-micro"
+                  className="w-48 rounded-lg text-micro"
                 />
               </div>
             </div>
@@ -248,7 +248,7 @@ export function GlobalMonitorDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-micro"
+                    className="gap-1.5 text-micro"
                     onClick={() => void loadMonitorState()}
                     disabled={isLoading}
                   >
@@ -339,9 +339,9 @@ export function GlobalMonitorDialog({
                           {monitor.status === "running" && (
                             <Button
                               type="button"
-                              size="sm"
+                              size="icon-xs"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-error hover:bg-error/10 hover:text-error"
+                              className="p-0 text-error hover:bg-error/10 hover:text-error"
                               onClick={() => handleKill(monitor)}
                               disabled={pendingId === monitor.id}
                               title="终止"
@@ -352,9 +352,9 @@ export function GlobalMonitorDialog({
                           {monitor.status !== "running" && (
                             <Button
                               type="button"
-                              size="sm"
+                              size="icon-xs"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-muted-foreground hover:bg-error/10 hover:text-error"
+                              className="p-0 text-muted-foreground hover:bg-error/10 hover:text-error"
                               onClick={() => handleDelete(monitor)}
                               disabled={pendingId === monitor.id}
                               title="删除"

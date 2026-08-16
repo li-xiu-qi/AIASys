@@ -210,7 +210,7 @@ export function WorkspaceAutoTaskPanel({
             <Button
               type="button"
               size="sm"
-              className="h-8 gap-1.5 rounded-xl px-3 text-caption"
+              className="gap-1.5 rounded-xl px-3 text-caption"
               onClick={() => setCategorySelectorOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -220,7 +220,7 @@ export function WorkspaceAutoTaskPanel({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 rounded-xl px-3 text-caption"
+              className="gap-1.5 rounded-xl px-3 text-caption"
               onClick={() => void autoTask.loadAutoTasks()}
               disabled={autoTask.isLoading}
             >

@@ -275,7 +275,7 @@ export function WorkspaceCollaborationPolicyPanel({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8 shrink-0"
+            className="shrink-0"
             onClick={onOpenDetails}
             disabled={!onOpenDetails}
             data-testid="open-workspace-collaboration-settings"
@@ -439,7 +439,6 @@ export function WorkspaceCollaborationPolicyPanel({
                         max={5}
                         value={maxDepth}
                         onChange={(event) => setMaxDepth(event.target.value)}
-                        className="h-9"
                         disabled={false}
                       />
                     </div>
@@ -455,7 +454,6 @@ export function WorkspaceCollaborationPolicyPanel({
                         placeholder="默认"
                         value={maxThreads}
                         onChange={(event) => setMaxThreads(event.target.value)}
-                        className="h-9"
                         disabled={false}
                       />
                     </div>

@@ -94,8 +94,8 @@ export function RoleVisibilityPopover({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
-          className="h-8 w-8 rounded-lg p-0"
+          size="icon-sm"
+          className="rounded-lg p-0"
           title={triggerTitle}
           aria-label={`${role.displayName} 协作专家启用策略`}
           data-testid={`role-visibility-trigger-${role.name}`}
@@ -203,7 +203,6 @@ export function RoleVisibilityPopover({
             type="button"
             size="sm"
             variant="outline"
-            className="h-8"
             onClick={() => setOpen(false)}
           >
             关闭
@@ -211,7 +210,6 @@ export function RoleVisibilityPopover({
           <Button
             type="button"
             size="sm"
-            className="h-8"
             onClick={() => void handleSave()}
             disabled={readonly || saving || !changed}
             data-testid={`role-visibility-save-${role.name}`}

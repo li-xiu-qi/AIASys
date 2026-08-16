@@ -108,11 +108,11 @@ export function DatabaseSchemaTree({
         </div>
         <div className="mt-2 relative">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-          <Input
+          <Input size="xs"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索表..."
-            className="h-7 pl-7 text-micro"
+            className="pl-7 text-micro"
           />
         </div>
       </div>

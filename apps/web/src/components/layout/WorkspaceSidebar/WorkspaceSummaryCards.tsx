@@ -237,7 +237,7 @@ export function WorkspaceResourceMountCard({
             <Button
               type="button"
               size="sm"
-              className="h-8 rounded-xl px-3 text-caption"
+              className="rounded-xl px-3 text-caption"
               onClick={onAction}
             >
               {actionLabel}
@@ -248,7 +248,7 @@ export function WorkspaceResourceMountCard({
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 rounded-xl px-3 text-caption"
+              className="rounded-xl px-3 text-caption"
               onClick={onSecondaryAction}
             >
               {secondaryActionLabel}
@@ -348,7 +348,7 @@ export function LocalResourceCard({
           <Button
             type="button"
             size="sm"
-            className="h-8 rounded-xl px-3 text-caption"
+            className="rounded-xl px-3 text-caption"
             onClick={onAction}
           >
             {actionLabel}
@@ -359,7 +359,7 @@ export function LocalResourceCard({
             type="button"
             variant="outline"
             size="sm"
-            className="h-8 rounded-xl px-3 text-caption"
+            className="rounded-xl px-3 text-caption"
             onClick={onCreate}
           >
             {createLabel}

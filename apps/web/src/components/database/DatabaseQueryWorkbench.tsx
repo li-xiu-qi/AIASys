@@ -425,7 +425,7 @@ export function DatabaseQueryWorkbench({
               onValueChange={setSelectedHandle}
               disabled={loadingHandles || handles.length === 0}
             >
-              <SelectTrigger className="h-8 text-caption">
+              <SelectTrigger size="sm" className="text-caption">
                 <SelectValue placeholder={loadingHandles ? "加载中..." : "选择数据源"} />
               </SelectTrigger>
               <SelectContent>

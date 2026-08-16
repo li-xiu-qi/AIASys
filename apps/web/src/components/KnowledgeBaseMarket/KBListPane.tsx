@@ -141,9 +141,8 @@ export function KBListPane({
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
-                          size="icon"
+                          size="icon-sm"
                           className={cn(
-                            "h-8 w-8",
                             isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100",
                           )}
                           onClick={(event) => event.stopPropagation()}

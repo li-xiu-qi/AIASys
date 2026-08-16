@@ -519,7 +519,7 @@ export function DesignSidebarHistorySection({
                             </div>
                             {workspace.description ? (
                               <div
-                                className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-muted-foreground"
+                                className="mt-0.5 line-clamp-2 text-micro leading-4 text-muted-foreground"
                                 title={workspace.description}
                               >
                                 {workspace.description}

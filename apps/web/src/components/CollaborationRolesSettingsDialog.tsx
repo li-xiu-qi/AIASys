@@ -112,10 +112,10 @@ export function CollaborationRolesSettingsDialog({
                 <div className="flex h-full flex-col gap-3">
                   {/* 来源标识 */}
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-tertiary/30 bg-tertiary-container px-3 py-1 text-[11px] text-on-tertiary-container">
+                    <span className="rounded-full border border-tertiary/30 bg-tertiary-container px-3 py-1 text-micro text-on-tertiary-container">
                       AIASys
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-micro text-muted-foreground">
                       系统内置协作专家
                     </span>
                   </div>

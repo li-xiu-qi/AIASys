@@ -122,7 +122,7 @@ export function KBListPane({
                             {kb.document_count || 0} 个文档
                           </div>
                           <div
-                            className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[11px] ${getStatusBadge(kb).className}`}
+                            className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-micro ${getStatusBadge(kb).className}`}
                           >
                             {getStatusBadge(kb).label}
                           </div>

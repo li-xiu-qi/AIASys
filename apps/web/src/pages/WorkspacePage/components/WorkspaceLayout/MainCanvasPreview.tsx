@@ -114,7 +114,7 @@ function getReadablePath(file: PreviewFile): string {
 function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-micro text-muted-foreground">{label}</div>
       <div
         className="mt-1 truncate font-medium text-foreground"
         title={value || "未记录"}
@@ -197,7 +197,7 @@ export function MainCanvasPreview({
           <div className="text-sm font-semibold text-foreground">
             文件信息
           </div>
-          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+          <div className="mt-0.5 truncate text-micro text-muted-foreground">
             {readablePath}
           </div>
         </div>
@@ -245,7 +245,7 @@ export function MainCanvasPreview({
                 <div className="text-sm font-semibold text-foreground">
                   当前列表
                 </div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
+                <div className="mt-1 text-micro text-muted-foreground">
                   {workspaceFiles.length} 个文件
                 </div>
               </div>
@@ -259,17 +259,17 @@ export function MainCanvasPreview({
                     onClick={() => onOpenWorkspaceFile?.(entry.name)}
                     className="block w-full rounded-lg border border-border bg-white px-3 py-2 text-left transition-colors hover:bg-muted/60"
                   >
-                    <div className="truncate text-[12px] font-semibold text-foreground">
+                    <div className="truncate text-caption font-semibold text-foreground">
                       {entry.name}
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-2 text-micro text-muted-foreground">
                       <span>{formatFileSize(entry.size)}</span>
                       <span>{formatDateTime(entry.mtime)}</span>
                     </div>
                   </button>
                 ))
               ) : (
-                <div className="rounded-lg border border-dashed border-border px-3 py-3 text-[12px] text-muted-foreground">
+                <div className="rounded-lg border border-dashed border-border px-3 py-3 text-caption text-muted-foreground">
                   当前列表里没有其他可切换文件。
                 </div>
               )}
@@ -307,7 +307,7 @@ export function MainCanvasPreview({
                 {fileName}
               </h2>
               <div
-                className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
+                className="mt-0.5 truncate font-mono text-micro text-muted-foreground"
                 title={readablePath}
               >
                 {scopeLabel} / {readablePath}
@@ -315,31 +315,31 @@ export function MainCanvasPreview({
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {fileCategoryLabel}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {fileTypeLabel}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="hidden rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground 2xl:inline-flex"
+                  className="hidden rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground 2xl:inline-flex"
                 >
                   {extension}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {formatFileSize(file.size)}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {canEditFile ? "可编辑" : "只读"}
                 </Badge>
@@ -407,7 +407,7 @@ export function MainCanvasPreview({
                   {fileName}
                 </h2>
                 <div
-                  className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground"
+                  className="mt-0.5 truncate font-mono text-micro text-muted-foreground"
                   title={readablePath}
                 >
                   {scopeLabel} / {readablePath}
@@ -416,19 +416,19 @@ export function MainCanvasPreview({
               <div className="hidden items-center gap-1.5 lg:flex">
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {fileTypeLabel}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {formatFileSize(file.size)}
                 </Badge>
                 <Badge
                   variant="outline"
-                  className="rounded-md border-border bg-white px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-md border-border bg-white px-2 py-0.5 text-nano text-muted-foreground"
                 >
                   {canEditFile ? "可编辑" : "只读"}
                 </Badge>

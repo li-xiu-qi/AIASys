@@ -130,7 +130,7 @@ export function ExternalMCPMarketPanel({
                   key={source.source_id}
                   type="button"
                   onClick={() => setSelectedSourceId(source.source_id)}
-                  className={`rounded-full border px-3 py-1 text-[11px] transition-colors ${
+                  className={`rounded-full border px-3 py-1 text-micro transition-colors ${
                     active
                       ? "border-tertiary/30 bg-tertiary-container text-on-tertiary-container"
                       : "border-border bg-card text-muted-foreground hover:bg-accent"
@@ -142,7 +142,7 @@ export function ExternalMCPMarketPanel({
             })
           )}
           <div className="flex-1" />
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-micro text-muted-foreground">
             {loadedCount} 条
           </span>
         </div>
@@ -204,7 +204,7 @@ export function ExternalMCPMarketPanel({
                     <div className="line-clamp-2 min-h-[2rem] text-sm font-semibold leading-5 text-foreground">
                       {item.display_name}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                    <div className="mt-0.5 text-micro text-muted-foreground">
                       {item.publisher || "未标注作者"}
                     </div>
                   </div>
@@ -222,7 +222,7 @@ export function ExternalMCPMarketPanel({
                       </a>
                     ) : null}
                     {item.is_hosted ? (
-                      <Badge variant="secondary" className="text-[10px] shrink-0">Hosted</Badge>
+                      <Badge variant="secondary" className="text-nano shrink-0">Hosted</Badge>
                     ) : null}
                     <Button
                       type="button"
@@ -254,7 +254,7 @@ export function ExternalMCPMarketPanel({
                     <Badge
                       key={`${item.item_id}-${category}`}
                       variant="outline"
-                      className="text-[10px]"
+                      className="text-nano"
                     >
                       {category}
                     </Badge>
@@ -271,7 +271,7 @@ export function ExternalMCPMarketPanel({
 
         {loadedCount > 0 ? (
           <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="text-[11px] text-muted-foreground">
+            <div className="text-micro text-muted-foreground">
               已加载 {loadedCount} 条
             </div>
             {hasMore ? (
@@ -289,7 +289,7 @@ export function ExternalMCPMarketPanel({
                 加载更多
               </Button>
             ) : (
-              <div className="text-[11px] text-muted-foreground">已加载全部</div>
+              <div className="text-micro text-muted-foreground">已加载全部</div>
             )}
           </div>
         ) : null}
@@ -316,14 +316,14 @@ export function ExternalMCPMarketPanel({
               <div className="min-w-0 space-y-4">
                 <div className="rounded-xl border border-border bg-muted/50 p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-nano">
                       {detail.source.display_name}
                     </Badge>
                     {detail.item.publisher ? (
-                      <Badge variant="outline" className="text-[10px]">{detail.item.publisher}</Badge>
+                      <Badge variant="outline" className="text-nano">{detail.item.publisher}</Badge>
                     ) : null}
                     {detail.item.is_hosted ? (
-                      <Badge variant="secondary" className="text-[10px]">支持托管</Badge>
+                      <Badge variant="secondary" className="text-nano">支持托管</Badge>
                     ) : null}
                   </div>
                   <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -390,14 +390,14 @@ export function ExternalMCPMarketPanel({
                             <div className="text-sm font-medium text-foreground">
                               {template.import_name}
                             </div>
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge variant="outline" className="text-nano">
                               {template.transport_type}
                             </Badge>
                           </div>
-                          <div className="mt-1 break-all text-[11px] text-muted-foreground">
+                          <div className="mt-1 break-all text-micro text-muted-foreground">
                             {template.target || "模板未提供连接目标"}
                           </div>
-                          <div className="mt-2 flex min-w-0 flex-wrap gap-2 text-[11px] text-muted-foreground">
+                          <div className="mt-2 flex min-w-0 flex-wrap gap-2 text-micro text-muted-foreground">
                             {template.args.length > 0 ? (
                               <span className="break-all">
                                 args: {template.args.join(" ")}
@@ -431,10 +431,10 @@ export function ExternalMCPMarketPanel({
                           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                             {field.name}
                             {field.required ? (
-                              <Badge variant="secondary" className="text-[10px]">必填</Badge>
+                              <Badge variant="secondary" className="text-nano">必填</Badge>
                             ) : null}
                           </div>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          <div className="mt-0.5 text-micro text-muted-foreground">
                             {field.description || "未提供说明"}
                           </div>
                           <Input

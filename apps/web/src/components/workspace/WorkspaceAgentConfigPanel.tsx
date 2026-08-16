@@ -267,7 +267,7 @@ export function WorkspaceAgentConfigPanel({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 text-[11px]"
+              className="h-7 text-micro"
               onClick={handleReset}
               disabled={saving}
             >
@@ -276,7 +276,7 @@ export function WorkspaceAgentConfigPanel({
             </Button>
           </div>
         </div>
-        <p className="mt-1 text-[11px] text-muted-foreground">
+        <p className="mt-1 text-micro text-muted-foreground">
           {isUserScope
             ? "用户默认配置会作为所有工作区的基线。未在工作区覆盖的项将继承这里的设置。"
             : "覆盖用户默认配置，仅对当前工作区生效。未覆盖的项继承自用户默认。"}
@@ -304,7 +304,7 @@ export function WorkspaceAgentConfigPanel({
           <CollapsibleContent>
             <div className="px-2 pb-3 pt-1 space-y-2">
               {!isUserScope && userConfig?.prompt_content ? (
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-micro text-muted-foreground">
                   <div className="mb-1 font-medium">继承的用户默认工作说明：</div>
                   <div className="line-clamp-3">{userConfig.prompt_content}</div>
                 </div>
@@ -323,7 +323,7 @@ export function WorkspaceAgentConfigPanel({
                 className="min-h-[100px] text-xs"
               />
               <div className="flex items-center justify-between">
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-nano text-muted-foreground">
                   {!isUserScope && (
                     <>
                       {getSourceLabel(promptSource)}
@@ -333,7 +333,7 @@ export function WorkspaceAgentConfigPanel({
                 </div>
                 <Button
                   size="sm"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-micro"
                   onClick={savePrompt}
                   disabled={saving}
                 >
@@ -359,7 +359,7 @@ export function WorkspaceAgentConfigPanel({
           <CollapsibleContent>
             <div className="px-2 pb-3 pt-1 space-y-2">
               {!isUserScope && (
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-micro text-muted-foreground">
                   用户默认策略：{TOOL_STRATEGY_OPTIONS.find(o => o.value === userConfig?.tool_strategy)?.label ?? "自动（系统基线）"}
                 </div>
               )}
@@ -376,7 +376,7 @@ export function WorkspaceAgentConfigPanel({
                     <SelectItem key={opt.value} value={opt.value} className="text-xs">
                       <div>
                         <div>{opt.label}</div>
-                        <div className="text-[10px] text-muted-foreground">{opt.description}</div>
+                        <div className="text-nano text-muted-foreground">{opt.description}</div>
                       </div>
                     </SelectItem>
                   ))}
@@ -384,7 +384,7 @@ export function WorkspaceAgentConfigPanel({
               </Select>
 
               {!isUserScope && mergedConfig ? (
-                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px]">
+                <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-micro">
                   <div className="font-medium text-muted-foreground">当前生效的工具策略</div>
                   <div className="mt-1">
                     {TOOL_STRATEGY_OPTIONS.find(o => o.value === mergedConfig.tool_strategy)?.label ?? mergedConfig.tool_strategy}
@@ -396,7 +396,7 @@ export function WorkspaceAgentConfigPanel({
               <div className="flex justify-end">
                 <Button
                   size="sm"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-micro"
                   onClick={saveTools}
                   disabled={saving}
                 >
@@ -422,7 +422,7 @@ export function WorkspaceAgentConfigPanel({
           <CollapsibleContent>
             <div className="px-2 pb-3 pt-1 space-y-3">
               <div className="space-y-1">
-                <Label className="text-[11px]">保留上下文空间</Label>
+                <Label className="text-micro">保留上下文空间</Label>
                 <Input
                   type="number"
                   min={1000}
@@ -431,13 +431,13 @@ export function WorkspaceAgentConfigPanel({
                   className="h-8 text-xs"
                 />
                 {!isUserScope && (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-nano text-muted-foreground">
                     用户默认：{userConfig?.reserved_context_size ?? "系统基线"}
                   </div>
                 )}
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px]">自动压缩触发比例</Label>
+                <Label className="text-micro">自动压缩触发比例</Label>
                 <Input
                   type="number"
                   min={0.5}
@@ -448,14 +448,14 @@ export function WorkspaceAgentConfigPanel({
                   className="h-8 text-xs"
                 />
                 {!isUserScope && (
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-nano text-muted-foreground">
                     用户默认：{userConfig?.compaction_trigger_ratio ?? "系统基线"}
                   </div>
                 )}
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="text-[10px] text-muted-foreground">
+                <div className="text-nano text-muted-foreground">
                   {!isUserScope && (
                     <>
                       {getSourceLabel(runtimeSource)}
@@ -465,7 +465,7 @@ export function WorkspaceAgentConfigPanel({
                 </div>
                 <Button
                   size="sm"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-micro"
                   onClick={saveRuntime}
                   disabled={saving}
                 >
@@ -482,7 +482,7 @@ export function WorkspaceAgentConfigPanel({
         {/* Global Save */}
         <div className="px-2 py-2">
           <Button
-            className="w-full h-8 text-[11px]"
+            className="w-full h-8 text-micro"
             onClick={saveAll}
             disabled={saving}
           >

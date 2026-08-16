@@ -113,7 +113,7 @@ export function SessionLifecycleDialogs({
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="conversation">
                 对话上下文
-                <span className="ml-2 text-[11px] text-muted-foreground">
+                <span className="ml-2 text-micro text-muted-foreground">
                   {conversationHistoryMessages.length +
                     historicalConversationBatches.reduce(
                       (total, batch) => total + batch.messages.length,
@@ -124,7 +124,7 @@ export function SessionLifecycleDialogs({
 
               <TabsTrigger value="execution">
                 代码执行
-                <span className="ml-2 text-[11px] text-muted-foreground">
+                <span className="ml-2 text-micro text-muted-foreground">
                   {executionRecordsSummary?.execution_record_count ??
                     effectiveSessionStatus?.execution_record_count ??
                     0}

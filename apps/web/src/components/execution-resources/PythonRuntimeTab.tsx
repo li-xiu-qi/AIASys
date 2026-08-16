@@ -482,7 +482,7 @@ export function PythonRuntimeTab({
                       Python {env.python_version || "未探测"} · {runtimeStatusLabel(env.status)}
                     </div>
                     <div
-                      className="truncate font-mono text-[11px] text-muted-foreground"
+                      className="truncate font-mono text-micro text-muted-foreground"
                       title={env.python_executable || env.material_path || env.env_id}
                     >
                       {env.python_executable || env.material_path || env.env_id}

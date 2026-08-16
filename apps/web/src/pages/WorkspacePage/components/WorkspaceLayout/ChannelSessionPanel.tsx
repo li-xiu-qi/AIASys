@@ -300,7 +300,7 @@ export function ChannelSessionPanel({
                 : "管理通信渠道频道资产，创建微信、飞书或钉钉频道。"}
             </div>
             {sessionId && binding ? (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-micro">
                 <span className={`font-medium ${statusColor}`}>{statusLabel}</span>
                 {selectedChannel?.name ? (
                   <span className="text-muted-foreground">

@@ -359,11 +359,11 @@ export function SkillMarket({
                             <KeyRound className="h-3.5 w-3.5 text-warning" />
                             {field.name}
                             {field.required ? (
-                              <Badge variant="secondary" className="text-[10px]">必填</Badge>
+                              <Badge variant="secondary" className="text-nano">必填</Badge>
                             ) : null}
                           </div>
                           {field.description ? (
-                            <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            <div className="mt-0.5 text-micro text-muted-foreground">
                               {field.description}
                             </div>
                           ) : null}

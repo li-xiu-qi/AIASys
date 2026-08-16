@@ -124,7 +124,7 @@ export const CanvasPropertiesPanel: React.FC<CanvasPropertiesPanelProps> = ({
                     "节点"
                 : selectedEdge?.label || "连线"}
             </div>
-            <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="mt-0.5 text-micro text-slate-500 dark:text-slate-400">
               {selectedNode ? "节点属性" : "连线属性"}
             </div>
           </div>

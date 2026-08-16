@@ -68,7 +68,7 @@ export const Header = () => {
               type="button"
               key={item.label}
               onClick={() => handleNavClick(item)}
-              className="text-[13px] font-medium tracking-[0.01em] text-muted-foreground transition-colors duration-200 hover:text-foreground"
+              className="text-body font-medium tracking-[0.01em] text-muted-foreground transition-colors duration-200 hover:text-foreground"
             >
               {item.label}
             </button>

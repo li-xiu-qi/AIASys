@@ -283,7 +283,7 @@ export function AutoTaskEditorDialog({
               {feedback ? (
                 <div
                   className={cn(
-                    "max-w-md rounded-xl border px-3 py-2 text-[12px] leading-5",
+                    "max-w-md rounded-xl border px-3 py-2 text-caption leading-5",
                     feedback.tone === "success"
                       ? "border-success/20 bg-success-container text-success"
                       : "border-error/20 bg-error-container text-error",
@@ -384,7 +384,7 @@ export function AutoTaskEditorDialog({
 
           <div className="border-t border-border bg-background px-6 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
+              <div className="flex min-w-0 items-center gap-2 text-caption text-muted-foreground">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="truncate">{footerHint}</span>
               </div>

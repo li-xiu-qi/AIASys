@@ -447,7 +447,7 @@ export const InputArea = memo(function InputArea({
         }) && (
           <div
             role="alert"
-            className="mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800"
+            className="mb-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-micro text-amber-800"
           >
             <AlertCircle size={13} className="flex-shrink-0 text-amber-600" />
             <span>

@@ -43,7 +43,7 @@ export function ModelCapabilityBadges({
       {labels.map((label) => (
         <span
           key={label}
-          className="rounded bg-muted px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
+          className="rounded bg-muted px-1 py-0.5 text-nano leading-none text-muted-foreground"
         >
           {label}
         </span>

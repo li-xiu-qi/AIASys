@@ -400,7 +400,7 @@ export function UploadDialog({
                       {uploadProgress[file.name] !== undefined ? (
                         <div className="mt-1 flex items-center gap-2">
                           <Progress value={uploadProgress[file.name]} className="h-1 flex-1" />
-                          <span className="text-[10px]">{Math.round(uploadProgress[file.name])}%</span>
+                          <span className="text-nano">{Math.round(uploadProgress[file.name])}%</span>
                         </div>
                       ) : null}
                     </div>

@@ -221,23 +221,23 @@ const ConversationItem = React.memo(function ConversationItem({
               {conversation.title || "未命名对话"}
             </div>
             {isSwitchPending ? (
-              <span className="rounded-full bg-info-container px-2 py-0.5 text-[10px] font-medium text-info">
+              <span className="rounded-full bg-info-container px-2 py-0.5 text-nano font-medium text-info">
                 切换中...
               </span>
             ) : null}
             {isSwitchSucceeded ? (
-              <span className="rounded-full bg-success-container px-2 py-0.5 text-[10px] font-medium text-success">
+              <span className="rounded-full bg-success-container px-2 py-0.5 text-nano font-medium text-success">
                 切换成功
               </span>
             ) : null}
             {conversation.branched_from_conversation_id ? (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-nano font-medium text-muted-foreground">
                 Fork
               </span>
             ) : null}
           </div>
 
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 text-micro text-muted-foreground">
             创建{" "}
             {formatConversationTimestamp(conversation.created_at)}
             {" · "}
@@ -245,7 +245,7 @@ const ConversationItem = React.memo(function ConversationItem({
             {formatConversationTimestamp(conversation.updated_at)}
           </div>
 
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 text-micro text-muted-foreground">
             {conversation.message_count} 条消息
             {" · "}
             {conversation.execution_record_count ?? 0} 次执行
@@ -253,7 +253,7 @@ const ConversationItem = React.memo(function ConversationItem({
 
           {conversation.last_user_preview ? (
             <div
-              className="mt-1 truncate text-[11px] text-muted-foreground/80"
+              className="mt-1 truncate text-micro text-muted-foreground/80"
               title={conversation.last_user_preview}
             >
               最后一问：{conversation.last_user_preview}

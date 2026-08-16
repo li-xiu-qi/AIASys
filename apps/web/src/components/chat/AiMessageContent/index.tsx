@@ -463,15 +463,15 @@ export const AiMessageContent = memo(function AiMessageContent({
                   <line x1="8" y1="21" x2="16" y2="21" />
                   <line x1="12" y1="17" x2="12" y2="21" />
                 </svg>
-                <span className="text-[11px] font-medium text-foreground/80 truncate">
+                <span className="text-micro font-medium text-foreground/80 truncate">
                   Monitor {seg.monitorCommand}
                 </span>
-                <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded ${seg.isError ? "bg-red-100 text-red-700" : seg.isComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                <span className={`text-nano ml-auto px-1.5 py-0.5 rounded ${seg.isError ? "bg-red-100 text-red-700" : seg.isComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                   {statusText}{seg.monitorExitCode !== null && seg.monitorExitCode !== undefined ? ` (${seg.monitorExitCode})` : ""}
                 </span>
               </div>
               {seg.content && (
-                <pre className="px-3 py-2 text-[11px] font-mono text-muted-foreground max-h-48 overflow-auto whitespace-pre-wrap break-all">
+                <pre className="px-3 py-2 text-micro font-mono text-muted-foreground max-h-48 overflow-auto whitespace-pre-wrap break-all">
                   {seg.content}
                 </pre>
               )}
@@ -479,7 +479,7 @@ export const AiMessageContent = memo(function AiMessageContent({
                 <div className="px-3 py-1.5 border-t border-black/5">
                   <div className="flex items-center gap-1.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-[10px] text-muted-foreground">后台运行中...</span>
+                    <span className="text-nano text-muted-foreground">后台运行中...</span>
                   </div>
                 </div>
               )}
@@ -493,7 +493,7 @@ export const AiMessageContent = memo(function AiMessageContent({
               className="flex w-full items-center gap-3 my-4"
             >
               <div className="h-px flex-1 bg-border/70" />
-              <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-nano font-medium text-muted-foreground whitespace-nowrap">
                 Turn {seg.turnN ?? "?"}
               </span>
               <div className="h-px flex-1 bg-border/70" />
@@ -559,7 +559,7 @@ export const AiMessageContent = memo(function AiMessageContent({
               <button
                 type="button"
                 onClick={() => void onRetryLastSubmit()}
-                className="mt-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+                className="mt-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-micro font-medium text-foreground transition-colors hover:bg-muted"
               >
                 <RotateCcw className="h-3 w-3" />
                 重试
@@ -660,15 +660,15 @@ export const AiMessageContent = memo(function AiMessageContent({
                 <line x1="8" y1="21" x2="16" y2="21" />
                 <line x1="12" y1="17" x2="12" y2="21" />
               </svg>
-              <span className="text-[11px] font-medium text-foreground/80 truncate">
+              <span className="text-micro font-medium text-foreground/80 truncate">
                 Monitor {seg.monitorCommand}
               </span>
-              <span className={`text-[10px] ml-auto px-1.5 py-0.5 rounded ${seg.isError ? "bg-red-100 text-red-700" : seg.isComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+              <span className={`text-nano ml-auto px-1.5 py-0.5 rounded ${seg.isError ? "bg-red-100 text-red-700" : seg.isComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
                 {statusText}{seg.monitorExitCode !== null && seg.monitorExitCode !== undefined ? ` (${seg.monitorExitCode})` : ""}
               </span>
             </div>
             {seg.content && (
-              <pre className="px-3 py-2 text-[11px] font-mono text-muted-foreground max-h-48 overflow-auto whitespace-pre-wrap break-all">
+              <pre className="px-3 py-2 text-micro font-mono text-muted-foreground max-h-48 overflow-auto whitespace-pre-wrap break-all">
                 {seg.content}
               </pre>
             )}
@@ -676,7 +676,7 @@ export const AiMessageContent = memo(function AiMessageContent({
               <div className="px-3 py-1.5 border-t border-black/5">
                 <div className="flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  <span className="text-[10px] text-muted-foreground">后台运行中...</span>
+                  <span className="text-nano text-muted-foreground">后台运行中...</span>
                 </div>
               </div>
             )}
@@ -691,7 +691,7 @@ export const AiMessageContent = memo(function AiMessageContent({
             className="flex w-full items-center gap-3 my-4"
           >
             <div className="h-px flex-1 bg-border/70" />
-            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-medium text-muted-foreground whitespace-nowrap">
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-nano font-medium text-muted-foreground whitespace-nowrap">
               Turn {seg.turnN ?? "?"}
             </span>
             <div className="h-px flex-1 bg-border/70" />

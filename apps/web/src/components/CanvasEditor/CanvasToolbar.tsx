@@ -242,7 +242,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
       </div>
 
       {/* Save status badge */}
-      <div className="absolute right-3 top-3 z-10 flex items-center gap-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400 shadow-sm backdrop-blur">
+      <div className="absolute right-3 top-3 z-10 flex items-center gap-2 rounded-lg border border-slate-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 px-2.5 py-1.5 text-micro font-medium text-slate-500 dark:text-slate-400 shadow-sm backdrop-blur">
         <Circle
           className={cn(
             "h-2.5 w-2.5 fill-current",
@@ -297,7 +297,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </Button>
         <div
           data-testid="canvas-zoom-label"
-          className="border-t border-slate-100 dark:border-gray-800 px-1.5 py-1 text-center text-[10px] font-medium tabular-nums text-slate-500 dark:text-slate-400"
+          className="border-t border-slate-100 dark:border-gray-800 px-1.5 py-1 text-center text-nano font-medium tabular-nums text-slate-500 dark:text-slate-400"
         >
           {Math.round(viewportScale * 100)}%
         </div>
@@ -335,7 +335,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
 
       {/* Connection preview badge */}
       {showConnectionPreview ? (
-        <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-white/90 dark:bg-gray-900/90 px-2.5 py-1.5 text-[11px] font-medium text-blue-700 dark:text-blue-400 shadow-sm backdrop-blur">
+        <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-white/90 dark:bg-gray-900/90 px-2.5 py-1.5 text-micro font-medium text-blue-700 dark:text-blue-400 shadow-sm backdrop-blur">
           <Link2 className="h-3.5 w-3.5" />
           <span>连线中</span>
         </div>

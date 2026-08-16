@@ -519,7 +519,7 @@ export function WorkspaceTabBar({
                 {closedTerminals && closedTerminals.length > 0 && onReopenTerminal ? (
                   <>
                     <div className="my-1 h-px bg-border" />
-                    <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground">
+                    <div className="px-2 py-1 text-nano font-medium text-muted-foreground">
                       恢复终端
                     </div>
                     {closedTerminals.map((terminalId) => (
@@ -534,7 +534,7 @@ export function WorkspaceTabBar({
                         }}
                       >
                         <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="font-mono text-[11px]">
+                        <span className="font-mono text-micro">
                           {terminalId.length > 16 ? terminalId.slice(-12) : terminalId}
                         </span>
                       </button>

@@ -50,7 +50,7 @@ function CompactionSummaryContent({
           <FileText className="h-4 w-4" />
           上下文已压缩为摘要
           {hasStats && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+            <span className="rounded bg-muted px-1.5 py-0.5 text-nano font-medium">
               {formatCompactTokens(stats.tokens_before!)} →{" "}
               {formatCompactTokens(stats.tokens_after!)} tokens
               {typeof stats.saved_tokens === "number" &&

@@ -226,11 +226,11 @@ export function StreamingThoughtBlock({
         </div>
         <span className="font-medium flex-shrink-0">{title}</span>
         {collapsedPreview ? (
-          <span className="min-w-0 flex-1 truncate text-left text-[11px] font-normal text-muted-foreground/60">
+          <span className="min-w-0 flex-1 truncate text-left text-micro font-normal text-muted-foreground/60">
             {collapsedPreview}
           </span>
         ) : (
-          <span className="text-[10px] text-muted-foreground/50 ml-1 flex-1 text-left">
+          <span className="text-nano text-muted-foreground/50 ml-1 flex-1 text-left">
             {isOpen ? "点击折叠" : "点击展开"}
           </span>
         )}
@@ -246,7 +246,7 @@ export function StreamingThoughtBlock({
 
       {isOpen && (
         <div
-          className="prose prose-sm max-w-none min-w-0 max-h-80 break-words overflow-y-auto border-t border-border/40 bg-muted/10 px-4 pb-3.5 pt-2 text-[13px] leading-relaxed text-muted-foreground/90 [overflow-wrap:anywhere] [&_p]:my-1.5"
+          className="prose prose-sm max-w-none min-w-0 max-h-80 break-words overflow-y-auto border-t border-border/40 bg-muted/10 px-4 pb-3.5 pt-2 text-body leading-relaxed text-muted-foreground/90 [overflow-wrap:anywhere] [&_p]:my-1.5"
         >
           <ChartAwareMarkdown
             content={cleanedContent || (streaming ? "..." : "")}
@@ -265,7 +265,7 @@ export function StreamingThoughtBlock({
           data-testid="think-tail-preview"
           className="border-t border-border/40 bg-muted/10 px-4 py-2"
         >
-          <div className="max-h-[3.9em] overflow-hidden whitespace-pre-wrap break-words text-[12px] italic leading-[1.3em] text-muted-foreground/70 [overflow-wrap:anywhere] [mask-image:linear-gradient(to_bottom,transparent,black_45%)]">
+          <div className="max-h-[3.9em] overflow-hidden whitespace-pre-wrap break-words text-caption italic leading-[1.3em] text-muted-foreground/70 [overflow-wrap:anywhere] [mask-image:linear-gradient(to_bottom,transparent,black_45%)]">
             {tailPreviewText(cleanedContent)}
           </div>
         </div>

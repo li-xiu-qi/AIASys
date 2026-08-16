@@ -203,7 +203,7 @@ export function GlobalMonitorDialog({
                   type="button"
                   onClick={() => setStatusFilter(option.value)}
                   className={cn(
-                    "rounded-lg border px-3 py-1.5 text-[11px] transition-colors",
+                    "rounded-lg border px-3 py-1.5 text-micro transition-colors",
                     statusFilter === option.value
                       ? "border-border bg-muted text-foreground"
                       : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
@@ -219,7 +219,7 @@ export function GlobalMonitorDialog({
                   placeholder="搜索命令、工作区..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-8 w-48 rounded-lg text-[11px]"
+                  className="h-8 w-48 rounded-lg text-micro"
                 />
               </div>
             </div>
@@ -248,7 +248,7 @@ export function GlobalMonitorDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="h-8 gap-1.5 text-[11px]"
+                    className="h-8 gap-1.5 text-micro"
                     onClick={() => void loadMonitorState()}
                     disabled={isLoading}
                   >
@@ -298,29 +298,29 @@ export function GlobalMonitorDialog({
                         {/* 内容 */}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="min-w-0 truncate font-mono text-[13px] font-medium text-foreground">
+                            <span className="min-w-0 truncate font-mono text-body font-medium text-foreground">
                               {monitor.command}
                             </span>
                             <Badge
                               variant="outline"
-                              className={cn("shrink-0 text-[10px]", STATUS_BADGE_CLASS[monitor.status])}
+                              className={cn("shrink-0 text-nano", STATUS_BADGE_CLASS[monitor.status])}
                             >
                               {STATUS_LABEL[monitor.status]}
                             </Badge>
-                            <Badge variant="outline" className="shrink-0 text-[10px]">
+                            <Badge variant="outline" className="shrink-0 text-nano">
                               {monitor.mode === "silent" ? "静默" : "通知"}
                             </Badge>
                             {monitor.workspace_id === currentWorkspaceId ? (
                               <Badge
                                 variant="outline"
-                                className="shrink-0 border-info/20 bg-info-container text-info text-[10px]"
+                                className="shrink-0 border-info/20 bg-info-container text-info text-nano"
                               >
                                 当前
                               </Badge>
                             ) : null}
                           </div>
 
-                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
                             <span>
                               工作区: {monitor.workspace_title || monitor.workspace_id.slice(0, 8)}
                             </span>

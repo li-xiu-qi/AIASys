@@ -122,7 +122,7 @@ export const ToolCallRow = memo(function ToolCallRow({
           {toolName ?? "工具调用"}
         </span>
         <span
-          className={`text-[10px] truncate max-w-full transition-colors ${
+          className={`text-nano truncate max-w-full transition-colors ${
             status === "error"
               ? "text-red-600"
               : "text-muted-foreground group-hover/tool:text-foreground/70"
@@ -132,12 +132,12 @@ export const ToolCallRow = memo(function ToolCallRow({
         </span>
       </div>
       {status === "error" && (
-        <span className="ml-auto flex-shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+        <span className="ml-auto flex-shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-nano font-medium text-red-700">
           失败
         </span>
       )}
       {status === "running" && (
-        <span className="ml-auto flex-shrink-0 text-[10px] text-primary">运行中</span>
+        <span className="ml-auto flex-shrink-0 text-nano text-primary">运行中</span>
       )}
     </button>
   );

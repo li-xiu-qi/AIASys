@@ -689,12 +689,12 @@ export function WorkspaceContextPanel({
   const headerContent = (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <div className="text-[11px] text-muted-foreground">当前工作区</div>
+        <div className="text-micro text-muted-foreground">当前工作区</div>
         <div className="mt-1 truncate text-sm font-semibold text-foreground">
           {workspaceSummary?.title || "未绑定工作区"}
         </div>
         {showBranchContextInHeader ? (
-          <div className="mt-1 truncate text-[12px] text-muted-foreground">
+          <div className="mt-1 truncate text-caption text-muted-foreground">
             {currentSessionTitle}
           </div>
         ) : null}
@@ -785,7 +785,7 @@ export function WorkspaceContextPanel({
                   type="button"
                   size="sm"
                   variant={activeView === button.id ? "default" : "outline"}
-                  className="h-8 text-[11px]"
+                  className="h-8 text-micro"
                   onClick={() => handleActiveViewChange(button.id)}
                 >
                   {button.label}

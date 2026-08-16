@@ -480,7 +480,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 gap-1 text-[11px]"
+            className="h-7 gap-1 text-micro"
             onClick={() => setSkillMarketOpen(true)}
           >
             <Plus className="h-3 w-3" />
@@ -490,7 +490,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 gap-1 text-[11px]"
+            className="h-7 gap-1 text-micro"
             onClick={() => setMcpMarketOpen(true)}
           >
             <Plus className="h-3 w-3" />
@@ -500,7 +500,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
             type="button"
             size="sm"
             variant="outline"
-            className="h-7 gap-1 text-[11px]"
+            className="h-7 gap-1 text-micro"
             data-testid="capability-panel-new-expert"
             onClick={() => setRolesMarketOpen(true)}
           >
@@ -518,7 +518,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                 type="button"
                 onClick={() => setFilterKind(f.id)}
                 className={cn(
-                  "rounded px-2 py-0.5 text-[11px] transition-colors",
+                  "rounded px-2 py-0.5 text-micro transition-colors",
                   filterKind === f.id
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -535,7 +535,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                 type="button"
                 onClick={() => setFilterStatus(f.id)}
                 className={cn(
-                  "rounded px-2 py-0.5 text-[11px] transition-colors",
+                  "rounded px-2 py-0.5 text-micro transition-colors",
                   filterStatus === f.id
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
@@ -568,7 +568,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                   <div className="truncate text-xs font-medium text-foreground">
                     {cap.display_name || capId}
                   </div>
-                  <div className="text-[11px] text-muted-foreground truncate">
+                  <div className="text-micro text-muted-foreground truncate">
                     {KIND_LABEL[cap.kind] ?? cap.kind} · {STATUS_LABEL[status] ?? status}
                   </div>
                 </div>
@@ -593,7 +593,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
               ) : isWorkspaceConfig ? (
                 <div className="space-y-2">
                   <p>当前工作区未安装任何能力</p>
-                  <p className="text-[10px] opacity-70">请去全局设置中安装</p>
+                  <p className="text-nano opacity-70">请去全局设置中安装</p>
                 </div>
               ) : (
                 "暂无能力"
@@ -603,7 +603,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
         </div>
 
         {/* 统计 */}
-        <div className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground flex items-center justify-between">
+        <div className="shrink-0 border-t px-3 py-1.5 text-micro text-muted-foreground flex items-center justify-between">
           <span>共 {filteredItems.length} 项</span>
           <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => void load()}>
             <RefreshCw className="h-3 w-3" />
@@ -623,7 +623,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                     {selectedCap.display_name || selectedCap.capability_id}
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-nano">
                       {KIND_LABEL[selectedCap.kind] ?? selectedCap.kind}
                     </Badge>
                     {(selectedCap as CapabilityItem).version && (
@@ -758,7 +758,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {(selectedCap as CapabilityItem).tool_names.map((t) => (
-                      <Badge key={t} variant="secondary" className="text-[10px]">
+                      <Badge key={t} variant="secondary" className="text-nano">
                         {t.split(":").pop()}
                       </Badge>
                     ))}
@@ -801,11 +801,11 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
                         </div>
                       ) : sourceFileContent !== null ? (
                         selectedSourceFile === "README.md" ? (
-                          <div className="prose prose-sm max-w-none dark:prose-invert p-3 text-[11px] leading-5 text-foreground">
+                          <div className="prose prose-sm max-w-none dark:prose-invert p-3 text-micro leading-5 text-foreground">
                             <MarkdownRenderer content={sourceFileContent} />
                           </div>
                         ) : (
-                          <pre className="p-3 text-[11px] leading-5 text-foreground whitespace-pre-wrap break-words">
+                          <pre className="p-3 text-micro leading-5 text-foreground whitespace-pre-wrap break-words">
                             {sourceFileContent}
                           </pre>
                         )
@@ -826,7 +826,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
               selectedCap.config_schema && (
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-muted-foreground">配置说明</div>
-                  <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-[11px] leading-5 text-foreground">
+                  <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-3 text-micro leading-5 text-foreground">
                     {JSON.stringify(selectedCap.config_schema, null, 2)}
                   </pre>
                 </div>
@@ -893,7 +893,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
             {selectedCap && !isWorkspaceCap(selectedCap) && selectedCap.config_schema && (
               <div className="space-y-1">
                 <div className="text-xs font-medium text-muted-foreground">配置说明</div>
-                <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-2 text-[11px] leading-4 text-foreground">
+                <pre className="overflow-auto rounded-md border border-border bg-muted/40 p-2 text-micro leading-4 text-foreground">
                   {JSON.stringify(selectedCap.config_schema, null, 2)}
                 </pre>
               </div>

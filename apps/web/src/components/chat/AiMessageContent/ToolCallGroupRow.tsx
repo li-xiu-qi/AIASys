@@ -106,7 +106,7 @@ export const ToolCallGroupRow = memo(function ToolCallGroupRow({
         <span className="font-medium">{group.toolName}</span>
         <span>× {total}</span>
         <span
-          className={`ml-auto rounded px-1.5 py-0.5 text-[10px] ${
+          className={`ml-auto rounded px-1.5 py-0.5 text-nano ${
             errorCount > 0
               ? "bg-red-100 text-red-700"
               : runningCount > 0

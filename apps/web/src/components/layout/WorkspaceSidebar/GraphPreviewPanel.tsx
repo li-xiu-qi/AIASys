@@ -1109,7 +1109,7 @@ export function GraphPreviewPanel({
                     ? "bg-muted text-foreground"
                     : "bg-background text-foreground shadow-sm"
                   : tab.weak
-                    ? "text-[11px] font-normal text-muted-foreground/70 hover:text-foreground"
+                    ? "text-micro font-normal text-muted-foreground/70 hover:text-foreground"
                     : "text-xs font-medium text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -1220,7 +1220,7 @@ export function GraphPreviewPanel({
                       保存布局
                     </Button>
                     {layoutSaveMessage ? (
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-micro text-muted-foreground">
                         {layoutSaveMessage}
                       </span>
                     ) : null}
@@ -1232,7 +1232,7 @@ export function GraphPreviewPanel({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="搜索节点..."
-                        className="h-7 pl-7 text-[11px]"
+                        className="h-7 pl-7 text-micro"
                       />
                       {searchQuery && (
                         <button
@@ -1298,7 +1298,7 @@ export function GraphPreviewPanel({
                         </Button>
                       </div>
                       {llmStatus && !llmAvailable ? (
-                        <div className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                        <div className="flex items-center gap-1 text-micro text-amber-600 dark:text-amber-400">
                           <AlertTriangle className="h-3 w-3" />
                           上传文档需要 LLM 支持
                         </div>
@@ -1348,7 +1348,7 @@ export function GraphPreviewPanel({
                               : "节点检查器"}
                         </span>
                       </div>
-                      <div className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+                      <div className="mt-0.5 text-micro leading-4 text-muted-foreground">
                         {inspectorMode === "create"
                           ? "输入名称后保存到当前知识图谱。"
                           : inspectorMode === "connect"
@@ -1364,7 +1364,7 @@ export function GraphPreviewPanel({
                           type="button"
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2 text-[11px]"
+                          className="h-7 px-2 text-micro"
                           onClick={handleStartConnectNode}
                           disabled={!kgId}
                           data-testid="graph-preview-connect-node-button"
@@ -1425,7 +1425,7 @@ export function GraphPreviewPanel({
                   {isCreatingNode ? (
                     <div className="grid gap-2">
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">名称</label>
+                        <label className="text-micro text-muted-foreground">名称</label>
                         <Input
                           value={newNodeName}
                           onChange={(event) => {
@@ -1444,7 +1444,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">类型</label>
+                        <label className="text-micro text-muted-foreground">类型</label>
                         <Input
                           value={newNodeType}
                           onChange={(event) => setNewNodeType(event.target.value)}
@@ -1454,7 +1454,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">描述</label>
+                        <label className="text-micro text-muted-foreground">描述</label>
                         <Textarea
                           value={newNodeDescription}
                           onChange={(event) => setNewNodeDescription(event.target.value)}
@@ -1464,7 +1464,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       {newNodeError ? (
-                        <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-[11px] text-error">
+                        <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-micro text-error">
                           {newNodeError}
                         </div>
                       ) : null}
@@ -1503,13 +1503,13 @@ export function GraphPreviewPanel({
                   {isConnectingNode && selectedGraphNode ? (
                     <div className="grid gap-2" data-testid="graph-preview-connect-node-form">
                       <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs">
-                        <div className="text-[11px] text-muted-foreground">源节点</div>
+                        <div className="text-micro text-muted-foreground">源节点</div>
                         <div className="mt-0.5 font-medium text-foreground">
                           {selectedGraphNode.name}
                         </div>
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">搜索目标节点</label>
+                        <label className="text-micro text-muted-foreground">搜索目标节点</label>
                         <div className="relative">
                           <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                           <Input
@@ -1533,7 +1533,7 @@ export function GraphPreviewPanel({
                           data-testid="graph-preview-connect-target-results"
                         >
                           {relationSearchError ? (
-                            <div className="px-2 py-1.5 text-[11px] text-destructive">
+                            <div className="px-2 py-1.5 text-micro text-destructive">
                               {relationSearchError}
                             </div>
                           ) : connectTargetCandidates.length > 0 ? (
@@ -1558,7 +1558,7 @@ export function GraphPreviewPanel({
                                 >
                                   <span className="min-w-0 truncate">{item.name}</span>
                                   <span
-                                    className={`shrink-0 text-[10px] ${
+                                    className={`shrink-0 text-nano ${
                                       selected
                                         ? "text-primary-foreground/80"
                                         : "text-muted-foreground"
@@ -1570,7 +1570,7 @@ export function GraphPreviewPanel({
                               );
                             })
                           ) : (
-                            <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                            <div className="px-2 py-1.5 text-micro text-muted-foreground">
                               {connectTargetSearch.trim()
                                 ? "没有匹配节点"
                                 : "输入关键词后选择目标节点。"}
@@ -1578,7 +1578,7 @@ export function GraphPreviewPanel({
                           )}
                         </div>
                         {selectedConnectTarget ? (
-                          <div className="rounded-md border border-border bg-background px-2 py-1.5 text-[11px] text-muted-foreground">
+                          <div className="rounded-md border border-border bg-background px-2 py-1.5 text-micro text-muted-foreground">
                             已选择：
                             <span className="font-medium text-foreground">
                               {selectedConnectTarget.name}
@@ -1587,7 +1587,7 @@ export function GraphPreviewPanel({
                         ) : null}
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">目标节点 ID</label>
+                        <label className="text-micro text-muted-foreground">目标节点 ID</label>
                         <Input
                           value={connectTargetNodeId}
                           onChange={(event) => {
@@ -1601,7 +1601,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">关系类型</label>
+                        <label className="text-micro text-muted-foreground">关系类型</label>
                         <Input
                           value={connectRelationType}
                           onChange={(event) => setConnectRelationType(event.target.value)}
@@ -1611,7 +1611,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       <div className="grid gap-1">
-                        <label className="text-[11px] text-muted-foreground">关系说明</label>
+                        <label className="text-micro text-muted-foreground">关系说明</label>
                         <Textarea
                           value={connectDescription}
                           onChange={(event) => setConnectDescription(event.target.value)}
@@ -1621,7 +1621,7 @@ export function GraphPreviewPanel({
                         />
                       </div>
                       {relationSaveError ? (
-                        <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-[11px] text-error">
+                        <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-micro text-error">
                           {relationSaveError}
                         </div>
                       ) : null}
@@ -1665,7 +1665,7 @@ export function GraphPreviewPanel({
                       {isEditingNode ? (
                         <div className="space-y-2">
                           <div>
-                            <label className="text-[11px] text-muted-foreground">名称</label>
+                            <label className="text-micro text-muted-foreground">名称</label>
                             <Input
                               value={editNodeName}
                               onChange={(e) => setEditNodeName(e.target.value)}
@@ -1674,7 +1674,7 @@ export function GraphPreviewPanel({
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-muted-foreground">类型</label>
+                            <label className="text-micro text-muted-foreground">类型</label>
                             <Input
                               value={editNodeType}
                               onChange={(e) => setEditNodeType(e.target.value)}
@@ -1683,7 +1683,7 @@ export function GraphPreviewPanel({
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-muted-foreground">描述</label>
+                            <label className="text-micro text-muted-foreground">描述</label>
                             <Textarea
                               value={editNodeDescription}
                               onChange={(e) => setEditNodeDescription(e.target.value)}
@@ -1692,10 +1692,10 @@ export function GraphPreviewPanel({
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-muted-foreground">扩展属性</label>
+                            <label className="text-micro text-muted-foreground">扩展属性</label>
                             <div className="mt-1 space-y-1.5">
                               {Object.entries(editNodeProperties).length === 0 ? (
-                                <div className="text-[11px] text-muted-foreground">暂无扩展属性</div>
+                                <div className="text-micro text-muted-foreground">暂无扩展属性</div>
                               ) : (
                                 Object.entries(editNodeProperties).map(([key, value]) => (
                                   <div key={key} className="flex gap-1.5">
@@ -1751,7 +1751,7 @@ export function GraphPreviewPanel({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-7 text-[11px]"
+                                className="h-7 text-micro"
                                 onClick={() => {
                                   setEditNodeProperties((prev) => ({
                                     ...prev,
@@ -1765,7 +1765,7 @@ export function GraphPreviewPanel({
                             </div>
                           </div>
                           {nodeSaveError ? (
-                            <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-[11px] text-error">
+                            <div className="rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-micro text-error">
                               {nodeSaveError}
                             </div>
                           ) : null}
@@ -1817,17 +1817,17 @@ export function GraphPreviewPanel({
                             </p>
                           ) : null}
                           {deleteNodeError ? (
-                            <div className="mt-2 rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-[11px] text-error">
+                            <div className="mt-2 rounded-md border border-error/20 bg-error-container px-2 py-1.5 text-micro text-error">
                               {deleteNodeError}
                             </div>
                           ) : null}
                           <div className="mt-3 rounded-md border border-border bg-muted/20 px-3 py-2">
                             <div className="flex items-center justify-between gap-2">
-                              <div className="text-[11px] text-muted-foreground">
+                              <div className="text-micro text-muted-foreground">
                                 关系
                               </div>
                               <div
-                                className="text-[11px] font-medium text-foreground"
+                                className="text-micro font-medium text-foreground"
                                 data-testid="graph-preview-selected-node-relation-count"
                               >
                                 {selectedNodeRelations.length}
@@ -1849,7 +1849,7 @@ export function GraphPreviewPanel({
                                   return (
                                     <div
                                       key={edge.id}
-                                      className="flex min-w-0 items-center gap-1.5 text-[11px]"
+                                      className="flex min-w-0 items-center gap-1.5 text-micro"
                                     >
                                       <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
                                       <span className="shrink-0 text-muted-foreground">
@@ -1876,7 +1876,7 @@ export function GraphPreviewPanel({
                                   );
                                 })
                               ) : (
-                                <div className="text-[11px] text-muted-foreground">
+                                <div className="text-micro text-muted-foreground">
                                   暂无关系，可以用“连接节点”添加。
                                 </div>
                               )}
@@ -1884,7 +1884,7 @@ export function GraphPreviewPanel({
                           </div>
                           {selectedGraphNode.properties && Object.keys(selectedGraphNode.properties).length > 0 ? (
                             <div className="mt-2">
-                              <div className="text-[11px] text-muted-foreground">扩展属性</div>
+                              <div className="text-micro text-muted-foreground">扩展属性</div>
                               <div className="mt-1 grid gap-1">
                                 {Object.entries(selectedGraphNode.properties).map(([key, value]) => (
                                   <div key={key} className="flex gap-1.5 text-xs">
@@ -1953,7 +1953,7 @@ export function GraphPreviewPanel({
                   </Button>
                 </div>
                 {llmStatus && !llmAvailable ? (
-                  <div className="mt-2 flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  <div className="mt-2 flex items-center gap-1 text-micro text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" />
                     上传文档需要 LLM 支持
                   </div>
@@ -2002,14 +2002,14 @@ export function GraphPreviewPanel({
               </Button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-3 text-micro text-muted-foreground">
               <label className="flex items-center gap-1.5">
                 <span>Top K</span>
                 <select
                   value={queryTopK}
                   onChange={(e) => setQueryTopK(Number.parseInt(e.target.value, 10))}
                   disabled={!kgId || isQuerying}
-                  className="h-6 rounded-md border border-border bg-background px-1.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="h-6 rounded-md border border-border bg-background px-1.5 text-micro text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value={5}>5</option>
                   <option value={10}>10</option>
@@ -2023,7 +2023,7 @@ export function GraphPreviewPanel({
                   value={queryDepth}
                   onChange={(e) => setQueryDepth(Number.parseInt(e.target.value, 10))}
                   disabled={!kgId || isQuerying}
-                  className="h-6 rounded-md border border-border bg-background px-1.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="h-6 rounded-md border border-border bg-background px-1.5 text-micro text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value={1}>1</option>
                   <option value={2}>2</option>
@@ -2043,11 +2043,11 @@ export function GraphPreviewPanel({
               <div className="space-y-4">
                 {/* 查询概览 */}
                 <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
-                  <span className="text-[11px] text-muted-foreground">命中</span>
+                  <span className="text-micro text-muted-foreground">命中</span>
                   <span className="text-xs font-semibold text-foreground">
                     {queryResult.entities.length}
                   </span>
-                  <span className="text-[11px] text-muted-foreground">个实体</span>
+                  <span className="text-micro text-muted-foreground">个实体</span>
                 </div>
 
                 {/* 命中实体 */}
@@ -2072,7 +2072,7 @@ export function GraphPreviewPanel({
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-[10px] font-medium text-muted-foreground">
+                              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-nano font-medium text-muted-foreground">
                                 {idx + 1}
                               </span>
                               <span className="truncate text-xs font-medium text-foreground">
@@ -2082,7 +2082,7 @@ export function GraphPreviewPanel({
                                 <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
                               ) : null}
                             </div>
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-nano text-muted-foreground">
                               {entity.entity_type}
                             </span>
                           </div>
@@ -2122,7 +2122,7 @@ export function GraphPreviewPanel({
 
             {/* 统计卡片 */}
             {loadingStats ? (
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-2 text-micro text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 加载统计...
               </div>
@@ -2132,36 +2132,36 @@ export function GraphPreviewPanel({
                   <div className="text-base font-semibold text-foreground">
                     {graphStats.entity_count ?? 0}
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">实体</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">实体</div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-center">
                   <div className="text-base font-semibold text-foreground">
                     {graphStats.relation_count ?? 0}
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">关系</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">关系</div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-center">
                   <div className="text-base font-semibold text-foreground">
                     {graphStats.entity_types?.length ?? 0}
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">实体类型</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">实体类型</div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-center">
                   <div className="text-base font-semibold text-foreground">
                     {graphStats.communities ? Object.keys(graphStats.communities).length : 0}
                   </div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">社区</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">社区</div>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-center">
                   <div className="text-base font-semibold text-foreground">{entityCount || 0}</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">实体</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">实体</div>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-center">
                   <div className="text-base font-semibold text-foreground">--</div>
-                  <div className="text-[11px] text-muted-foreground mt-0.5">节点</div>
+                  <div className="text-micro text-muted-foreground mt-0.5">节点</div>
                 </div>
               </div>
             )}

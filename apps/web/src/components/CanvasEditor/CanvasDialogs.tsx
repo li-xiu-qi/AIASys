@@ -114,7 +114,7 @@ export const FilePickerDialog: React.FC<FilePickerDialogProps> = ({
                       <span className="block truncate font-medium text-foreground">
                         {getWorkspaceFileLabel(file.name)}
                       </span>
-                      <span className="block truncate text-[11px] text-muted-foreground">
+                      <span className="block truncate text-micro text-muted-foreground">
                         {file.name}
                       </span>
                     </span>

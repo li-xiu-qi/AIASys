@@ -70,13 +70,13 @@ export function ChartCard({
               </TooltipTrigger>
               <TooltipContent>导出 PNG</TooltipContent>
             </Tooltip>
-            <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-micro text-muted-foreground">
               <FileJson className="h-3.5 w-3.5" />
               <span>ECharts</span>
             </div>
           </div>
         </div>
-        <div className="mt-2 truncate text-[11px] text-muted-foreground">
+        <div className="mt-2 truncate text-micro text-muted-foreground">
           {sourceLabel}
         </div>
       </div>

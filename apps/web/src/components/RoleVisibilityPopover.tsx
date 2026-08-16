@@ -136,11 +136,11 @@ export function RoleVisibilityPopover({
             </Badge>
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <Badge variant="outline" className="rounded-md px-1.5 py-0.5 text-[10px]">
+            <Badge variant="outline" className="rounded-md px-1.5 py-0.5 text-nano">
               来源: {SOURCE_LABELS[role.visibilitySource] ?? role.visibilitySource}
             </Badge>
             {locked ? (
-              <Badge variant="warning" className="rounded-md px-1.5 py-0.5 text-[10px]">
+              <Badge variant="warning" className="rounded-md px-1.5 py-0.5 text-nano">
                 已锁定
               </Badge>
             ) : null}
@@ -153,7 +153,7 @@ export function RoleVisibilityPopover({
               <div className="text-xs font-medium text-foreground">
                 当前 Agent 可见
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
+              <div className="mt-1 text-micro text-muted-foreground">
                 当前 Agent 在协作专家目录中可以看到并选择它
               </div>
             </div>
@@ -173,7 +173,7 @@ export function RoleVisibilityPopover({
               <div className="text-xs font-medium text-foreground">
                 {role.scope === "global" ? "全局默认启用" : "工作区默认启用"}
               </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
+              <div className="mt-1 text-micro text-muted-foreground">
                 新会话默认将该专家加入可协作列表
               </div>
             </div>

@@ -63,7 +63,7 @@ export function SkillCard({
             <BookOpen className="h-5 w-5 text-on-tertiary-container" />
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <span className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            <span className="inline-flex items-center rounded-md border border-border bg-card px-2 py-0.5 text-micro font-medium text-muted-foreground">
               {skill.source === "builtin"
                 ? "系统内置"
                 : skill.source === "store"
@@ -71,17 +71,17 @@ export function SkillCard({
                   : "已启用"}
             </span>
             {skill.installed && skill.hash_status === "outdated" ? (
-              <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning-container/60 px-2 py-0.5 text-[11px] font-medium text-on-warning-container">
+              <span className="inline-flex items-center rounded-md border border-warning/20 bg-warning-container/60 px-2 py-0.5 text-micro font-medium text-on-warning-container">
                 可更新
               </span>
             ) : null}
             {skill.installed && skill.hash_status === "modified" ? (
-              <span className="inline-flex items-center rounded-md border border-info/20 bg-info-container/60 px-2 py-0.5 text-[11px] font-medium text-on-info-container">
+              <span className="inline-flex items-center rounded-md border border-info/20 bg-info-container/60 px-2 py-0.5 text-micro font-medium text-on-info-container">
                 已自定义
               </span>
             ) : null}
             {skill.installed && skill.hash_status === "custom" ? (
-              <span className="inline-flex items-center rounded-md border border-secondary/20 bg-secondary-container/60 px-2 py-0.5 text-[11px] font-medium text-on-secondary-container">
+              <span className="inline-flex items-center rounded-md border border-secondary/20 bg-secondary-container/60 px-2 py-0.5 text-micro font-medium text-on-secondary-container">
                 自定义
               </span>
             ) : null}
@@ -157,7 +157,7 @@ export function SkillCard({
           </div>
           {skill.env_fields && skill.env_fields.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="inline-flex items-center gap-1 rounded-md border border-warning/20 bg-warning-container/60 px-2 py-0.5 text-[11px] text-on-warning-container">
+              <span className="inline-flex items-center gap-1 rounded-md border border-warning/20 bg-warning-container/60 px-2 py-0.5 text-micro text-on-warning-container">
                 <KeyRound className="h-3 w-3" />
                 需配置 {skill.env_fields.length} 项环境变量
               </span>
@@ -170,7 +170,7 @@ export function SkillCard({
         <div className="mt-auto flex items-center gap-2 border-t border-border px-6 py-4">
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-micro text-muted-foreground">
               {skill.globally_enabled ? "我的默认启用" : "未启用到我的默认"}
             </span>
             <Switch

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { X } from "lucide-react";
 import { Dialog as BaseDialogNamespace } from "@base-ui/react/dialog";
+import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
@@ -94,14 +95,41 @@ const DialogOverlay = React.forwardRef<
 ));
 DialogOverlay.displayName = BaseDialogBackdrop.displayName;
 
+/**
+ * 尺寸档位。此前 DialogContent 只有硬编码的 max-w-lg，导致 11 处调用各自覆写，
+ * 实测长出 5 种宽度（lg/2xl/5xl/6xl/1100px）× 3 种高度（86/90/92vh），
+ * 且「设置类大面板」都要重复写一遍 p-0 gap-0 flex flex-col 才能自排版。
+ * 这里把「宽度 + 高度 + 内部布局模式」打包成四档，调用方选档不再拼数值。
+ * 默认 sm 等价于改造前的 max-w-lg + p-6，不改变既有行为。
+ */
+const dialogContentVariants = cva(
+  "fixed left-[50%] top-[50%] z-50 w-full translate-x-[-50%] translate-y-[-50%] border bg-card shadow-pop-4 duration-200 ease-standard data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-2xl",
+  {
+    variants: {
+      size: {
+        /** 表单、确认框：内容自然高度 */
+        sm: "grid max-w-lg gap-4 p-6",
+        /** 详情、单栏列表：内容自然高度，上限 90vh */
+        md: "grid max-w-2xl max-h-[90vh] gap-4 p-6",
+        /** 设置面板：定高 + 自排版（内部通常是左导航 + 右内容） */
+        lg: "flex max-w-5xl h-[88vh] flex-col gap-0 p-0",
+        /** 市场、双栏浏览：定高 + 自排版 */
+        xl: "flex max-w-6xl h-[88vh] flex-col gap-0 p-0",
+      },
+    },
+    defaultVariants: { size: "sm" },
+  },
+);
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof BaseDialogPopup>,
-  React.ComponentPropsWithoutRef<typeof BaseDialogPopup> & {
-    onEscapeKeyDown?: (event: KeyboardEvent) => void;
-    onPointerDownOutside?: (event: PointerEvent) => void;
-    onOpenAutoFocus?: (event: Event) => void;
-  }
->(({ className, children, onEscapeKeyDown, onPointerDownOutside, onOpenAutoFocus, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof BaseDialogPopup> &
+    VariantProps<typeof dialogContentVariants> & {
+      onEscapeKeyDown?: (event: KeyboardEvent) => void;
+      onPointerDownOutside?: (event: PointerEvent) => void;
+      onOpenAutoFocus?: (event: Event) => void;
+    }
+>(({ className, children, size, onEscapeKeyDown, onPointerDownOutside, onOpenAutoFocus, ...props }, ref) => {
   const internalRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -157,7 +185,7 @@ const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-2xl",
+          dialogContentVariants({ size }),
           className,
         )}
         {...props}

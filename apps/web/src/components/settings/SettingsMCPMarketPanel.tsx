@@ -272,16 +272,16 @@ export function SettingsMCPMarketPanel({
                 {server.display_name || server.name}
               </div>
               {typeof toolCount === "number" && toolCount > 0 && (
-                <Badge variant="secondary" className="text-[10px] gap-0.5">
+                <Badge variant="secondary" className="text-nano gap-0.5">
                   <Wrench className="h-2.5 w-2.5" />
                   {toolCount}
                 </Badge>
               )}
             </div>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              <Badge variant="outline" className="text-[10px]">{server.type}</Badge>
+              <Badge variant="outline" className="text-nano">{server.type}</Badge>
               {server.is_system_default && (
-                <Badge variant="outline" className="text-[10px]">系统</Badge>
+                <Badge variant="outline" className="text-nano">系统</Badge>
               )}
             </div>
           </div>
@@ -456,7 +456,7 @@ export function SettingsMCPMarketPanel({
                         系统默认
                       </div>
                       <div className="h-px flex-1 bg-border" />
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-micro text-muted-foreground">
                         {systemDefaultServers.length} 个
                       </span>
                     </div>
@@ -480,7 +480,7 @@ export function SettingsMCPMarketPanel({
                         用户添加
                       </div>
                       <div className="h-px flex-1 bg-border" />
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-micro text-muted-foreground">
                         {userServers.length} 个
                       </span>
                     </div>
@@ -556,14 +556,14 @@ export function SettingsMCPMarketPanel({
                 {/* Tags + Description */}
                 <div className="rounded-xl border border-border bg-muted/50 p-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-nano">
                       {detailItem.is_system_default ? "系统默认" : "我的默认"}
                     </Badge>
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-nano">
                       {detailItem.type}
                     </Badge>
                     {detailItem.enabled_tools && detailItem.enabled_tools.length > 0 && (
-                      <Badge variant="secondary" className="text-[10px]">
+                      <Badge variant="secondary" className="text-nano">
                         {detailItem.enabled_tools.length} 个工具已启用
                       </Badge>
                     )}
@@ -581,21 +581,21 @@ export function SettingsMCPMarketPanel({
                   {detailItem.type === "stdio" ? (
                     <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-2">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px]">{detailItem.name}</Badge>
-                        <Badge variant="secondary" className="text-[10px]">stdio</Badge>
+                        <Badge variant="outline" className="text-nano">{detailItem.name}</Badge>
+                        <Badge variant="secondary" className="text-nano">stdio</Badge>
                       </div>
                       <div className="font-mono text-xs text-muted-foreground break-all">
                         {detailItem.command || "未配置"} {detailItem.args?.join(" ") || ""}
                       </div>
                       {detailItem.env_fields && detailItem.env_fields.length > 0 && (
-                        <div className="text-[11px] text-muted-foreground">
+                        <div className="text-micro text-muted-foreground">
                           env: {detailItem.env_fields.map(f => f.name).join(", ")}
                         </div>
                       )}
                     </div>
                   ) : (
                     <div>
-                      <div className="text-[11px] text-muted-foreground">URL</div>
+                      <div className="text-micro text-muted-foreground">URL</div>
                       <div className="mt-0.5 font-mono text-xs break-all">
                         {detailItem.url || "未配置"}
                       </div>
@@ -603,7 +603,7 @@ export function SettingsMCPMarketPanel({
                   )}
                   {detailItem.headers && Object.keys(detailItem.headers).length > 0 && (
                     <div>
-                      <div className="text-[11px] text-muted-foreground">Headers</div>
+                      <div className="text-micro text-muted-foreground">Headers</div>
                       <div className="mt-1 space-y-1">
                         {Object.entries(detailItem.headers).map(([k, v]) => (
                           <div key={k} className="font-mono text-xs break-all text-muted-foreground">
@@ -656,11 +656,11 @@ export function SettingsMCPMarketPanel({
                             <div className="flex items-center gap-1.5">
                               <span className="font-mono text-xs text-foreground">{field.name}</span>
                               {field.required && (
-                                <Badge variant="error" className="text-[10px] h-4 px-1">必填</Badge>
+                                <Badge variant="error" className="text-nano h-4 px-1">必填</Badge>
                               )}
                             </div>
                             {field.description && (
-                              <div className="text-[11px] text-muted-foreground leading-4">
+                              <div className="text-micro text-muted-foreground leading-4">
                                 {field.description}
                               </div>
                             )}
@@ -912,7 +912,7 @@ export function SettingsMCPMarketPanel({
                             {tool.name}
                           </div>
                           {tool.description && (
-                            <div className="mt-1 text-[11px] text-muted-foreground leading-4">
+                            <div className="mt-1 text-micro text-muted-foreground leading-4">
                               {tool.description}
                             </div>
                           )}
@@ -927,12 +927,12 @@ export function SettingsMCPMarketPanel({
                   <div className="text-sm font-medium text-foreground">设置</div>
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
-                      <div className="text-[11px] text-muted-foreground">超时</div>
+                      <div className="text-micro text-muted-foreground">超时</div>
                       <div className="mt-0.5 text-foreground">{detailItem.timeout_ms || 30000}ms</div>
                     </div>
                     {detailItem.auto_attach_modes && detailItem.auto_attach_modes.length > 0 && (
                       <div>
-                        <div className="text-[11px] text-muted-foreground">自动附加模式</div>
+                        <div className="text-micro text-muted-foreground">自动附加模式</div>
                         <div className="mt-0.5 text-foreground">{detailItem.auto_attach_modes.join(", ")}</div>
                       </div>
                     )}
@@ -1029,7 +1029,7 @@ export function SettingsMCPMarketPanel({
                   disabled={editingServerName !== null}
                 />
                 {editingServerName !== null ? (
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-micro text-muted-foreground">
                     名称创建后不可修改。
                   </p>
                 ) : null}

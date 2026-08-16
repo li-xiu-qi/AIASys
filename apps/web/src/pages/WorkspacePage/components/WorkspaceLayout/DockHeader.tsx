@@ -159,7 +159,7 @@ export function DockHeader({
                     type="button"
                     onClick={onOpenRuntimeTab}
                     aria-label={`运行环境：${activeEnv.name}`}
-                    className={`inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
+                    className={`inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-micro font-medium transition-colors ${
                       activeEnv.image === "none"
                         ? "text-warning hover:bg-warning/10"
                         : activeEnv.image === "docker"

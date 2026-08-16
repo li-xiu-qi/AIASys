@@ -292,11 +292,11 @@ export function FileHistoryDialog({
                     >
                       <span className="flex items-center justify-between gap-2 text-xs font-medium">
                         <span>{operationLabel(entry.operation)}</span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
+                        <span className="shrink-0 text-micro text-muted-foreground">
                           {formatBytes(entry.size)}
                         </span>
                       </span>
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-micro text-muted-foreground">
                         {formatEntryTime(entry.timestamp)}
                       </span>
                     </button>

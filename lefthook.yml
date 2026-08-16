@@ -5,9 +5,9 @@
 # 手动运行：npx lefthook run pre-commit
 # 验证有效性：bash scripts/dev/lefthook/verify-hooks.sh   ← 改完本文件务必跑
 #
-# ── 本文件的五条纪律，都来自实际踩坑，改动前先读 ──────────────────────────
+# ── 本文件的六条纪律，都来自实际踩坑，改动前先读 ──────────────────────────
 #
-# 1. 前后端检查不写 glob，改由命令内的 grep -E 判定范围。
+# 1. 前后端检查不写 glob，改由脚本内的 grep -E 判定范围。
 #    lefthook 的 glob 有两个坑，都会让整个 hook 被静默跳过（日志只留一行
 #    "(skip) no matching staged files"），而提交照常通过：
 #      a. 不认 brace 扩展。写 `{ts,tsx}`、`{app,tests}` 一律不匹配。
@@ -26,132 +26,67 @@
 #
 # 4. 改完本文件必须用探针实测，不能只看 `lefthook run pre-commit` 是否绿。
 #    跑 scripts/dev/lefthook/verify-hooks.sh，它同时做正向（违规必须拦下）和反向
-#    （合规必须放过）验证。只做正向会产生假 PASS：本次 editorconfig 因 spawn .cmd
-#    报 EINVAL 而恒定 exit 1，四个正向探针曾全部「通过」，掩盖了两个前端 hook 压根
+#    （合规必须放过）验证。只做正向会产生假 PASS：曾有 editorconfig 因 spawn .cmd
+#    报 EINVAL 而恒定 exit 1，四个正向探针全部「通过」，掩盖了两个前端 hook 压根
 #    没在工作的事实。
 #
 # 5. 改 hook 自身的脚本后，先 git add 再测。lefthook 会把 partially staged 文件的
 #    unstaged 部分临时 stash 掉，让检查只看到 staged 版本——所以工作区改了、没 add，
-#    实际跑的仍是旧版脚本。本次为此白排查了一轮。
+#    实际跑的仍是旧版脚本。曾为此白排查了一轮。
 #
-# 6. 下面各 hook 里的 `[ -z "$files" ]` 在多文件提交时会额外打印一行
-#      sh: line 2: [: app/services/.../message_protocol.py: binary operator expected
-#    这是**已知噪音，不要修**。三种取值的行为分支实测全部正确：
-#      空     → [ -z ] 判真     → exit 0 跳过检查      ✓
-#      单文件 → 判假            → 继续检查              ✓
-#      多文件 → `[` 报错返回非零 → if 判假 → 继续检查   ✓
-#    六个 hook 的正反向验证也一直全部 PASS，功能没有失效。
+# 6. **run 里只写一行命令，多行脚本一律放进 scripts/dev/lefthook/*.sh。**
+#    lefthook（实测 2.0.2 + Windows）执行时构造的是
+#      "C:\Program Files\Git\bin\sh.exe" -c "<整段 run>"
+#    而**不转义脚本内部的双引号**。于是 Windows 的命令行解析在脚本的双引号处
+#    进出「引号态」，一旦在引号外遇到空格就把参数截断——脚本从那里起整段丢失。
 #
-#    2026-08-10 试过改成 `case $files in "") exit 0 ;; esac`（case 的 word 部分按
-#    POSIX 不分词，本该免疫），结果四个 hook 全部报
-#      sh: -c: line 2: unexpected EOF while looking for matching `"'
-#    直接失效、提交被拒。已 revert。
+#    最小复现（2026-08-16 实测）：
+#      run: |            期望输出           实得
+#      echo "A1 x y"     A1 x y             A1        ← 双引号内有空格，被截断
+#      echo 'D1 x y'     D1 x y             D1 x y    ← 单引号安全
 #
-#    两次报错无法用同一个机制解释：原写法的症状是引号成对消失（`[` 拿到了分词后的
-#    多个文件名），case 写法的症状却是引号剩下奇数个（sh 在找配对）。说明 lefthook
-#    在 Windows 下对 run 字符串的预处理不止「吃掉引号」这么简单，机制没查清。
-#    在机制不明而现写法功能正确的情况下，动它是净负收益——这行噪音的代价只是
-#    看起来碍眼，而改错的代价是四道门一起失效。
+#    这条纪律的代价是实打实付过的：frontend-lint 曾内联一句
+#      echo "改动 $count 个文件，超过单次传参阈值，改跑全量 lint"
+#    它是脚本里第 7 个双引号（奇数 → 引号外状态），紧随其后的空格把脚本截断在
+#    `echo 改动` 处，if 失去 fi。结果该 hook 恒定 exit 0：一个含 parse error 的
+#    文件被直接放过，lefthook 显示 ✓、耗时 0.16 秒。同一份文件直接跑 eslint
+#    退出码 1。**这个失效持续存在，而本文件此前的结论写的是「已知噪音，不要修，
+#    功能没有失效」——那个结论是错的**，它建立在「其余 hook 恰好没被截断」之上：
+#    `"$files"` 这类引号紧贴变量、内部无空格的写法侥幸安全，于是无人怀疑。
 #
-#    真正需要警惕的是：这行报错很像「hook 坏了」，容易诱发用 `|| true` 去「修」，
-#    那就正好违反纪律 2，把有效的门变成装饰。看到它，跑一次
-#    scripts/dev/lefthook/verify-hooks.sh 确认六个 hook 仍全 PASS 即可，不要动写法。
+#    所以不要再判断「我这段内联脚本会不会被截断」——那取决于双引号的奇偶与空格
+#    位置，任何人加一句带空格的提示文字都可能重现事故。直接放进 .sh 文件，
+#    run 只留 `bash scripts/dev/lefthook/xxx.sh` 一行（无双引号，不受影响）。
+#    这条纪律由 scripts/dev/lefthook/check-inline-scripts.mjs 静态强制，它同时跑在
+#    pre-commit 与 CI 里，并带自证（见该脚本 --self-test）。
 
 pre-commit:
   parallel: true
   commands:
+    # --- 本文件自身的纪律 6 强制器 ---
+    # 放在最前：它拦的是「run 里又出现多行脚本」这类改动，而那种改动会让下面
+    # 任何一条检查静默失效。它自己的 run 当然也是单行。
+    lefthook-inline-guard:
+      glob: "lefthook.yml"
+      run: node scripts/dev/lefthook/check-inline-scripts.mjs
+
     # --- Frontend ---
     frontend-lint:
-      # 一次把所有文件传给 eslint，不再逐文件循环。原先的写法
-      #   for f in $files; do [ -f "$f" ] && npx eslint "$f" || rc=$?; done; exit $rc || true
-      # 有两个毛病：末尾 `|| true` 违反纪律 2（虽然 exit 先执行使它侥幸无害），
-      # 且文件不存在时 `[ -f ]` 判假会落到 `rc=$?` 把 rc 置成 1，反而误报失败。
-      run: |
-        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx|js|jsx)$' | sed 's|^apps/web/||')
-        if [ -z "$files" ]; then exit 0; fi
-        cd apps/web
-        # 大批量改动时不能把文件列表全塞进命令行：Windows 有约 32K 的命令行长度上限，
-        # 2026-08-16 一次 130 文件的改动实测直接报 "The command line is too long."，
-        # 本该拦问题的 lint 反而成了提交阻塞，且报错信息完全指不到真实原因。
-        # 超过 60 个文件就改跑全量——全量慢几秒，但不会「因为改得多所以跑不了」。
-        count=$(echo "$files" | wc -l)
-        if [ "$count" -gt 60 ]; then
-          echo "改动 $count 个文件，超过单次传参阈值，改跑全量 lint"
-          npm run lint
-        else
-          npx eslint $files
-        fi
+      run: bash scripts/dev/lefthook/frontend-lint.sh
 
-    # 设计 token 守卫（规则与理由见 apps/web/scripts/check-design-tokens.mjs 头注释）。
-    # 与 CI 的 Design token guard 同一个脚本，放这里是为了提交时就拦住，不必等 CI。
-    # 它走 TS AST 扫全量 src、不吃 staged_files——既不受 Windows 命令行长度上限影响，
-    # 也不会因为「这次只改了一个文件」而漏掉跨文件的档位漂移。
     design-tokens:
-      run: |
-        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx)$')
-        if [ -z "$files" ]; then exit 0; fi
-        cd apps/web
-        npm run check:tokens
+      run: bash scripts/dev/lefthook/design-tokens.sh
 
     frontend-type-check:
-      # 必须用 -b（build mode），因为 apps/web/tsconfig.json 是 project references 结构，
-      # 直接 --noEmit 会因 files: [] 而不检查任何源文件（实测：不带 -b 退出码 0 且零输出，
-      # 带 -b 在同一 commit 上报 4 条错误）。
-      #
-      # tsc -b 是整项目增量检查、不针对单文件，所以这里只判断「有没有 ts/tsx 改动」，
-      # 有则整体跑一次。判空是为了避免改一个 .css 也触发 tsc。
-      #
-      # 若这一步报 TS2307 找不到模块（prismjs / @codemirror/language / @lezer/highlight 等），
-      # 先别怀疑代码：大概率是 dev 依赖没装全。本机 NODE_ENV=production 会让 npm 自动
-      # omit=dev，跳过 typescript 等 17 个 devDependencies。apps/web/.npmrc 的 include=dev
-      # 已压住这个行为，但若 node_modules 是在加 .npmrc 之前装的，需要重装一次：
-      #   cd apps/web && npm ci
-      run: |
-        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx)$')
-        if [ -z "$files" ]; then exit 0; fi
-        cd apps/web
-        npx tsc -b --noEmit
+      run: bash scripts/dev/lefthook/frontend-type-check.sh
 
     # --- Backend ---
-    # 范围含 tests/：原先只查 apps/backend/app/，tests/ 不在范围内，积压了 10 个未
-    # 格式化文件而无人发现（同期 app/ 侧 431 个文件全部合格，对比很明显）。
-    #
-    # $files 有意不加引号（需要 word splitting 把多个文件传给 ruff）；前提是 Python
-    # 文件名不含空格，这是本仓约定。
     backend-ruff:
-      run: |
-        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/backend/(app|tests)/.*[.]py$' | sed 's|^apps/backend/||')
-        if [ -z "$files" ]; then exit 0; fi
-        cd apps/backend
-        # --no-sync：跳过 uv 的环境同步步骤。裸 uv run 执行前会核对 venv 与
-        # uv.lock 是否一致，不一致就联网重新解析——代理关闭/离线时会挂在连包
-        # 索引上，提交卡死在 backend-ruff（2026-08-13 实测两次）。ruff 只需
-        # 用 venv 里已装的版本，同步对它没有价值。
-        uv run --no-sync ruff check $files
-        uv run --no-sync ruff format --check $files
+      run: bash scripts/dev/lefthook/backend-ruff.sh
 
     # --- Desktop ---
-    # 为什么单独加一条：apps/desktop 此前完全没有 pre-commit 覆盖。上面四条检查的
-    # 范围分别是 apps/web/src 与 apps/backend/{app,tests}，desktop 的 Electron 主进程
-    # 与 scripts/ 下的构建脚本一条都没管。
-    #
-    # 代价是实打实付过的：2026-08-10 改 vendor 下载脚本时留下多余的右花括号，
-    # download-sqlite-vec-binary.cjs 语法错误，五个 hook 全部放过（各自 0.2 秒就
-    # 「完成」，因为没有一条的范围包含 .cjs），靠人眼跑 node --check 才发现。
-    # 同一次检查还翻出 kill-dist.cjs 内容其实是 PowerShell、扩展名写成 .cjs，
-    # 语法错误已经在仓库里躺了很久没人知道。
-    #
-    # 这里跑 test:unit 而不是只做 node --check：test:unit 内部已含语法门（递归扫
-    # scripts/ 下所有 .cjs 过 node --check），顺带跑完 71 条单测，实测 2.1 秒，
-    # 覆盖面比逐文件 node --check 大得多而耗时相当。
-    #
-    # 范围含 scripts/ 与 src/：构建脚本坏了和主进程坏了一样会让应用起不来。
     desktop-unit:
-      run: |
-        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/desktop/(src|scripts)/.*[.](cjs|mjs|js)$')
-        if [ -z "$files" ]; then exit 0; fi
-        cd apps/desktop
-        npm run test:unit
+      run: bash scripts/dev/lefthook/desktop-unit.sh
 
     # --- Commit Author ---
     author-check:

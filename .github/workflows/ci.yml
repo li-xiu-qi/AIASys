@@ -68,6 +68,19 @@ jobs:
       - name: Lint
         run: npm run lint -- --max-warnings=4
 
+      # 设计 token 守卫。lint 管不到这类问题——eslint 不理解 Tailwind 类名的语义，
+      # 「这个 Select 高 40px 而旁边的 Button 高 36px」在它眼里是两个合法字符串。
+      #
+      # 三条规则：硬编码字号（text-[Npx]）、原语高度覆写（Button/Input/SelectTrigger
+      # 上手写 h-N）、Dialog 宽高覆写（DialogContent 上手写 max-w-*/h-[Nvh]）。
+      # 全部走 TS AST 而不是行正则：第一版用行正则报 23 处违规，改 AST 后报 245 处，
+      # 漏的 222 处全是 JSX 属性跨多行的写法（tagName 与 className 不在同一行）。
+      # 守卫漏检比没守卫更危险，它会给出「已经干净了」的假信号。
+      #
+      # 需要例外时在该行加 token-guard-ignore 注释并写明理由，别改规则放水。
+      - name: Design token guard
+        run: npm run check:tokens
+
       # 用 npm run type-check（脚本内是 `tsc -b --noEmit`），不要直接写 `npx tsc --noEmit`。
       # apps/web/tsconfig.json 是 project references 结构（files: []），不带 -b 时
       # tsc 不检查任何源文件，会静默通过——2026-08-09 实测：`tsc --noEmit` 退出码 0、
@@ -103,6 +116,14 @@ jobs:
         run: |
           python3 ../../scripts/dev/verify_test_probes.py --self-test --runner vitest
           python3 ../../scripts/dev/verify_test_probes.py --runner vitest
+
+      # 设计 token 守卫也要被探针验证：它同样会安静地失效（AST 漏一种 JSX 写法、
+      # 规则正则少一个分支，扫描都照常输出「通过，0 处违规」）。一个从不失败的
+      # 守卫与不存在的守卫等价。三条规则各注入一处真实违规，要求守卫必须报错。
+      - name: Test-effectiveness probes (design tokens)
+        run: |
+          python3 ../../scripts/dev/verify_test_probes.py --self-test --runner tokens
+          python3 ../../scripts/dev/verify_test_probes.py --runner tokens
 
       - name: Build
         run: npm run build

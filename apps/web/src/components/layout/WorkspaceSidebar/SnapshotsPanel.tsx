@@ -295,7 +295,7 @@ export function SnapshotsPanel({ workspaceId }: SnapshotsPanelProps) {
 
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Save className="h-4 w-4" />
@@ -389,7 +389,7 @@ export function SnapshotsPanel({ workspaceId }: SnapshotsPanelProps) {
             if (!open) setApplyResult(null);
           }}
         >
-          <DialogContent className="sm:max-w-md">
+          <DialogContent size="sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base">
                 <Package className="h-4 w-4" />

@@ -918,7 +918,7 @@ export function ChannelAssetsSection({
           if (!open) onClearQrLogin?.();
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="h-5 w-5 text-primary" />

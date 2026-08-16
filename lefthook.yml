@@ -82,6 +82,17 @@ pre-commit:
           npx eslint $files
         fi
 
+    # 设计 token 守卫（规则与理由见 apps/web/scripts/check-design-tokens.mjs 头注释）。
+    # 与 CI 的 Design token guard 同一个脚本，放这里是为了提交时就拦住，不必等 CI。
+    # 它走 TS AST 扫全量 src、不吃 staged_files——既不受 Windows 命令行长度上限影响，
+    # 也不会因为「这次只改了一个文件」而漏掉跨文件的档位漂移。
+    design-tokens:
+      run: |
+        files=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/src/.*[.](ts|tsx)$')
+        if [ -z "$files" ]; then exit 0; fi
+        cd apps/web
+        npm run check:tokens
+
     frontend-type-check:
       # 必须用 -b（build mode），因为 apps/web/tsconfig.json 是 project references 结构，
       # 直接 --noEmit 会因 files: [] 而不检查任何源文件（实测：不带 -b 退出码 0 且零输出，

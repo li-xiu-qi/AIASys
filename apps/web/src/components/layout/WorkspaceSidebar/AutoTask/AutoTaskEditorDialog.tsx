@@ -253,7 +253,7 @@ export function AutoTaskEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[1100px] w-[96vw] h-[90vh] min-h-[640px] p-0 gap-0 overflow-hidden border bg-background">
+      <DialogContent size="xl" tall className="min-h-[640px] overflow-hidden border bg-background">
         <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] bg-background">
           <DialogHeader className="border-b border-border px-6 py-4 text-left">
             <div className="flex flex-wrap items-start justify-between gap-3">

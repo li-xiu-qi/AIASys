@@ -96,28 +96,55 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = BaseDialogBackdrop.displayName;
 
 /**
- * 尺寸档位。此前 DialogContent 只有硬编码的 max-w-lg，导致 11 处调用各自覆写，
- * 实测长出 5 种宽度（lg/2xl/5xl/6xl/1100px）× 3 种高度（86/90/92vh），
- * 且「设置类大面板」都要重复写一遍 p-0 gap-0 flex flex-col 才能自排版。
- * 这里把「宽度 + 高度 + 内部布局模式」打包成四档，调用方选档不再拼数值。
- * 默认 sm 等价于改造前的 max-w-lg + p-6，不改变既有行为。
+ * 尺寸档位。此前 DialogContent 只有硬编码的 max-w-lg，导致 44 处调用各自覆写，
+ * 实测长出 max-w-sm/md/lg/xl/2xl/3xl/4xl/5xl/6xl 与 [600px]/[620px]/[680px]/
+ * [720px]/[1100px]/[1280px]/[1320px]/[1480px] 共十七种宽度，
+ * 配 80/85/86/88/90/92vh 六种高度。
+ *
+ * 宽度与「是否定高」是两个正交维度，不能压成一维档位：实测有 6 处需要
+ * 「中等宽度 + 定高」（能力面板、外部市场面板）。若把定高绑进 lg/xl 档，
+ * 这些地方就只能回到 className 里手写 h-[90vh]，等于绕开档位体系。
+ * 所以 size 只管宽度，tall 管高度与内部布局模式。
  */
 const dialogContentVariants = cva(
   "fixed left-[50%] top-[50%] z-50 w-full translate-x-[-50%] translate-y-[-50%] border bg-card shadow-pop-4 duration-200 ease-standard data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-2xl",
   {
     variants: {
+      /** 宽度档位。数值取自现有 44 处调用的实际分布，不是照抄别处。 */
       size: {
-        /** 表单、确认框：内容自然高度 */
-        sm: "grid max-w-lg gap-4 p-6",
-        /** 详情、单栏列表：内容自然高度，上限 90vh */
-        md: "grid max-w-2xl max-h-[90vh] gap-4 p-6",
-        /** 设置面板：定高 + 自排版（内部通常是左导航 + 右内容） */
-        lg: "flex max-w-5xl h-[88vh] flex-col gap-0 p-0",
-        /** 市场、双栏浏览：定高 + 自排版 */
-        xl: "flex max-w-6xl h-[88vh] flex-col gap-0 p-0",
+        /**
+         * 384px 单句确认框。这一档不能并进 sm：384 → 512 是 +33%，
+         * 一句话的确认框撑到 512 会显得空，像内容没加载完。实测 3 处在用。
+         */
+        xs: "max-w-sm",
+        /** 512px 表单、单字段编辑 */
+        sm: "max-w-lg",
+        /** 672px 详情、中等列表、多字段表单 */
+        md: "max-w-2xl",
+        /** 1024px 设置面板、左导航 + 右内容 */
+        lg: "max-w-5xl",
+        /** 1152px 市场、双栏浏览 */
+        xl: "max-w-6xl",
+        /**
+         * 工作区级沉浸式面板（知识库工作台、数据库资源、会话画布）。
+         * 用 min(px, vw) 而不是纯 max-w：这类面板在 2K 屏要铺开，在 13 寸
+         * 笔电上又必须留边距，单一 max-w 两头照顾不到。实测 4 处各自手写
+         * 1280/1320/1480 配 94/96vw，收敛到这一处。
+         */
+        full: "max-w-[min(1440px,94vw)]",
+      },
+      /**
+       * 是否定高。
+       * false（默认）= 内容决定高度、上限 90vh，内部 grid + p-6 常规排版；
+       * true = 固定 88vh + flex 列布局 + 零内边距，内部自己排
+       *        （这类面板通常是 header / 滚动区 / footer 三段结构）。
+       */
+      tall: {
+        false: "grid max-h-[90vh] gap-4 p-6",
+        true: "flex h-[88vh] flex-col gap-0 p-0",
       },
     },
-    defaultVariants: { size: "sm" },
+    defaultVariants: { size: "sm", tall: false },
   },
 );
 
@@ -129,7 +156,7 @@ const DialogContent = React.forwardRef<
       onPointerDownOutside?: (event: PointerEvent) => void;
       onOpenAutoFocus?: (event: Event) => void;
     }
->(({ className, children, size, onEscapeKeyDown, onPointerDownOutside, onOpenAutoFocus, ...props }, ref) => {
+>(({ className, children, size, tall, onEscapeKeyDown, onPointerDownOutside, onOpenAutoFocus, ...props }, ref) => {
   const internalRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -185,7 +212,7 @@ const DialogContent = React.forwardRef<
           }
         }}
         className={cn(
-          dialogContentVariants({ size }),
+          dialogContentVariants({ size, tall }),
           className,
         )}
         {...props}

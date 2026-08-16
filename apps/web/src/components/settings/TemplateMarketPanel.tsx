@@ -206,7 +206,7 @@ export function TemplateMarketPanel() {
 
       {/* 详情 Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               {detail ? (

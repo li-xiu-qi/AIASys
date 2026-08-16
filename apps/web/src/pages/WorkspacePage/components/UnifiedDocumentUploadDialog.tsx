@@ -355,8 +355,8 @@ export function UnifiedDocumentUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !isUploading && onOpenChange(v)}>
-      <DialogContent
-        className="flex max-h-[90vh] flex-col overflow-hidden p-0 sm:max-w-[680px]"
+      <DialogContent size="md"
+        className="flex flex-col overflow-hidden p-0"
         data-testid="unified-document-upload-dialog"
       >
         <DialogHeader className="shrink-0 px-6 pt-6">

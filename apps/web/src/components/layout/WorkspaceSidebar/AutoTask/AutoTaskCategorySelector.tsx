@@ -22,7 +22,7 @@ export function AutoTaskCategorySelector({
 }: AutoTaskCategorySelectorProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader>
           <DialogTitle>新建自动化任务</DialogTitle>
           <DialogDescription className="sr-only">

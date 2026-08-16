@@ -77,7 +77,7 @@ export function FetchModelsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+      <DialogContent size="sm" className="flex flex-col">
         <DialogHeader>
           <DialogTitle>获取模型列表</DialogTitle>
           <DialogDescription>

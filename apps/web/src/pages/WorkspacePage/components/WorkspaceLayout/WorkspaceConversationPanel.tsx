@@ -841,7 +841,7 @@ export function WorkspaceConversationPanel({
       open={pendingDeletion !== null}
       onOpenChange={handleDeleteDialogOpenChange}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent size="sm">
         <DialogHeader className="sr-only">
           <DialogTitle>删除对话</DialogTitle>
           <DialogDescription>

@@ -365,7 +365,7 @@ export function ExternalSkillMarketPanel({
       </div>
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="h-[90vh] max-h-[90vh] max-w-2xl overflow-hidden flex flex-col gap-0 bg-background">
+        <DialogContent size="md" tall className="overflow-hidden bg-background">
           <DialogHeader className="shrink-0">
             <DialogTitle>
               {detail?.item.display_name || "外部技能详情"}

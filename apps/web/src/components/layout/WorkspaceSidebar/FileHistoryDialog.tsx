@@ -239,7 +239,7 @@ export function FileHistoryDialog({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[86vh] max-h-[720px] max-w-5xl grid-rows-none flex-col gap-0 overflow-hidden p-0">
+      <DialogContent size="lg" tall className="max-h-[720px] grid-rows-none overflow-hidden">
         <DialogHeader className="border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <History className="h-4 w-4 text-muted-foreground" />

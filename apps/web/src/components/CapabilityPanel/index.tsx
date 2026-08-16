@@ -841,7 +841,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
 
       {/* Skill Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="h-[90vh] max-h-[90vh] max-w-2xl overflow-hidden flex flex-col gap-0 bg-background">
+        <DialogContent size="md" tall className="overflow-hidden bg-background">
           <DialogHeader className="shrink-0">
             <DialogTitle>
               {previewEntry?.display_name || previewEntry?.name || "技能预览"}
@@ -882,7 +882,7 @@ export function CapabilityPanel({ workspaceId, scope = "workspace", mode = "full
 
       {/* MCP Config Dialog */}
       <Dialog open={mcpConfigOpen} onOpenChange={setMcpConfigOpen}>
-        <DialogContent className="h-[90vh] max-h-[90vh] max-w-lg overflow-hidden flex flex-col gap-0 bg-background">
+        <DialogContent size="sm" tall className="overflow-hidden bg-background">
           <DialogHeader className="shrink-0">
             <DialogTitle>配置并安装</DialogTitle>
             <DialogDescription>

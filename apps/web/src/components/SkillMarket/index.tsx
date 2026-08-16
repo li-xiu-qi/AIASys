@@ -325,7 +325,7 @@ export function SkillMarket({
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="flex flex-col h-[85vh] overflow-hidden p-0 max-w-3xl bg-background">
+        <DialogContent size="md" tall className="overflow-hidden bg-background">
           <DialogHeader className="shrink-0 px-6 pt-6">
             <DialogTitle>
               {previewEntry?.display_name || previewEntry?.name || "技能预览"}
@@ -388,7 +388,7 @@ export function SkillMarket({
       </Dialog>
 
       <Dialog open={createGuideOpen} onOpenChange={setCreateGuideOpen}>
-        <DialogContent className="flex flex-col h-auto max-h-[85vh] overflow-hidden p-0 max-w-md bg-background">
+        <DialogContent size="sm" className="flex flex-col h-auto overflow-hidden p-0 bg-background">
           <DialogHeader className="shrink-0 px-6 pt-6">
             <DialogTitle>创建技能</DialogTitle>
             <DialogDescription>

@@ -575,7 +575,7 @@ export function CapabilityDetailPanel({
 
       {/* MCP Config Dialog */}
       <Dialog open={mcpConfigOpen} onOpenChange={setMcpConfigOpen}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-hidden flex flex-col bg-background">
+        <DialogContent size="sm" className="overflow-hidden flex flex-col bg-background">
           <DialogHeader className="shrink-0">
             <DialogTitle>配置并安装</DialogTitle>
             <DialogDescription>

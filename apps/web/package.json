@@ -14,7 +14,8 @@
     "test:e2e:lifecycle": "bash ../../scripts/dev/run_lifecycle_playwright.sh",
     "playwright:cli": "npx -y @playwright/cli@0.1.7 --config ../../.playwright/cli.config.json",
     "test:vitest": "vitest run",
-    "test": "npm run test:unit && npm run test:vitest"
+    "test": "npm run test:unit && npm run test:vitest",
+    "check:tokens": "node scripts/check-design-tokens.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

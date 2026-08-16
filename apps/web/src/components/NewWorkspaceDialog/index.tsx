@@ -711,8 +711,11 @@ export function NewWorkspaceDialog({
       }}
     >
       <DialogContent
+        size="md"
         className={cn(
-          "max-w-2xl p-0 gap-0",
+          // p-0 gap-0 有意保留：这个对话框自己排版（内部有分步 header 与 footer），
+          // 但不定高（内容高度随步骤变化）。tall 档管不到这种「自排版 + 不定高」的组合。
+          "p-0 gap-0",
           effectiveLifecycleState.isBusy && "[&>button]:hidden",
         )}
         onEscapeKeyDown={(event) => {
@@ -1341,7 +1344,7 @@ export function NewWorkspaceDialog({
           if (!open) setPreviewingTemplate(null);
         }}
       >
-        <DialogContent className="max-w-3xl p-0 gap-0">
+        <DialogContent size="md" className="p-0 gap-0">
           <DialogHeader className="border-b px-6 py-4">
             <DialogTitle className="flex items-center gap-2 text-base">
               <FileText className="h-5 w-5 text-muted-foreground" />

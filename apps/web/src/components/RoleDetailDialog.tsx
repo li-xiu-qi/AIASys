@@ -145,7 +145,7 @@ export function RoleDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-background">
+      <DialogContent size="md" className="overflow-hidden flex flex-col bg-background">
         <DialogHeader className="shrink-0">
           <DialogTitle>协作专家详情</DialogTitle>
           <DialogDescription>

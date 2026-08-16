@@ -43,6 +43,7 @@ _MESSAGE_PROTOCOL = (
     "apps/backend/app/services/agent/runtime_backends/aiasys/llm_clients/message_protocol.py"
 )
 _AI_MESSAGE_CONTENT = "apps/web/src/components/chat/AiMessageContent/index.tsx"
+_TOOL_BLOCK = "apps/web/src/components/chat/AiMessageContent/ToolBlock.tsx"
 _RUNTIME_LLM_CONFIG = "apps/backend/app/services/agent/models/llm_config.py"
 _USER_LLM_CONFIG = "apps/backend/app/models/llm_provider.py"
 _CLIENT_FACTORY = "apps/backend/app/services/agent/runtime_backends/aiasys/llm_clients/__init__.py"
@@ -315,6 +316,47 @@ PROBES: tuple[Probe, ...] = (
         ),
         runner="vitest",
     ),
+    # ---- 设计 token 守卫自身的有效性 ----
+    # 这三个探针测的对象不是单元测试，而是 check-design-tokens.mjs 这个守卫脚本。
+    # 理由与其他探针一致：守卫失效时不会报错，只会安静地输出「通过，0 处违规」，
+    # 而它保护的视觉一致性早已无人看管。三条规则各注入一处真实违规，
+    # 要求守卫必须以非零码退出。
+    #
+    # 注入点刻意选了三种不同的 JSX 形态：单行属性、跨多行属性、className 与
+    # size 混用——AST 遍历若退化成行匹配，跨多行那一条会第一个失守。
+    Probe(
+        name="token-guard-catches-hardcoded-font-size",
+        target="apps/web/src/components/chat/AiMessageContent/ToolBlock.tsx",
+        find="pl-3 text-caption leading-relaxed",
+        replace="pl-3 text-[12px] leading-relaxed",
+        tests=(),
+        rationale=(
+            "R1 失效则字号重新各写各的。本项目改造前全站硬编码字号 881 处，"
+            "10px/11px/12px/13px 四种混用，同一列表里相邻两行字号不同"
+        ),
+        runner="tokens",
+    ),
+    Probe(
+        name="token-guard-catches-control-height-override",
+        target="apps/web/src/components/CanvasEditor/CanvasDialogs.tsx",
+        find='<Button size="sm" onClick={onCommit}>',
+        replace='<Button className="h-8" onClick={onCommit}>',
+        tests=(),
+        rationale=(
+            "R2 失效则控件高度回到手写状态（改造前 h-7 142 处、h-8 227 处），"
+            "同一行里的按钮与下拉框差 4px，视觉上参差不齐"
+        ),
+        runner="tokens",
+    ),
+    Probe(
+        name="token-guard-catches-dialog-size-override",
+        target="apps/web/src/components/CanvasEditor/CanvasDialogs.tsx",
+        find='<DialogContent size="xs">',
+        replace='<DialogContent className="max-w-[520px]">',
+        tests=(),
+        rationale="R3 失效则每个弹窗自己拍宽度，同类弹窗宽度不一致、窄屏下溢出行为也不统一",
+        runner="tokens",
+    ),
 )
 
 
@@ -350,9 +392,36 @@ def _run_vitest(tests: tuple[str, ...], extra_args: tuple[str, ...]) -> tuple[in
     return completed.returncode, (completed.stdout or "") + (completed.stderr or "")
 
 
+def _run_tokens(extra_args: tuple[str, ...]) -> tuple[int, str]:
+    """跑设计 token 守卫。
+
+    这一路 runner 守的不是单元测试，而是一个静态守卫脚本。它同样需要探针：
+    守卫的价值全在「能不能抓住违规」上，而它的失效方式很隐蔽——AST 遍历漏掉
+    某种 JSX 写法、正则少一个分支、CONTROL_TAGS 少登记一个原语，扫描都会照常
+    输出「通过，0 处违规」。2026-08-16 实测过一次同类失效：行正则版守卫报 23 处，
+    AST 版在同一份代码上报 245 处，差的 222 处是跨多行 JSX 属性。当时若没有对照
+    就会把行正则版当成已经干净。
+
+    tests 字段对本 runner 无意义（守卫总是全量扫 src），保留空元组。
+    """
+    cmd = "node scripts/check-design-tokens.mjs " + " ".join(extra_args)
+    completed = subprocess.run(
+        cmd,
+        cwd=WEB_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        shell=True,
+    )
+    return completed.returncode, (completed.stdout or "") + (completed.stderr or "")
+
+
 def _run_tests(probe: Probe) -> tuple[int, str]:
     if probe.runner == "vitest":
         return _run_vitest(probe.tests, probe.extra_args)
+    if probe.runner == "tokens":
+        return _run_tokens(probe.extra_args)
     return _run_pytest(probe.tests, probe.extra_args)
 
 
@@ -360,12 +429,18 @@ def _digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _selected_count(output: str) -> int:
-    """从 pytest 输出里粗解析实际跑了多少条用例。
+def _selected_count(output: str, runner: str = "pytest") -> int:
+    """判断「被测的东西真的跑起来了」，返回 0 表示没跑。
 
     探针的前提是那些测试真的被选中跑了。若 -k 过滤写歪导致 0 selected，
     pytest 会以「no tests ran」退出，不能算探针有效——那只是没测。
+
+    tokens runner 没有用例概念，判据换成守卫是否真的扫过文件：脚本第一行会打印
+    「AST 扫描 N 个源文件」。缺这行说明 node 没起来、依赖缺失或路径不对，
+    此时的非零退出码来自崩溃而不是检出违规，必须判为 broken 而不是 effective。
     """
+    if runner == "tokens":
+        return 1 if "AST 扫描" in output else 0
     for line in reversed(output.splitlines()):
         for marker in ("passed", "failed", "error"):
             if marker in line:
@@ -397,7 +472,7 @@ def _execute_probe(probe: Probe) -> tuple[str, str]:
     try:
         path.write_text(original.replace(probe.find, probe.replace), encoding="utf-8")
         code, output = _run_tests(probe)
-        ran = _selected_count(output)
+        ran = _selected_count(output, probe.runner)
     finally:
         path.write_text(original, encoding="utf-8")
 
@@ -435,6 +510,35 @@ def _self_test_vitest() -> int:
     return _report_self_test("vitest", harmless, bogus_anchor)
 
 
+def _self_test_tokens() -> int:
+    """设计 token 守卫侧自证，与另两侧同构。
+
+    无害案例选的是「合法档位之间的替换」（text-caption → text-sm，两者都在
+    允许列表里）：守卫必须放过它。这一条同时兜住一类真实风险——如果哪天有人把
+    R1 的判据从「方括号任意值」放宽/收紧成正则匹配 text-\\w+，Tailwind 内置档
+    会被一并误报，那时守卫就会天天拦住合法代码，最终被人加 --no-verify 绕过。
+    """
+    harmless = Probe(
+        name="self-test-tokens-legal-swap",
+        target=_TOOL_BLOCK,
+        find="pl-3 text-caption leading-relaxed",
+        replace="pl-3 text-sm leading-relaxed",
+        tests=(),
+        rationale="两个档位都合法，守卫必须放过",
+        runner="tokens",
+    )
+    bogus_anchor = Probe(
+        name="self-test-tokens-bogus-anchor",
+        target=_TOOL_BLOCK,
+        find="className=\"a-class-that-does-not-exist-anywhere\"",
+        replace="noop",
+        tests=(),
+        rationale="锚点不存在，探针不可用",
+        runner="tokens",
+    )
+    return _report_self_test("tokens", harmless, bogus_anchor)
+
+
 def _report_self_test(runner: str, harmless: Probe, bogus_anchor: Probe) -> int:
     """跑两个反向案例并汇报。两侧自证共用，避免判定标准出现两份。"""
     print(f"自证（{runner}）：验证判定逻辑能识别假绿与坏探针\n")
@@ -468,6 +572,8 @@ def _self_test(runner: str = "pytest") -> int:
     （backend job 没有 node_modules，web job 没有 python venv），
     自证必须能跟着 --runner 走，否则等于要求每个 job 都装全套依赖。
     """
+    if runner == "tokens":
+        return _self_test_tokens()
     if runner == "vitest":
         return _self_test_vitest()
     harmless = Probe(
@@ -552,11 +658,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--runner",
-        choices=("pytest", "vitest", "all"),
+        choices=("pytest", "vitest", "tokens", "all"),
         default="all",
         help=(
             "只跑指定 runner 的探针。CI 里必须分开跑：backend job 不装 apps/web 的 "
             "node_modules，vitest 探针在那里必然失败；web-check job 反之。"
+            "tokens 是设计 token 守卫的探针，同样需要 apps/web 的 node_modules。"
         ),
     )
     args = parser.parse_args()
@@ -581,7 +688,7 @@ def main() -> int:
         # `--self-test --runner vitest` 实际去执行 pytest，job 里没有 pytest，
         # 输出无「passed」可解析 → 误判 broken → 自证恒失败（2026-08-13 CI 首跑实测）。
         # 默认 all 时两侧都自证：本地一条命令验全套，CI 分开各跑各的。
-        runners = ("pytest", "vitest") if args.runner == "all" else (args.runner,)
+        runners = ("pytest", "vitest", "tokens") if args.runner == "all" else (args.runner,)
         rc = 0
         for runner in runners:
             rc |= _self_test(runner)

@@ -87,8 +87,8 @@ export function SessionLifecycleDialogs({
         open={isExecutionRecordsDialogOpen}
         onOpenChange={onExecutionRecordsDialogOpenChange}
       >
-        <DialogContent
-          className="grid h-[80vh] max-h-[80vh] sm:max-w-4xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0"
+        <DialogContent size="lg" tall
+          className="grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             window.requestAnimationFrame(() => {

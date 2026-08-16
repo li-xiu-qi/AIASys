@@ -141,7 +141,7 @@ export function PermissionModeSelect({
           if (!open) setPendingRiskTarget(null);
         }}
       >
-        <DialogContent className="max-w-sm">
+        <DialogContent size="xs">
           <DialogHeader>
             <DialogTitle>确认启用全权模式？</DialogTitle>
             <DialogDescription>

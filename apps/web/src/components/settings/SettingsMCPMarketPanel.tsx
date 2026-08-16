@@ -544,7 +544,7 @@ export function SettingsMCPMarketPanel({
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden flex flex-col bg-background">
+        <DialogContent size="md" className="overflow-hidden flex flex-col bg-background">
           {detailItem ? (
             <>
               <DialogHeader className="shrink-0">
@@ -998,7 +998,7 @@ export function SettingsMCPMarketPanel({
           if (!open) setEditingServerName(null);
         }}
       >
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col bg-background">
+        <DialogContent size="sm" className="overflow-hidden flex flex-col bg-background">
           <DialogHeader className="shrink-0">
             <DialogTitle>
               {editingServerName !== null ? "编辑连接器" : "添加连接器"}

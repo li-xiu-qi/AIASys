@@ -9,7 +9,8 @@
 #   - 必须在 main 分支上执行
 #   - 工作区必须干净
 #   - 必须已存在 docs/changelog/v{version}_{YYYY-MM-DD}.md
-#   - 版本号会同步到 web/desktop/pyproject.toml
+#   - 版本号会同步到 根/web/desktop package.json 与 backend/pyproject.toml（见 VERSION_FILES）
+#   - --dry-run 零副作用：跑完自动还原版本号文件
 #   - 自动提交、打 tag v{version} 并推送到 upstream
 
 set -euo pipefail
@@ -131,6 +132,20 @@ with open('$file', 'w') as f:
 "
 }
 
+# 承载版本号的全部文件，只在这里列一次——此前 update / git diff / git add 三处
+# 各列一遍，漏改一处就会静默漂移：根 package.json 正是这样在 0.4.34 那次发布里
+# 被漏掉，一直停在 0.4.33（2026-08-15 实测）。
+VERSION_FILES=(
+  # 根 package.json 的 version 目前没有任何消费者（CI 读的是 apps/desktop 与
+  # apps/web 各自的 package.json）。仍然纳入同步而不是删掉它：留着不管必然漂移，
+  # 而漂移出来的旧版本号会误导读它的人和 AI（本轮就误判过一次当前版本）。
+  "package.json"
+  "apps/web/package.json"
+  "apps/desktop/package.json"
+  "apps/backend/pyproject.toml"
+)
+
+update_json_version "package.json" "$VERSION"
 update_json_version "apps/web/package.json" "$VERSION"
 update_json_version "apps/desktop/package.json" "$VERSION"
 update_toml_version "apps/backend/pyproject.toml" "$VERSION"
@@ -138,16 +153,19 @@ update_toml_version "apps/backend/pyproject.toml" "$VERSION"
 # 6. 检查版本号是否真的改了
 if [[ -n "$(git status --short)" ]]; then
   echo "==> 版本号变更如下："
-  git diff -- apps/web/package.json apps/desktop/package.json apps/backend/pyproject.toml
+  git diff -- "${VERSION_FILES[@]}"
 else
   echo "==> 版本号已是 $VERSION，无需变更"
 fi
 
 # 7. 演练模式：不实际提交和 tag
 if [[ "$DRY_RUN" == true ]]; then
+  # 演练必须零副作用。原先只提示「请手动 reset」，忘了就留下一个版本号被改过的
+  # 脏工作区，而下一次真实发布的前置检查恰好要求工作区干净——等于给自己埋雷。
   echo ""
-  echo "==> [DRY RUN] 演练完成，不会执行提交、打 tag 和推送"
-  echo "    版本号已临时修改，请手动 reset 或继续真实发布"
+  echo "==> [DRY RUN] 还原版本号文件 ..."
+  git checkout -- "${VERSION_FILES[@]}"
+  echo "==> [DRY RUN] 演练完成：前置检查全过，版本号文件已还原，未提交、未打 tag、未推送"
   echo ""
   echo "    如需继续真实发布，请重新执行（去掉 --dry-run）："
   echo "      ./scripts/dev/release.sh $VERSION"
@@ -161,7 +179,7 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
   exit 1
 fi
 
-git add apps/web/package.json apps/desktop/package.json apps/backend/pyproject.toml
+git add "${VERSION_FILES[@]}"
 git commit -m "chore(release): bump version to $VERSION"
 
 # 9. 打 tag 并推送

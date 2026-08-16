@@ -65,6 +65,17 @@ jobs:
       # 不在检查范围——实测点名一个含 debugger + 未使用变量的 .mjs，eslint 同样返回 0。
       # 于是 scripts/committed/*.mjs 与 src/**/__tests__/*.test.mjs 都没有 lint 覆盖。
       # 扩大范围会引出一批新问题，不在本次范围内，先记录在此。
+      # lefthook.yml 纪律 6 的静态强制器：禁止 run 内联多行脚本。
+      # 理由见 scripts/dev/lefthook/check-inline-scripts.mjs 头注释——内联脚本在
+      # Windows 下会被命令行解析截断，导致 pre-commit hook 恒定通过（frontend-lint
+      # 曾因此放行含 parse error 的文件数日）。CI 是 ubuntu、不复现该截断，
+      # 但这条检查是静态的，放这里能防住「本机没装 lefthook 的人改坏配置」。
+      # 先跑自证：本检查自己也可能退化成恒绿。
+      - name: Lefthook inline-script guard
+        run: |
+          node ../../scripts/dev/lefthook/check-inline-scripts.mjs --self-test
+          node ../../scripts/dev/lefthook/check-inline-scripts.mjs
+
       - name: Lint
         run: npm run lint -- --max-warnings=4
 

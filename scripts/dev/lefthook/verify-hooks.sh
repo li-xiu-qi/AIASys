@@ -104,6 +104,21 @@ expect_blocked "type-check(子目录)" "$P5"
 P6="apps/desktop/scripts/__hook_probe_broken.cjs"
 printf 'const broken = {;\n' > "$P6"
 expect_blocked "desktop-unit" "$P6"
+
+# design-tokens 探针：硬编码字号必须被守卫拦下。
+# 三条规则里选 R1，因为它是最容易被「顺手写个 text-[11px]」引入的一类，
+# 也是改造前存量最多的一类（881 处）。R2/R3 的规则有效性由
+# scripts/dev/verify_test_probes.py --runner tokens 在 CI 里逐条验证，
+# 这里只需确认「守卫确实挂在 pre-commit 这条链路上」。
+#
+# 归因说明：本脚本的判据是「HEAD 有没有移动」，任一 hook 拦下都算 PASS，
+# 所以探针内容必须对其余 hook 无害，否则会把「别人拦的」记成「它拦的」。
+# 2026-08-16 实测这份内容：eslint 退出 0、tsc -b 退出 0、只有 design-tokens
+# 报 1 处 R1 违规并退出 1。改动这个探针后请重测这三项。
+P7="apps/web/src/__hook_probe_tokens.tsx"
+printf 'export const Probe = () => <span className="text-[13px]">x</span>;\n' > "$P7"
+expect_blocked "design-tokens" "$P7"
+
 P4="apps/backend/tests/__hook_probe_ec.txt"
 printf 'trailing spaces here   \nno final newline' > "$P4"
 expect_blocked "editorconfig" "$P4"

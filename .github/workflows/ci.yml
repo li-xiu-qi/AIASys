@@ -71,6 +71,16 @@ jobs:
       # 曾因此放行含 parse error 的文件数日）。CI 是 ubuntu、不复现该截断，
       # 但这条检查是静态的，放这里能防住「本机没装 lefthook 的人改坏配置」。
       # 先跑自证：本检查自己也可能退化成恒绿。
+      # 引用完整性：CI 与 npm scripts 指向的脚本必须都在版本库里。
+      # 这道检查存在的理由是本地测不出这类失效——本地看工作区、CI 看版本库，
+      # 在「文件是否存在」上两者不等价。2026-08-16 实测：守卫脚本落在被
+      # .gitignore 忽略的目录里，本地五道校验全绿而 CI 直接 Cannot find module。
+      # 首次运行即查出另一处存量死引用（perf:smoke:analysis 指向从未提交的文件）。
+      - name: Tracked-script reference guard
+        run: |
+          node ../../scripts/dev/check_tracked_scripts.mjs --self-test
+          node ../../scripts/dev/check_tracked_scripts.mjs
+
       - name: Lefthook inline-script guard
         run: |
           node ../../scripts/dev/lefthook/check-inline-scripts.mjs --self-test

@@ -182,9 +182,9 @@ def test_prompt_template_declares_shell_guidance_placeholder():
     """模板必须声明 ${SHELL_GUIDANCE_SECTION}，否则动态口径不会注入（StrictUndefined）。"""
     from pathlib import Path
 
-    template = Path(
-        "app/agents/local_sandbox_agent_config/general_host_prompt.md"
-    ).read_text(encoding="utf-8")
+    template = Path("app/agents/local_sandbox_agent_config/general_host_prompt.md").read_text(
+        encoding="utf-8"
+    )
     assert "${SHELL_GUIDANCE_SECTION}" in template
     # 旧的、与执行层 auto 相矛盾的硬编码指引应已移除
     assert "2>nul" not in template

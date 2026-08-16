@@ -147,6 +147,15 @@ jobs:
     # RoleVisibilityPopover portal 冒泡、virtual-core 尺寸补偿拖滚动、
     # 程序化滚动时间窗吞用户上滑、画布卸载丢最后一次编辑）。
     runs-on: windows-latest
+
+    # Windows runner 的 Python 默认按控制台代码页（cp1252）编码 stdout，
+    # 任何打印中文的脚本都会 UnicodeEncodeError 并非零退出。2026-08-16 实测：
+    # download_vendor_binaries.py 因此崩掉 → vendor 二进制缺失 → 后端起不来 →
+    # 整个 e2e 套件失败，而日志里只有一行 charmap 编码错。
+    # 脚本内部已各自 reconfigure，这里是 job 级兜底，覆盖还没改的其他脚本。
+    env:
+      PYTHONIOENCODING: utf-8
+      PYTHONUTF8: "1"
     # 硬上限。本地串行实测约 25 分钟；runner 更慢，60 分钟是两倍余量。
     timeout-minutes: 60
     defaults:

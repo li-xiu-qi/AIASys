@@ -317,7 +317,7 @@ PROBES: tuple[Probe, ...] = (
         runner="vitest",
     ),
     # ---- 设计 token 守卫自身的有效性 ----
-    # 这三个探针测的对象不是单元测试，而是 check-design-tokens.mjs 这个守卫脚本。
+    # 这三个探针测的对象不是单元测试，而是 committed/check-design-tokens.mjs 这个守卫脚本。
     # 理由与其他探针一致：守卫失效时不会报错，只会安静地输出「通过，0 处违规」，
     # 而它保护的视觉一致性早已无人看管。三条规则各注入一处真实违规，
     # 要求守卫必须以非零码退出。
@@ -404,7 +404,7 @@ def _run_tokens(extra_args: tuple[str, ...]) -> tuple[int, str]:
 
     tests 字段对本 runner 无意义（守卫总是全量扫 src），保留空元组。
     """
-    cmd = "node scripts/check-design-tokens.mjs " + " ".join(extra_args)
+    cmd = "node scripts/committed/check-design-tokens.mjs " + " ".join(extra_args)
     completed = subprocess.run(
         cmd,
         cwd=WEB_ROOT,
@@ -530,7 +530,7 @@ def _self_test_tokens() -> int:
     bogus_anchor = Probe(
         name="self-test-tokens-bogus-anchor",
         target=_TOOL_BLOCK,
-        find="className=\"a-class-that-does-not-exist-anywhere\"",
+        find='className="a-class-that-does-not-exist-anywhere"',
         replace="noop",
         tests=(),
         rationale="锚点不存在，探针不可用",

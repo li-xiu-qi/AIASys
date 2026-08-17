@@ -22,6 +22,33 @@ InternalMessageOrigin = Literal[
     "forked",
 ]
 
+DisplayHint = Literal["visible", "collapsed", "hidden"]
+
+# origin → display_hint 映射表（设计依据：agent产品横向设计对比.md 第五节）
+# origin 是后端内部概念，不透传给前端；display_hint 只有三值，职责清晰：
+# 后端决定该不该显示，前端决定怎么排版。
+_ORIGIN_TO_DISPLAY_HINT: dict[str, DisplayHint] = {
+    "user": "visible",
+    "assistant": "visible",
+    "tool": "visible",
+    "system": "hidden",
+    "compaction_summary": "hidden",
+    "system_notice": "visible",
+    "contextual_user": "collapsed",
+    "forked": "collapsed",
+}
+
+
+def compute_display_hint(origin: str | None) -> DisplayHint:
+    """将内部 origin 映射为前端渲染语义 display_hint。
+
+    未知值降级为 "visible"（宁可多显示也不要静默吞掉内容）。
+    缺省字段（None）同样返回 "visible"，保证向后兼容。
+    """
+    if origin is None:
+        return "visible"
+    return _ORIGIN_TO_DISPLAY_HINT.get(origin, "visible")
+
 
 class InternalToolFunction(TypedDict, total=False):
     name: str
@@ -356,9 +383,16 @@ def _normalize_tool_calls(raw_tool_calls: Any) -> list[InternalToolCall]:
 
 
 def _tool_arguments_as_text(raw_arguments: Any) -> str:
+    """把 tool_call 的 arguments 统一成文本形态。
+
+    空白字符串归一为 "{}"：空串不是合法 JSON，直接发给服务商会被解析拒绝，
+    而「无参数」的合法表达就是空对象。注意不要把这条推广到所有非法 JSON——
+    模型吐出的截断片段（如 '{"a":'）必须原样保留，那是判断截断还是真错误的
+    唯一线索，在此处吞掉会让上层只能看到一个无从追溯的空对象。
+    """
     if isinstance(raw_arguments, str):
-        return raw_arguments
-    if raw_arguments in (None, "", {}, []):
+        return raw_arguments if raw_arguments.strip() else "{}"
+    if raw_arguments in (None, {}, []):
         return "{}"
     return json.dumps(raw_arguments, ensure_ascii=False)
 

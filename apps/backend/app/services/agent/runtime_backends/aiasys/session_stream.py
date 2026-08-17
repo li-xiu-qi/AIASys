@@ -25,11 +25,23 @@ from app.services.agent.message_content import (
     extract_message_text,
     hydrate_message_images,
 )
+
+# Per-Agent Write Allow Root 守卫（team_spawn build 类任务）
+from app.services.agent.runtime_backends.aiasys.team.store import check_write_guard
 from app.services.history.session_history_projection import unwrap_user_prompt
 
 from ..base import AgentRuntimeEvent
 from .llm_clients.error_classifier import classify_api_error
+from .llm_clients.message_protocol import DisplayHint
 from .llm_clients.retry_utils import jittered_backoff
+from .loop_detection import (
+    THINKING_LOOP_NUDGE,
+    ContinuationVerdict,
+    ThinkingLoopVerdict,
+    advance_continuation,
+    check_continuation_safety,
+    describe_continuation_stop,
+)
 from .session_utils import (
     extract_usage_counts,
     merge_stream_fragment,
@@ -74,6 +86,11 @@ def _serialize_tool_content_for_event(content: str | list[dict[str, Any]]) -> st
 
 class SessionStreamMixin:
     """提供 prompt() ReAct 流式循环，作为 mixin 混入 AiasysRuntimeSession。"""
+
+    # 显示流分层：直接实例化 SessionStreamMixin 的测试桩需要此缺省值。
+    # 用 DisplayHint 而非 str，理由同 session.py 的实例属性声明：str 会让下游
+    # 所有 AgentRuntimeEvent(display_hint=...) 失去 Literal 校验。
+    _current_display_hint: DisplayHint = "visible"
 
     def _prepare_messages_for_current_model(self) -> list[dict[str, Any]]:
         # Tier 1: 每次 LLM 调用前执行零成本 tool 结果清理
@@ -386,6 +403,7 @@ class SessionStreamMixin:
                 )
 
         yield AgentRuntimeEvent(
+            display_hint=self._current_display_hint,
             kind="tool_result",
             tool_call_id=item["id"],
             tool_name=item["function"]["name"],
@@ -489,11 +507,45 @@ class SessionStreamMixin:
         self,
         info: dict[str, Any],
     ) -> AsyncGenerator[AgentRuntimeEvent, None]:
-        """串行执行单个有副作用工具。"""
-        events, tool_result = await self._execute_tool_stream(info["item"], info["item_ctx"])
+        """串行执行单个有副作用工具（含写范围守卫检查）。"""
+        item = info["item"]
+        item_ctx = info["item_ctx"]
+
+        # Per-Agent Write Allow Root 守卫：在工具执行前校验目标路径
+        write_allow_root = item_ctx.get("write_allow_root")
+        resource_lease_keys = item_ctx.get("resource_lease_keys")
+        if write_allow_root or resource_lease_keys:
+            tool_name = item["function"]["name"]
+            arguments = item.get("arguments") or {}
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except (json.JSONDecodeError, TypeError):
+                    arguments = {}
+            denial = check_write_guard(write_allow_root, tool_name, arguments, resource_lease_keys)
+            if denial:
+                tool_result = ToolResult(content=denial, is_error=True)
+                yield AgentRuntimeEvent(
+                    display_hint=self._current_display_hint,
+                    kind="tool_result",
+                    tool_call_id=item.get("id"),
+                    tool_name=tool_name,
+                    content=denial,
+                    is_error=True,
+                )
+                self._append_message(
+                    {
+                        "role": "tool",
+                        "tool_call_id": item.get("id"),
+                        "content": denial,
+                    }
+                )
+                return
+
+        events, tool_result = await self._execute_tool_stream(item, item_ctx)
         for event in events:
             yield event
-        async for event in self._finish_tool_execution(info["item"], tool_result):
+        async for event in self._finish_tool_execution(item, tool_result):
             yield event
 
     async def prompt(
@@ -509,6 +561,7 @@ class SessionStreamMixin:
             yield AgentRuntimeEvent(
                 kind="budget_limited",
                 text=self._session_budget_limited_text(),
+                display_hint="visible",
             )
             yield AgentRuntimeEvent(
                 kind="budget_updated",
@@ -524,6 +577,7 @@ class SessionStreamMixin:
                     },
                     ensure_ascii=False,
                 ),
+                display_hint="visible",
             )
             return
 
@@ -545,7 +599,8 @@ class SessionStreamMixin:
             ):
                 continue
             self._append_message(msg)
-        self._continuation_count = 0
+        self._continuation_state.reset()
+        self._thinking_loop_nudge_sent = False
 
         # 每个新的 user message 重置 Auto-Nudge 状态
         self._auto_nudge_sent_for_current_turn = False
@@ -581,7 +636,11 @@ class SessionStreamMixin:
             latest_raw_finish_reason: str | None = None
             latest_usage: dict[str, Any] | None = None
             request_options = self._resolve_request_options()
-            suppress_reasoning_content = bool(request_options.thinking_disabled)
+
+            # thinking 死循环检测按轮独立：每轮的思考流是新的，跨轮累积会把上一轮的
+            # 正常思考当成本轮「更早内容」里的重复，制造误报。
+            self._thinking_loop_detector.reset()
+            thinking_loop_hit: ThinkingLoopVerdict | None = None
 
             stream_error: Exception | None = None
             for retry_attempt in range(4):  # 1 次原始 + 3 次重试
@@ -628,21 +687,45 @@ class SessionStreamMixin:
                         if delta.content:
                             assistant_parts.append(delta.content)
                             yield AgentRuntimeEvent(
+                                display_hint=self._current_display_hint,
                                 kind="content",
                                 content_type="text",
                                 text=delta.content,
                             )
 
-                        if delta.reasoning_content and not suppress_reasoning_content:
+                        # 渲染只认模型实际吐出的事件，不认开关（step-code events.ts /
+                        # harness ReasoningRow 同款原则）：开关只控制请求侧「不主动
+                        # 要求思考」；模型服务端默认思考并返回了 reasoning 时，必须
+                        # 展示并记入历史——隐藏实际输出会让 UI 对模型行为撒谎。
+                        if delta.reasoning_content:
                             assistant_reasoning = merge_stream_fragment(
                                 assistant_reasoning,
                                 delta.reasoning_content,
                             )
                             yield AgentRuntimeEvent(
+                                display_hint=self._current_display_hint,
                                 kind="content",
                                 content_type="think",
                                 think=delta.reasoning_content,
                             )
+
+                            # 思考流死循环：中途发现就中止，省掉整段无效思考的 token。
+                            # 三个前置条件都必要：
+                            # - 已吐出正文（assistant_parts 非空）说明模型没卡在思考里，
+                            #   此时中止会打断正常回答；正文阶段的重复交给续写守卫管。
+                            # - 本次 run 已注入过诱导跳出则不再中止，避免「打断—重开—再打断」
+                            #   自己变成新的循环。
+                            if (
+                                self._thinking_loop_guard_enabled
+                                and not self._thinking_loop_nudge_sent
+                                and not assistant_parts
+                            ):
+                                verdict = self._thinking_loop_detector.ingest(
+                                    delta.reasoning_content
+                                )
+                                if verdict.looping:
+                                    thinking_loop_hit = verdict
+                                    break
 
                         for tool_delta in delta.tool_calls or []:
                             if not isinstance(tool_delta, dict):
@@ -710,6 +793,39 @@ class SessionStreamMixin:
             if self._cancel_event.is_set():
                 break
 
+            # thinking 死循环：本轮思考流已被中止，注入诱导跳出后重开一轮。
+            # 放在流中断恢复之前——它不是错误，不该走 fallback 那条路。
+            if thinking_loop_hit is not None:
+                self._thinking_loop_nudge_sent = True
+                logger.warning(
+                    "检测到 thinking 死循环（重复单元 %r，重复 %s 次，已累积 %d 字符思考），"
+                    "中止本轮并注入诱导跳出",
+                    (thinking_loop_hit.sample or "")[:40],
+                    thinking_loop_hit.repeats,
+                    len(assistant_reasoning),
+                )
+                # 本轮 assistant 响应被中止，视为无效、不入历史（与参考实现一致）：
+                # 半截的思考流没有对应的完整响应，写进历史反而给模型
+                # 「我已经答过了」的假象。前端已收到的 think 事件仍会展示，那是展示层的事。
+                yield AgentRuntimeEvent(
+                    display_hint=self._current_display_hint,
+                    kind="system_warning",
+                    text=THINKING_LOOP_NUDGE,
+                )
+                # 保留 role=user（诱导跳出要让模型当成新指令来响应，且 Anthropic 协议
+                # 不允许 system 出现在 messages 中间），但必须标 origin：
+                # 不标的话恢复时会按 role 反推成 origin="user"，这条系统注入就与真人
+                # 输入无法区分了——压缩保真、显示过滤、审计回溯三处都会误判。
+                # 参考实现（step-code runTurn.ts:321）此处标的是 kind:'user'，是其缺陷，不照搬。
+                self._append_message(
+                    {
+                        "role": "user",
+                        "origin": "system_notice",
+                        "content": THINKING_LOOP_NUDGE,
+                    }
+                )
+                continue
+
             # 流中断恢复：重试用尽后，若已收集到部分内容则作为 fallback
             if stream_error is not None:
                 fallback_content = "".join(assistant_parts)
@@ -721,16 +837,17 @@ class SessionStreamMixin:
                     fallback_message: dict[str, Any] = {"role": "assistant"}
                     if fallback_content:
                         fallback_message["content"] = fallback_content
-                    if assistant_reasoning and not suppress_reasoning_content:
+                    if assistant_reasoning:
                         fallback_message["reasoning_content"] = assistant_reasoning
                         if assistant_reasoning_signature:
                             fallback_message["reasoning_signature"] = assistant_reasoning_signature
                     # 加密推理块与可读 thinking 相互独立：只有 redacted 而无可读内容
                     # 是合法形态，故不嵌在上面的 reasoning 分支内。
-                    if assistant_reasoning_redacted and not suppress_reasoning_content:
+                    if assistant_reasoning_redacted:
                         fallback_message["reasoning_redacted_data"] = assistant_reasoning_redacted
                     self._append_message(fallback_message)
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=(
                             "<system>\n"
@@ -762,9 +879,8 @@ class SessionStreamMixin:
                 await self._check_session_budget(input_tokens, output_tokens)
 
             assistant_content = "".join(assistant_parts) or None
-            assistant_reasoning_content = (
-                None if suppress_reasoning_content else assistant_reasoning or ""
-            )
+            assistant_reasoning_content = assistant_reasoning or ""
+
             tool_calls = self._build_openai_tool_calls(aggregated_tool_calls)
 
             # Fallback: if no structured tool_calls but content has raw tags
@@ -911,6 +1027,7 @@ class SessionStreamMixin:
                 if nudge:
                     self._auto_nudge_sent_for_current_turn = True
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=nudge,
                     )
@@ -933,21 +1050,52 @@ class SessionStreamMixin:
                 if nudge:
                     self._post_list_nudge_sent_for_current_turn = True
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
                         text=nudge,
                     )
                     self._append_message({"role": "system", "content": nudge})
                     continue
 
+            # 触发值只判归一化枚举。dev（79206e9 起）把 finish_reason 收敛为 FinishReason
+            # 六值，OpenAI 的 "length" 与 Anthropic 的 "max_tokens" 都映射到 "truncated"；
+            # 适配器漏归一化会被 __post_init__ 降级成 "other" 并打 warning，所以裸判
+            # provider 原始字符串既不合契约也是死代码。要诊断原始值看 latest_raw_finish_reason。
             if latest_finish_reason == "truncated":
-                self._continuation_count += 1
-                if self._continuation_count > 3:
-                    logger.warning("输出截断续写次数超过上限（3次），停止")
+                # 截断自动续写的六道守卫：三条确定性判据（零进展 / 与上轮完全相同 /
+                # 从头重来）+ 两条文本病态（尾部周期复读 / 龟速）+ 次数兜底。
+                # 旧实现只有次数兜底，模型卡死时会白烧满 3 轮才停，且停下来只说
+                # 「次数已达上限」，看不出到底是被截断还是卡住了。
+                state = self._continuation_state
+                max_continues = self._spec.config.loop_control.max_auto_continues
+                chunk = assistant_content if isinstance(assistant_content, str) else ""
+
+                if self._continuation_guard_enabled:
+                    verdict = check_continuation_safety(chunk, state, max_continues)
+                elif state.count + 1 >= max_continues:
+                    # 守卫关闭时退回旧行为：只看次数。
+                    verdict = ContinuationVerdict(
+                        safe=False, reason="max_continues", detail=state.count + 1
+                    )
+                else:
+                    verdict = ContinuationVerdict(safe=True)
+
+                if not verdict.safe:
+                    logger.warning(
+                        "自动续写被守卫拦下：reason=%s detail=%s（已续写 %d 次，本轮正文 %d 字符）",
+                        verdict.reason,
+                        verdict.detail,
+                        state.count,
+                        len(chunk),
+                    )
                     yield AgentRuntimeEvent(
+                        display_hint=self._current_display_hint,
                         kind="system_warning",
-                        text=("<system>\n输出被截断，续写次数已达上限。\n</system>"),
+                        text=describe_continuation_stop(verdict),
                     )
                     break
+
+                advance_continuation(chunk, state)
 
                 # 保存已收集的部分 assistant 消息。
                 # 若上文已落盘纯文本内容（assistant_content_appended），此处不再重复
@@ -999,7 +1147,7 @@ class SessionStreamMixin:
                 logger.info(
                     "检测到 finish_reason=truncated（provider 原始值=%s），触发第 %d 次自动续写",
                     latest_raw_finish_reason,
-                    self._continuation_count,
+                    state.count,
                 )
                 continue
 
@@ -1020,6 +1168,7 @@ class SessionStreamMixin:
 
         if total_input_tokens or total_output_tokens:
             yield AgentRuntimeEvent(
+                display_hint=self._current_display_hint,
                 kind="token_usage",
                 input_tokens=total_input_tokens,
                 output_tokens=total_output_tokens,
@@ -1030,6 +1179,7 @@ class SessionStreamMixin:
         # Budget Mode: 推送最终 session budget 状态
         if self.budget is not None:
             yield AgentRuntimeEvent(
+                display_hint=self._current_display_hint,
                 kind="budget_updated",
                 text=json.dumps(
                     {
